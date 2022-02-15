@@ -12,6 +12,7 @@
   <modules>
     <module>waibao-gateway</module>
     <module>waibao-util</module>
+    <module>waibao-user</module>
   </modules>
 
   <properties>

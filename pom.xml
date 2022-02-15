@@ -24,10 +24,15 @@
         <springboot.version>2.6.1</springboot.version>
         <springcloud.version>2021.0.0</springcloud.version>
         <cloudalibaba.version>2.2.7.RELEASE</cloudalibaba.version>
+        <fastjson.version>1.2.79</fastjson.version>
+        <hutool.version>5.7.20</hutool.version>
         <mybatis-plus.version>3.5.1</mybatis-plus.version>
+        <mybatis-plus-generator.version>3.5.1</mybatis-plus-generator.version>
+        <velocity.version>2.3</velocity.version>
         <jwt.version>3.2.0</jwt.version>
         <lambok.version>1.18.16</lambok.version>
-        <hutool.version>5.7.20</hutool.version>
+        <dynamic-datasource.version>3.5.0</dynamic-datasource.version>
+        <bcprov.version>1.69</bcprov.version>
     </properties>
 
     <dependencyManagement>
@@ -62,6 +67,12 @@
             <!--        <artifactId>java-jwt</artifactId>-->
             <!--        <version>${jwt.version}</version>-->
             <!--      </dependency>-->
+            <!--fastjson-->
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>fastjson</artifactId>
+                <version>${fastjson.version}</version>
+            </dependency>
             <!-- Hutool-http     -->
             <dependency>
                 <groupId>cn.hutool</groupId>
@@ -74,11 +85,33 @@
                 <artifactId>hutool-crypto</artifactId>
                 <version>${hutool.version}</version>
             </dependency>
+            <!--加密工具类-->
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk15to18</artifactId>
+                <version>${bcprov.version}</version>
+            </dependency>
             <!-- mybatis-plus  -->
             <dependency>
                 <groupId>com.baomidou</groupId>
                 <artifactId>mybatis-plus-boot-starter</artifactId>
                 <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-generator</artifactId>
+                <version>${mybatis-plus-generator.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.velocity</groupId>
+                <artifactId>velocity-engine-core</artifactId>
+                <version>${velocity.version}</version>
+            </dependency>
+            <!--dynamic datasource            -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>dynamic-datasource-spring-boot-starter</artifactId>
+                <version>${dynamic-datasource.version}</version>
             </dependency>
             <!-- lambok  -->
             <dependency>

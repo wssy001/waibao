@@ -3,8 +3,6 @@
  */
 package com.waibao.common;
 
-
-import com.auth0.jwt.interfaces.DecodedJWT;
 import com.netflix.zuul.ZuulFilter;
 import com.netflix.zuul.context.RequestContext;
 import com.netflix.zuul.exception.ZuulException;
@@ -14,6 +12,7 @@ import com.waibao.util.enums.RedisPreEnum;
 import com.waibao.util.enums.ResultEnum;
 import com.waibao.util.tools.JSONUtil;
 import com.waibao.util.tools.JWTUtil;
+import com.waibao.util.vo.UserVO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,7 +46,7 @@ public class FilterPre extends ZuulFilter {
 
     @SuppressWarnings("unchecked")
     private static TreeMap<String, Object> getParamMap(HttpServletRequest request) {
-        TreeMap<String, Object> paramMap = new TreeMap();
+        TreeMap<String, Object> paramMap = new TreeMap<>();
         Map<String, String[]> map = request.getParameterMap();
         for (String key : map.keySet()) {
             paramMap.put(key, map.get(key)[0]);
@@ -163,23 +162,16 @@ public class FilterPre extends ZuulFilter {
         if (StringUtils.isEmpty(token)) { // token不存在，则从报文里面获取
             throw new BaseException("token不存在，请重新登录");
         }
-        // 解析 token
-        DecodedJWT jwt = null;
-        try {
-            jwt = JWTUtil.verify(token);
-        } catch (Exception e) {
-            logger.error("token异常，token={}", token.toString());
+        // 校验token
+        if (!JWTUtil.verify(token)) {
             throw new BaseException(ResultEnum.TOKEN_ERROR);
         }
 
-        // 校验token
-        if (null == jwt) {
+        UserVO userVo = JWTUtil.getUserVo(token);
+        if (userVo == null || userVo.getUserNo() < 0) {
             throw new BaseException(ResultEnum.TOKEN_ERROR);
         }
-        Long userNo = JWTUtil.getUserNo(jwt);
-        if (userNo <= 0) {
-            throw new BaseException(ResultEnum.TOKEN_ERROR);
-        }
+        Long userNo = userVo.getUserNo();
 
         // 单点登录处理，注意，登录的时候必须要放入缓存
 //        if (!stringRedisTemplate.hasKey(userNo.toString())) {

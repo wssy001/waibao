@@ -34,3 +34,8 @@ spring:
       pool:
         min-idle: 5
         max-idle: 10
+
+rocketmq:
+  name-server: 10.60.64.66:39876
+  producer:
+    group: seckill

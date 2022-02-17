@@ -13,16 +13,15 @@ spring:
   # nacos
   cloud:
     nacos:
+      #      server-addr: 10.60.64.66:8848
+      server-addr: localhost:8848
       username: nacos
       password: nacos
       discovery:
         namespace: waibao
-      #      server-addr: 10.60.64.66:8848
-      server-addr: localhost:8848
       config:
         namespace: waibao
         extension-configs: application.properties,${spring.application.name}.properties
-
 
     gateway:
       discovery:
@@ -34,3 +33,12 @@ spring:
           uri: lb://waibao-user   #匹配后提供服务的路由地址，lb后跟提供服务的微服务的名，不要写错
           predicates:
             - Path=/**          #断言，路径相匹配的进行路由
+      globalcors:
+        cors-configurations:
+          '[/**]': # 匹配所有请求
+            allowedOrigins: "*" #跨域处理 允许所有的域
+            allowedMethods: # 支持的方法
+              - GET
+              - POST
+              - PUT
+              - DELETE

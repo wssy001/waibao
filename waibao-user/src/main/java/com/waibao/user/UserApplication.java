@@ -11,8 +11,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
  * @author alexpetertyler
  * @since 2022-02-15
  */
-@EnableFeignClients
-@SpringBootApplication
+@SpringCloudApplication
 @MapperScan("com.waibao.user.mapper")
 public class UserApplication {
     public static void main(String[] args) {

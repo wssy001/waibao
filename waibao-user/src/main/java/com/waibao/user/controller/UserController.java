@@ -1,22 +1,28 @@
 package com.waibao.user.controller;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.codec.Base64;
+import cn.hutool.core.date.DateUtil;
 import cn.hutool.crypto.digest.MD5;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.waibao.user.entity.User;
 import com.waibao.user.mapper.UserMapper;
 import com.waibao.user.service.UserCacheService;
+import com.waibao.util.enums.ResultEnum;
+import com.waibao.util.tools.JWTUtil;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.PageVO;
 import com.waibao.util.vo.UserVO;
-import com.waibao.util.enums.ResultEnum;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -52,6 +58,7 @@ public class UserController {
 
         UserVO userVO = BeanUtil.copyProperties(user, UserVO.class, "password", "userSource");
         userVO.hideMobile();
+        userVO.setPassword(null);
         return GlobalResult.success(ResultEnum.SUCCESS, userVO);
     }
 
@@ -68,6 +75,7 @@ public class UserController {
         List<UserVO> userVOList = records.parallelStream()
                 .map(user -> BeanUtil.copyProperties(user, UserVO.class))
                 .peek(UserVO::hideMobile)
+                .peek(userVO -> userVO.setPassword(null))
                 .collect(Collectors.toList());
         pageVO.setMaxIndex(userPage.getPages());
         pageVO.setList(userVOList);
@@ -90,8 +98,43 @@ public class UserController {
         userCacheService.set(user);
 
         userVO.hideMobile();
+        userVO.setPassword(null);
         return GlobalResult.success(ResultEnum.SUCCESS, userVO);
     }
 
-}
+    @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
+    public GlobalResult<JSONObject> login(
+            @RequestParam String principal,
+            @RequestParam String password
+    ) {
 
+        User user = userMapper.selectOne(Wrappers.<User>lambdaQuery().eq(User::getPassword, password).and(wrapper -> wrapper.eq(User::getUserNo, principal)
+                .or().eq(User::getEamil, principal).or().eq(User::getMobile, principal)));
+        if (user == null) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
+
+        UserVO userVO = BeanUtil.copyProperties(user, UserVO.class);
+        userVO.hideMobile();
+        userVO.setPassword(null);
+        userVO.setExpireTime(DateUtil.offsetHour(new Date(), 1).getTime());
+        JSONObject jsonObject = (JSONObject) JSON.toJSON(userVO);
+        jsonObject.put("token", JWTUtil.create(userVO));
+        return GlobalResult.success(jsonObject);
+    }
+
+    @PostMapping(value = "/renew", produces = MediaType.APPLICATION_JSON_VALUE)
+    public GlobalResult<JSONObject> renew(
+            @RequestHeader String token
+    ) {
+        String data = token.split("\\.")[1];
+        JSONObject jsonObject = JSONObject.parseObject(Base64.decodeStr(data));
+        User user = userCacheService.get(jsonObject.getLong("userNo"));
+        UserVO userVO = BeanUtil.copyProperties(user, UserVO.class);
+        userVO.hideMobile();
+        userVO.setPassword(null);
+        userVO.setExpireTime(DateUtil.offsetHour(new Date(), 1).getTime());
+        jsonObject = (JSONObject) JSON.toJSON(userVO);
+        jsonObject.put("token", JWTUtil.create(userVO));
+        return GlobalResult.success(jsonObject);
+    }
+
+}

@@ -1,7 +1,7 @@
 /**
  * Copyright 2015-现在 广州市领课网络科技有限公司
  */
-package com.waibao.controller;
+package com.waibao.gateway.controller;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;

@@ -62,13 +62,6 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- jwt -->
-            <!--      <dependency>-->
-            <!--        <groupId>com.auth0</groupId>-->
-            <!--        <artifactId>java-jwt</artifactId>-->
-            <!--        <version>${jwt.version}</version>-->
-            <!--      </dependency>-->
-            <!--fastjson-->
             <dependency>
                 <groupId>com.alibaba</groupId>
                 <artifactId>fastjson</artifactId>

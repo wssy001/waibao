@@ -1,8 +1,10 @@
 /**
  * Copyright 2015-现在 广州市领课网络科技有限公司
  */
-package com.waibao.common;
+package com.waibao.gateway.common;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.netflix.zuul.ZuulFilter;
 import com.netflix.zuul.context.RequestContext;
 import com.netflix.zuul.exception.ZuulException;
@@ -10,7 +12,6 @@ import com.netflix.zuul.http.ServletInputStreamWrapper;
 import com.waibao.util.base.BaseException;
 import com.waibao.util.enums.RedisPreEnum;
 import com.waibao.util.enums.ResultEnum;
-import com.waibao.util.tools.JSONUtil;
 import com.waibao.util.tools.JWTUtil;
 import com.waibao.util.vo.UserVO;
 import org.slf4j.Logger;
@@ -59,7 +60,7 @@ public class FilterPre extends ZuulFilter {
                 in.readFully(buf);
                 String t = new String(buf, "UTF-8");
                 if (StringUtils.hasText(t)) {
-                    return new TreeMap(JSONUtil.parseObject(t, TreeMap.class));
+                    return new TreeMap(JSON.parseObject(t, TreeMap.class));
                 }
             } catch (Exception e) {
                 logger.error("获取不到任何参数");
@@ -78,7 +79,7 @@ public class FilterPre extends ZuulFilter {
 
     // 校验用户是否有权限
     private static Boolean checkUri(String uri, String tk) {
-        List<String> menuVOList1 = JSONUtil.parseArray(tk, String.class);
+        List<String> menuVOList1 = JSONArray.parseArray(tk, String.class);
         if (StringUtils.hasText(uri) && uri.endsWith("/")) {
             uri = uri.substring(0, uri.length() - 1);
         }
@@ -194,7 +195,7 @@ public class FilterPre extends ZuulFilter {
     private HttpServletRequestWrapper requestWrapper(HttpServletRequest request, Long userNo) throws IOException {
         Map<String, Object> map = getParamMap(request);
         map.put(USERNO, userNo);
-        String newBody = JSONUtil.toJSONString(map);
+        String newBody = JSON.toJSONString(map);
         logger.info("转发参数={}", newBody);
         final byte[] reqBodyBytes = newBody.getBytes();
         return new HttpServletRequestWrapper(request) {

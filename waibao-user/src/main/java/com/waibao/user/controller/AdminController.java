@@ -1,23 +1,30 @@
 package com.waibao.user.controller;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.date.DateUtil;
 import cn.hutool.crypto.digest.MD5;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.waibao.user.entity.Admin;
+import com.waibao.user.entity.User;
 import com.waibao.user.mapper.AdminMapper;
 import com.waibao.user.service.AdminCacheService;
 import com.waibao.util.enums.ResultEnum;
+import com.waibao.util.tools.JWTUtil;
 import com.waibao.util.vo.AdminVO;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.PageVO;
+import com.waibao.util.vo.UserVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -92,5 +99,18 @@ public class AdminController {
         return GlobalResult.success(ResultEnum.SUCCESS, adminVO);
 
     }
-}
 
+    @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
+    public GlobalResult<AdminVO> login(
+            @RequestParam String name,
+            @RequestParam String password
+    ) {
+
+        Admin admin = adminMapper.selectOne(Wrappers.<Admin>lambdaQuery().eq(Admin::getPassword, password).eq(Admin::getName, name));
+        if (admin == null) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
+
+        AdminVO adminVO = BeanUtil.copyProperties(admin, AdminVO.class);
+        adminVO.setPassword(null);
+        return GlobalResult.success(adminVO);
+    }
+}

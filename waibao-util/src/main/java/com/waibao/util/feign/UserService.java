@@ -1,15 +1,13 @@
 package com.waibao.util.feign;
 
+import com.alibaba.fastjson.JSONObject;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.PageVO;
 import com.waibao.util.vo.UserVO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * UserService
@@ -32,4 +30,10 @@ public interface UserService {
 
     @PostMapping(value = "/add", produces = MediaType.APPLICATION_JSON_VALUE)
     GlobalResult<UserVO> addUserInfo(@RequestBody UserVO userVO);
+
+    @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
+    GlobalResult<JSONObject> login(@RequestParam String principal, @RequestParam String password);
+
+    @PostMapping(value = "/renew", produces = MediaType.APPLICATION_JSON_VALUE)
+    GlobalResult<JSONObject> renew(@RequestHeader String token);
 }

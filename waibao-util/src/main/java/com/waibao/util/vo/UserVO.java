@@ -26,6 +26,7 @@ public class UserVO implements Serializable {
     private Integer sex;
     private Integer age;
     private String nickname;
+    private Long expireTime;
 
     public void hideMobile() {
         StringBuffer stringBuffer = new StringBuffer(this.mobile);

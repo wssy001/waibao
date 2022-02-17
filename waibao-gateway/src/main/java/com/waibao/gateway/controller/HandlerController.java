@@ -1,4 +1,4 @@
-package com.waibao.controller;
+package com.waibao.gateway.controller;
 
 import com.netflix.zuul.context.RequestContext;
 import com.netflix.zuul.exception.ZuulException;

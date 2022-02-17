@@ -1,4 +1,4 @@
-package com.waibao.util.vo;
+package com.waibao.util.vo.user;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

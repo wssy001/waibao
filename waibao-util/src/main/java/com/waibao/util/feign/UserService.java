@@ -2,8 +2,8 @@ package com.waibao.util.feign;
 
 import com.alibaba.fastjson.JSONObject;
 import com.waibao.util.vo.GlobalResult;
-import com.waibao.util.vo.PageVO;
-import com.waibao.util.vo.UserVO;
+import com.waibao.util.vo.user.PageVO;
+import com.waibao.util.vo.user.UserVO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
  * @since 2022-02-17
  */
 @Component
-@FeignClient(name = "user-provider")
+@FeignClient(name = "waibao-user")
 public interface UserService {
 
     @GetMapping(value = "/check/{userNo}", produces = MediaType.APPLICATION_JSON_VALUE)

@@ -1,8 +1,9 @@
 package com.waibao.util.feign;
 
-import com.waibao.util.vo.AdminVO;
+import com.waibao.util.vo.user.AdminLoginVO;
+import com.waibao.util.vo.user.AdminVO;
 import com.waibao.util.vo.GlobalResult;
-import com.waibao.util.vo.PageVO;
+import com.waibao.util.vo.user.PageVO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
  * @since 2022-02-17
  */
 @Component
-@FeignClient(name = "user-provider")
+@FeignClient(name = "waibao-user")
 public interface AdminService {
 
     @GetMapping(value = "/check/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -31,5 +32,5 @@ public interface AdminService {
     GlobalResult<AdminVO> addAdminInfo(@RequestBody AdminVO adminVO);
 
     @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
-    GlobalResult<AdminVO> login(@RequestParam String name, @RequestParam String password);
+    GlobalResult<AdminLoginVO> login(@RequestParam String name, @RequestParam String password);
 }

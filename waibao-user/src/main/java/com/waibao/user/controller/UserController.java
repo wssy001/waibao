@@ -3,7 +3,6 @@ package com.waibao.user.controller;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.codec.Base64;
 import cn.hutool.core.date.DateUtil;
-import cn.hutool.crypto.digest.MD5;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -13,10 +12,12 @@ import com.waibao.user.entity.User;
 import com.waibao.user.mapper.UserMapper;
 import com.waibao.user.service.UserCacheService;
 import com.waibao.util.enums.ResultEnum;
+import com.waibao.util.feign.UserService;
 import com.waibao.util.tools.JWTUtil;
+import com.waibao.util.tools.SMUtil;
 import com.waibao.util.vo.GlobalResult;
-import com.waibao.util.vo.PageVO;
-import com.waibao.util.vo.UserVO;
+import com.waibao.util.vo.user.PageVO;
+import com.waibao.util.vo.user.UserVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -37,10 +38,11 @@ import java.util.stream.Collectors;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/user")
-public class UserController {
+public class UserController implements UserService {
     private final UserMapper userMapper;
     private final UserCacheService userCacheService;
 
+    @Override
     @GetMapping(value = "/check/{userNo}", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<String> checkUser(
             @PathVariable("userNo") Long userNo
@@ -49,6 +51,7 @@ public class UserController {
         return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
     }
 
+    @Override
     @GetMapping(value = "/{userNo}", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<UserVO> getUserInfo(
             @PathVariable("userNo") Long userNo
@@ -62,6 +65,7 @@ public class UserController {
         return GlobalResult.success(ResultEnum.SUCCESS, userVO);
     }
 
+    @Override
     @PostMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<PageVO<UserVO>> getUserPage(
             @RequestBody PageVO<UserVO> pageVO
@@ -84,13 +88,14 @@ public class UserController {
         return GlobalResult.success(ResultEnum.SUCCESS, pageVO);
     }
 
+    @Override
     @PostMapping(value = "/add", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<UserVO> addUserInfo(
             @RequestBody UserVO userVO
     ) {
 
         String password = userVO.getPassword();
-        userVO.setPassword(MD5.create().digestHex(password));
+        userVO.setPassword(SMUtil.sm3Encode(password));
         User user = BeanUtil.copyProperties(userVO, User.class);
 
         int count = userMapper.insert(user);
@@ -102,12 +107,13 @@ public class UserController {
         return GlobalResult.success(ResultEnum.SUCCESS, userVO);
     }
 
+    @Override
     @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<JSONObject> login(
             @RequestParam String principal,
             @RequestParam String password
     ) {
-
+        password=SMUtil.sm3Encode(password);
         User user = userMapper.selectOne(Wrappers.<User>lambdaQuery().eq(User::getPassword, password).and(wrapper -> wrapper.eq(User::getUserNo, principal)
                 .or().eq(User::getEamil, principal).or().eq(User::getMobile, principal)));
         if (user == null) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
@@ -121,6 +127,7 @@ public class UserController {
         return GlobalResult.success(jsonObject);
     }
 
+    @Override
     @PostMapping(value = "/renew", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<JSONObject> renew(
             @RequestHeader String token

@@ -1,13 +1,14 @@
-package com.waibao.util.vo;
+package com.waibao.util.vo.user;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
- * AdminVO
+ * PageVO
  *
  * @author alexpetertyler
  * @since 2022-01-08
@@ -15,12 +16,12 @@ import java.io.Serializable;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class AdminVO implements Serializable {
+public class PageVO<T> implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private Long id;
-    private String name;
-    private String password;
-    private Integer level = 1;
-
+    private long index = 1;
+    private long count = 20;
+    private long maxIndex;
+    private long maxSize;
+    private List<T> list;
 }

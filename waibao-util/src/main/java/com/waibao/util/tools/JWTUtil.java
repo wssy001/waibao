@@ -5,7 +5,7 @@ package com.waibao.util.tools;
 
 import cn.hutool.core.codec.Base64;
 import com.alibaba.fastjson.JSON;
-import com.waibao.util.vo.UserVO;
+import com.waibao.util.vo.user.UserVO;
 
 /**
  * @author wujing

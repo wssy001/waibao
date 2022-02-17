@@ -37,15 +37,21 @@ public class AdminController {
     private final AdminMapper adminMapper;
     private final AdminCacheService adminCacheService;
 
+    @GetMapping(value = "/check/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public GlobalResult<String> checkAdmin(
+            @PathVariable("id") Long adminId
+    ) {
+        if (adminCacheService.checkAdmin(adminId)) GlobalResult.success();
+        return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
+    }
+
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<AdminVO> getAdminInfo(
             @PathVariable("id") Long adminId
     ) {
         Admin admin = adminCacheService.get(adminId);
-
         if (admin == null) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
         return GlobalResult.success(ResultEnum.SUCCESS, BeanUtil.copyProperties(admin, AdminVO.class, "password"));
-
     }
 
     @PostMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)

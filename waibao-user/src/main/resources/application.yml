@@ -4,7 +4,7 @@ logging:
 
 spring:
   application:
-    name: user
+    name: user-provider
 
   datasource:
     dynamic:

@@ -33,6 +33,7 @@
         <lambok.version>1.18.16</lambok.version>
         <dynamic-datasource.version>3.5.0</dynamic-datasource.version>
         <bcprov.version>1.69</bcprov.version>
+        <redisson.version>3.16.8</redisson.version>
     </properties>
 
     <dependencyManagement>
@@ -119,6 +120,12 @@
                 <artifactId>lombok</artifactId>
                 <version>${lambok.version}</version>
                 <scope>compile</scope>
+            </dependency>
+            <!--Redisson-->
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson</artifactId>
+                <version>${redisson.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.example.waibao</groupId>

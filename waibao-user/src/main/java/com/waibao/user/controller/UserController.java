@@ -35,13 +35,19 @@ public class UserController {
     private final UserMapper userMapper;
     private final UserCacheService userCacheService;
 
+    @GetMapping(value = "/check/{userNo}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public GlobalResult<String> checkUser(
+            @PathVariable("userNo") Long userNo
+    ) {
+        if (userCacheService.checkUser(userNo)) GlobalResult.success();
+        return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
+    }
 
     @GetMapping(value = "/{userNo}", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<UserVO> getUserInfo(
             @PathVariable("userNo") Long userNo
     ) {
         User user = userCacheService.get(userNo);
-
         if (user == null) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
 
         UserVO userVO = BeanUtil.copyProperties(user, UserVO.class, "password", "userSource");

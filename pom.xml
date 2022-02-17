@@ -13,7 +13,6 @@
         <module>waibao-gateway</module>
         <module>waibao-util</module>
         <module>waibao-user</module>
-        <module>waibao-seckill</module>
     </modules>
 
     <properties>
@@ -30,7 +29,6 @@
         <mybatis-plus.version>3.5.1</mybatis-plus.version>
         <mybatis-plus-generator.version>3.5.1</mybatis-plus-generator.version>
         <velocity.version>2.3</velocity.version>
-        <jwt.version>3.2.0</jwt.version>
         <lambok.version>1.18.16</lambok.version>
         <dynamic-datasource.version>3.5.0</dynamic-datasource.version>
         <bcprov.version>1.69</bcprov.version>

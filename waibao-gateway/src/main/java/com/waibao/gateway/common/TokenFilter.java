@@ -3,7 +3,6 @@ package com.waibao.gateway.common;
 import com.waibao.util.base.BaseException;
 import com.waibao.util.enums.ResultEnum;
 import com.waibao.util.tools.JWTUtil;
-import com.waibao.util.vo.user.UserVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -16,27 +15,25 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.util.concurrent.TimeUnit;
-
 /**
  * @Author: wwj
  * @Date: 2022/2/17 14:59
  */
 @Component
 public class TokenFilter implements GlobalFilter, Ordered {
-    private static final String TOKEN = "token";
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         System.out.println("经过第0个过滤器TokenFilter");
         ServerHttpRequest request = exchange.getRequest();
         HttpHeaders headers = request.getHeaders();
         String url = request.getURI().getPath();
-        if(url.equals("/admin/login") || url.equals("/user/login")){
+        if (url.equals("/admin/login") || url.equals("/user/login")) {
             return chain.filter(exchange);
         }
-        String token = headers.getFirst(TOKEN);
+        String token = headers.getFirst(HttpHeaders.AUTHORIZATION);
         if (StringUtils.isEmpty(token)) {
             throw new BaseException("token不存在，请重新登录");
         }

@@ -19,6 +19,7 @@ import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.user.PageVO;
 import com.waibao.util.vo.user.UserVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
@@ -113,7 +114,7 @@ public class UserController implements UserService {
             @RequestParam String principal,
             @RequestParam String password
     ) {
-        password=SMUtil.sm3Encode(password);
+        password = SMUtil.sm3Encode(password);
         User user = userMapper.selectOne(Wrappers.<User>lambdaQuery().eq(User::getPassword, password).and(wrapper -> wrapper.eq(User::getUserNo, principal)
                 .or().eq(User::getEamil, principal).or().eq(User::getMobile, principal)));
         if (user == null) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
@@ -130,7 +131,7 @@ public class UserController implements UserService {
     @Override
     @PostMapping(value = "/renew", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<JSONObject> renew(
-            @RequestHeader String token
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token
     ) {
         String data = token.split("\\.")[1];
         JSONObject jsonObject = JSONObject.parseObject(Base64.decodeStr(data));

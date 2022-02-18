@@ -23,7 +23,11 @@ public final class JWTUtil {
         String[] split = jwt.split("\\.");
         if (split.length != 3) return false;
 
-        return SMUtil.sm3Encode(split[0] + "." + split[1]).equals(split[2]);
+        return verify(split[0], split[1], split[2]);
+    }
+
+    public static boolean verify(String headerBase64, String payloadBase64, String sign) {
+        return SMUtil.sm3Encode(headerBase64 + "." + payloadBase64).equals(sign);
     }
 
     public static UserVO getUserVo(String jwt) {

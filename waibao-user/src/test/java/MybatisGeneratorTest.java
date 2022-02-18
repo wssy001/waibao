@@ -58,8 +58,7 @@ public class MybatisGeneratorTest {
         return builder -> builder
 //                添加表名
                 .addInclude(
-                        "admin",
-                        "user"
+                        "seckill_goods"
                 )
 
                 .entityBuilder()

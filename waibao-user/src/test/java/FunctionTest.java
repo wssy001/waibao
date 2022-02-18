@@ -1,11 +1,16 @@
 import cn.hutool.crypto.SecureUtil;
 import cn.hutool.crypto.SmUtil;
 import cn.hutool.crypto.symmetric.SM4;
+import cn.hutool.http.HttpUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 
+import javax.ws.rs.core.UriBuilder;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.util.Arrays;
+import java.util.Map;
 
 /**
  * FunctionTest
@@ -34,5 +39,12 @@ public class FunctionTest {
 //        String decryptStr = StrUtil.utf8Str(sm2.decryptFromBcd(encryptStr, KeyType.PrivateKey));
     }
 
-
+    @Test
+    void test2() {
+        URI uri = UriBuilder.fromUri("http://localhost:8080/examples")
+                .path("123")
+                .build();
+        Map<String, String> stringStringMap = HttpUtil.decodeParamMap(uri.getRawQuery(), StandardCharsets.UTF_8);
+        log.info("******FunctionTest：");
+    }
 }

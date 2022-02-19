@@ -1,7 +1,3 @@
-logging:
-  level:
-    root: info
-
 spring:
   application:
     name: seckill-provider
@@ -34,6 +30,17 @@ spring:
       pool:
         min-idle: 5
         max-idle: 10
+
+  task:
+    execution:
+      pool:
+        max-size: 16
+        keep-alive: "10s"
+      thread-name-prefix: 异步任务-
+    scheduling:
+      pool:
+        size: 5
+      thread-name-prefix: 定时任务-
 
 rocketmq:
   name-server: 10.60.64.66:39876

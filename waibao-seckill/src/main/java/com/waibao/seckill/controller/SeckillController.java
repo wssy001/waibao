@@ -9,12 +9,15 @@ import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.cache.SeckillGoodsStorageCacheService;
 import com.waibao.seckill.service.cache.SeckillPathCacheService;
 import com.waibao.util.vo.GlobalResult;
+import com.waibao.util.vo.seckill.KillVO;
 import com.waibao.util.vo.user.UserVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
+import java.util.concurrent.Future;
 
 /**
  * SeckillController
@@ -22,6 +25,7 @@ import java.util.Date;
  * @author alexpetertyler
  * @since 2022-02-18
  */
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/seckill")
@@ -54,28 +58,63 @@ public class SeckillController {
         return GlobalResult.success(jsonObject);
     }
 
-    //todo
-    @PostMapping("/goods/{goodsId}/{randomStr}")
+    @PostMapping("/goods/kill")
     public GlobalResult<JSONObject> seckill(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String token,
-            @PathVariable("randomStr") String randomStr,
-            @PathVariable("goodsId") Long goodsId,
-            @RequestParam("")
+            @RequestBody KillVO killVO,
+            @RequestParam("userId") Long userId
     ) {
-        if (!seckillPathCacheService.delete(randomStr, goodsId)) return GlobalResult.error("秒杀地址无效！");
-        if (!seckillGoodsStorageCacheService.decreaseStorage(goodsId,1)) return gl
+        Long goodsId = killVO.getGoodsId();
+        if (!seckillPathCacheService.delete(killVO.getRandomStr(), goodsId)) return GlobalResult.error("秒杀地址无效！");
+        SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
+        Integer purchaseLimit = seckillGoods.getPurchaseLimit();
+        Integer count = killVO.getCount();
+        if (count > purchaseLimit) return GlobalResult.error("秒杀失败，超过最大购买限制");
 
-        String base64 = token.split("\\.")[1];
-        UserVO userVO = JSON.parseObject(Base64.decodeStr(base64), UserVO.class);
+        try {
+            Future<Boolean> decreaseStorage = seckillGoodsStorageCacheService.decreaseStorageAsync(goodsId, count);
+            Future<Boolean> increase = purchasedUserCacheService.increaseAsync(userId, count, purchaseLimit);
+            while (true) {
+                if (decreaseStorage.isDone() && increase.isDone()) break;
+            }
+            Boolean decreaseStorageResult = decreaseStorage.get();
+            log.info("******减库存操作执行完毕");
+            Boolean increaseResult = increase.get();
+            log.info("******增加用户购买量操作执行完毕");
+            if (!decreaseStorageResult) return GlobalResult.error("秒杀失败，库存不足");
+            if (!increaseResult) return GlobalResult.error("秒杀失败，已超过个人最大购买量");
+        } catch (Exception e) {
+            return GlobalResult.error("秒杀失败，服务器暂时无法执行操作");
+        }
 
+        //todo 订单模块
+        return GlobalResult.success("秒杀成功");
     }
 
-    //todo
     @PostMapping("/goods/{goodsId}")
-    public void seckillTest(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String token,
-            @PathVariable("goodsId") Long goodsId
+    public GlobalResult<JSONObject> seckillTest(
+            @PathVariable("goodsId") Long goodsId,
+            @RequestParam("userId") Long userId,
+            @RequestParam("count") Integer count,
+            @RequestParam("purchaseLimit") Integer purchaseLimit
     ) {
+        long start = new Date().getTime();
+        if (count > purchaseLimit) return GlobalResult.error("秒杀失败，超过最大购买限制");
+        try {
+            Future<Boolean> decreaseStorage = seckillGoodsStorageCacheService.decreaseStorageAsync(goodsId, count);
+            Future<Boolean> increase = purchasedUserCacheService.increaseAsync(userId, count, purchaseLimit);
+            while (true) {
+                if (decreaseStorage.isDone() && increase.isDone()) break;
+            }
+            Boolean decreaseStorageResult = decreaseStorage.get();
+            Boolean increaseResult = increase.get();
+            if (!decreaseStorageResult) return GlobalResult.error("秒杀失败，库存不足");
+            if (!increaseResult) return GlobalResult.error("秒杀失败，已超过个人最大购买量");
+        } catch (Exception e) {
+            return GlobalResult.error("秒杀失败，服务器暂时无法执行操作");
+        }
 
+        //todo 订单模块
+        long end = new Date().getTime();
+        return GlobalResult.success("秒杀成功，耗时：" + (end - start) + " ms");
     }
 }

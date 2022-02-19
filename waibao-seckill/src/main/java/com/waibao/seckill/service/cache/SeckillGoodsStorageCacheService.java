@@ -6,12 +6,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.Collections;
+import java.util.concurrent.Future;
 
 /**
  * SeckillGoodsCacheService
@@ -29,17 +32,20 @@ public class SeckillGoodsStorageCacheService {
     @Resource
     private ValueOperations<String, Integer> valueOperations;
 
-    private DefaultRedisScript<Integer> decreaseStorage;
+    private DefaultRedisScript<Boolean> decreaseStorage;
 
     @PostConstruct
     public void init() {
-        String luaScript = "local key=KEYS[1] " +
-                "local subNum = tonumber(ARGV[1]) " +
-                "local surplusStock = tonumber(redis.call('GET',key)) " +
-                "if (surplusStock <= 0) then return 0 " +
-                "elseif (subNum > surplusStock) then return 1 " +
-                "else redis.call('DECRBY', KEYS[1], subNum) return 2 end";
-        decreaseStorage = new DefaultRedisScript<>(luaScript, Integer.class);
+        String luaScript = "local key=KEYS[1]\n" +
+                "local count = tonumber(ARGV[1])  \n" +
+                "redis.call('DECRBY', KEYS[1], count)\n" +
+                "local storage = tonumber(redis.call('GET',key))\n" +
+                "if (storage <= 0) then\n" +
+                "redis.call('INCRBY',key,count)\n" +
+                "return false\n" +
+                "else return true\n" +
+                "end";
+        decreaseStorage = new DefaultRedisScript<>(luaScript, Boolean.class);
     }
 
     public int get(Long goodsId) {
@@ -48,12 +54,14 @@ public class SeckillGoodsStorageCacheService {
         return storage;
     }
 
-    // 已经减库存 返回2
-    public boolean decreaseStorage(Long goodsId, int count) {
-        Integer result = valueOperations.getOperations()
+    public Boolean decreaseStorage(Long goodsId, int count) {
+        return valueOperations.getOperations()
                 .execute(decreaseStorage, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX + goodsId), count);
-        if (result == null) return false;
-        return result == 2;
+    }
+
+    @Async
+    public Future<Boolean> decreaseStorageAsync(Long goodsId, int count) {
+        return new AsyncResult<>(decreaseStorage(goodsId, count));
     }
 
     public void set(SeckillGoods seckillGoods) {

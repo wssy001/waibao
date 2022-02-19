@@ -48,7 +48,7 @@ public class SeckillPathCacheService {
     }
 
     public String set(Long goodsId) {
-        String key = NanoId.randomNanoId(10);
+        String key = NanoId.randomNanoId(20);
         valueOperations.set(key, goodsId);
         return key;
     }

@@ -1,6 +1,9 @@
 package com.waibao.seckill.controller;
 
 import com.alibaba.fastjson.JSONObject;
+import com.anji.captcha.model.common.ResponseModel;
+import com.anji.captcha.model.vo.CaptchaVO;
+import com.anji.captcha.service.CaptchaService;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
 import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
@@ -30,12 +33,17 @@ public class SeckillController {
     private final SeckillPathCacheService seckillPathCacheService;
     private final SeckillGoodsStorageCacheService seckillGoodsStorageCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;
+    private final CaptchaService captchaService;
 
     @GetMapping("/goods/{goodsId}/seckillPath")
     public GlobalResult<JSONObject> getSeckillPath(
             @PathVariable("goodsId") Long goodsId,
-            @RequestParam("userId") Long userId
+            @RequestParam("userId") Long userId,
+            @RequestBody CaptchaVO captchaVO
     ) {
+        ResponseModel verification = captchaService.verification(captchaVO);
+        if (!verification.isSuccess()) return GlobalResult.error(verification.getRepMsg());
+
         SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         if (seckillGoods.getGoodsId() == null) return GlobalResult.error("秒杀产品不存在");
         Date date = new Date();

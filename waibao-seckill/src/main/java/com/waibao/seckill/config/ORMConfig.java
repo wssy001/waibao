@@ -1,6 +1,5 @@
 package com.waibao.seckill.config;
 
-import com.baomidou.dynamic.datasource.plugin.MasterSlaveAutoRoutingPlugin;
 import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
@@ -36,9 +35,4 @@ public class ORMConfig implements MetaObjectHandler {
         this.strictUpdateFill(metaObject, "updateTime", Date.class, new Date());
     }
 
-    //读写分离
-    @Bean
-    public MasterSlaveAutoRoutingPlugin masterSlaveAutoRoutingPlugin(){
-        return new MasterSlaveAutoRoutingPlugin();
-    }
 }

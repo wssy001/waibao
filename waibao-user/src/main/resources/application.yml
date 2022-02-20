@@ -1,5 +1,6 @@
 server:
   port: 8001
+
 logging:
   level:
     root: info
@@ -8,24 +9,29 @@ spring:
   application:
     name: waibao-user
 
-  datasource:
-    dynamic:
-      hikari:
-        max-lifetime: 28770000
-        connection-timeout: 28770000
-        max-pool-size: 20
-        min-idle: 5
-      primary: master
-      strict: false
-      datasource:
-        master:
-          url: jdbc:mysql://10.60.64.66:33306/waibao
-          username: root
-          password: wssy001
-        slave_1:
-          url: jdbc:mysql://10.60.64.66:33307/waibao
-          username: root
-          password: wssy001
+  shardingsphere:
+    datasource:
+      names: master,slave
+      master:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        jdbc-url: jdbc:mysql://10.60.64.66:33306/waibao?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
+        username: root
+        password: wssy001
+      slave:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        jdbc-url: jdbc:mysql://10.60.64.66:33307/waibao?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
+        username: root
+        password: wssy001
+    rules:
+      readwrite-splitting:
+        data-sources:
+          ds0:
+            type: Static
+            props:
+              write-data-source-name: master
+              read-data-source-names: slave
   redis:
     host: 10.60.64.66
     database: 2

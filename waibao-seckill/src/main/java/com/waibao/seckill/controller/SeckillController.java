@@ -1,7 +1,5 @@
 package com.waibao.seckill.controller;
 
-import cn.hutool.core.codec.Base64;
-import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
@@ -10,10 +8,8 @@ import com.waibao.seckill.service.cache.SeckillGoodsStorageCacheService;
 import com.waibao.seckill.service.cache.SeckillPathCacheService;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.seckill.KillVO;
-import com.waibao.util.vo.user.UserVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
@@ -37,8 +33,8 @@ public class SeckillController {
 
     @GetMapping("/goods/{goodsId}/seckillPath")
     public GlobalResult<JSONObject> getSeckillPath(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String token,
-            @PathVariable("goodsId") Long goodsId
+            @PathVariable("goodsId") Long goodsId,
+            @RequestParam("userId") Long userId
     ) {
         SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         if (seckillGoods.getGoodsId() == null) return GlobalResult.error("秒杀产品不存在");
@@ -46,10 +42,7 @@ public class SeckillController {
         if (date.before(seckillGoods.getSeckillStartTime())) return GlobalResult.error("秒杀还未开始");
         if (date.after(seckillGoods.getSeckillEndTime())) return GlobalResult.error("秒杀已结束");
 
-        String base64 = token.split("\\.")[1];
-        UserVO userVO = JSON.parseObject(Base64.decodeStr(base64), UserVO.class);
-
-        if (purchasedUserCacheService.reachLimit(userVO.getId(), seckillGoods.getPurchaseLimit()))
+        if (purchasedUserCacheService.reachLimit(userId, seckillGoods.getPurchaseLimit()))
             GlobalResult.error("您已达到最大秒杀次数");
 
         JSONObject jsonObject = new JSONObject();
@@ -77,9 +70,7 @@ public class SeckillController {
                 if (decreaseStorage.isDone() && increase.isDone()) break;
             }
             Boolean decreaseStorageResult = decreaseStorage.get();
-            log.info("******减库存操作执行完毕");
             Boolean increaseResult = increase.get();
-            log.info("******增加用户购买量操作执行完毕");
             if (!decreaseStorageResult) return GlobalResult.error("秒杀失败，库存不足");
             if (!increaseResult) return GlobalResult.error("秒杀失败，已超过个人最大购买量");
         } catch (Exception e) {
@@ -106,7 +97,9 @@ public class SeckillController {
                 if (decreaseStorage.isDone() && increase.isDone()) break;
             }
             Boolean decreaseStorageResult = decreaseStorage.get();
+            log.info("******减库存操作执行完毕");
             Boolean increaseResult = increase.get();
+            log.info("******增加用户购买量操作执行完毕");
             if (!decreaseStorageResult) return GlobalResult.error("秒杀失败，库存不足");
             if (!increaseResult) return GlobalResult.error("秒杀失败，已超过个人最大购买量");
         } catch (Exception e) {

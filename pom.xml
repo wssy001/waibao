@@ -22,8 +22,8 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
-        <springboot.version>2.6.1</springboot.version>
-        <springcloud.version>2021.0.0</springcloud.version>
+        <springboot.version>2.5.9</springboot.version>
+        <springcloud.version>2020.0.4</springcloud.version>
         <cloudalibaba.version>2.2.7.RELEASE</cloudalibaba.version>
         <fastjson.version>1.2.79</fastjson.version>
         <hutool.version>5.7.20</hutool.version>

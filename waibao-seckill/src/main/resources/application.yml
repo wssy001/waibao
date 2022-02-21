@@ -7,24 +7,33 @@ spring:
       names: master,slave
       master:
         type: com.zaxxer.hikari.HikariDataSource
-        driver-class-name: com.mysql.cj.jdbc.Driver
-        jdbc-url: jdbc:mysql://10.60.64.66:33306/waibao?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
+        driverClassName: com.mysql.cj.jdbc.Driver
+        jdbcUrl: jdbc:mysql://10.60.64.66:33306/waibao_v2?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
         username: root
         password: wssy001
       slave:
         type: com.zaxxer.hikari.HikariDataSource
-        driver-class-name: com.mysql.cj.jdbc.Driver
-        jdbc-url: jdbc:mysql://10.60.64.66:33307/waibao?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
+        driverClassName: com.mysql.cj.jdbc.Driver
+        jdbcUrl: jdbc:mysql://10.60.64.66:33307/waibao_v2?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
         username: root
         password: wssy001
-    rules:
-      readwrite-splitting:
-        data-sources:
-          ds0:
-            type: Static
-            props:
-              write-data-source-name: master
-              read-data-source-names: slave
+
+#    sharding:
+#      tables:
+#        user:
+#          actualDataNodes: master.user_$->{0..1}
+#          tableStrategy:
+#            inline:
+#              shardingColumn: id
+#              algorithmExpression: user_$->{id % 2}
+#          keyGenerator:
+#            column: id
+#            type: SNOWFLAKE
+
+      master-slave-rules:
+        master:
+          master-data-source-name: master
+          SlaveDataSourceNames: slave
 
   redis:
     host: 10.60.64.66

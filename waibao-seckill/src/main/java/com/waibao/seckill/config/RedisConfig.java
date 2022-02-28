@@ -2,7 +2,6 @@ package com.waibao.seckill.config;
 
 import com.waibao.util.enums.RedisDBEnum;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
 import org.springframework.context.annotation.Bean;
@@ -15,7 +14,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 
 import java.time.Duration;
 
-@Setter
 @Configuration
 @RequiredArgsConstructor
 public class RedisConfig {

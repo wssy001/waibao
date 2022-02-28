@@ -1,0 +1,64 @@
+server:
+  port: 8001
+
+logging:
+  level:
+    root: info
+
+spring:
+  application:
+    name: waibao-user
+
+  shardingsphere:
+    datasource:
+      names: master,slave
+      master:
+        type: com.zaxxer.hikari.HikariDataSource
+        driverClassName: com.mysql.cj.jdbc.Driver
+        jdbcUrl: jdbc:mysql://10.60.64.66:33306/waibao_v2?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
+        username: root
+        password: wssy001
+      slave:
+        type: com.zaxxer.hikari.HikariDataSource
+        driverClassName: com.mysql.cj.jdbc.Driver
+        jdbcUrl: jdbc:mysql://10.60.64.66:33307/waibao_v2?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
+        username: root
+        password: wssy001
+
+    sharding:
+      tables:
+        user:
+          actualDataNodes: master.user_$->{0..1}
+          tableStrategy:
+            inline:
+              shardingColumn: id
+              algorithmExpression: user_$->{id % 2}
+          keyGenerator:
+            column: id
+            type: SNOWFLAKE
+
+      master-slave-rules:
+        master:
+          master-data-source-name: master
+          SlaveDataSourceNames: slave
+
+  redis:
+    host: 10.60.64.66
+    database: 2
+    password: wssy001
+    timeout: 1000
+    lettuce:
+      pool:
+        min-idle: 5
+        max-idle: 10
+  cloud:
+    nacos:
+      server-addr: 10.60.64.66:8848
+      discovery:
+        namespace: waibao
+      username: nacos
+      password: nacos
+
+      config:
+        namespace: waibao
+        extension-configs: application.properties,${spring.application.name}.properties

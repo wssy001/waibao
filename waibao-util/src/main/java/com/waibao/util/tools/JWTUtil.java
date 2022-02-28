@@ -3,67 +3,35 @@
  */
 package com.waibao.util.tools;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.algorithms.Algorithm;
-import com.auth0.jwt.exceptions.JWTCreationException;
-import com.auth0.jwt.exceptions.JWTVerificationException;
-import com.auth0.jwt.interfaces.DecodedJWT;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.UnsupportedEncodingException;
-import java.util.Date;
+import cn.hutool.core.codec.Base64;
+import com.alibaba.fastjson.JSON;
+import com.waibao.util.vo.user.UserVO;
 
 /**
  * @author wujing
  */
 public final class JWTUtil {
+    private static final String HEADER = "{\"alg\":\"SM3\",\"typ\":\"JWT\"}";
 
-	protected static final Logger logger = LoggerFactory.getLogger(JWTUtil.class);
+    public static String create(UserVO userVO) {
+        String header = Base64.encode(HEADER);
+        String payload = Base64.encode(JSON.toJSONString(userVO));
+        return header + "." + payload + "." + SMUtil.sm3Encode(header + "." + payload);
+    }
 
-	private static final String TOKEN_SECRET = "eyJhbGciOiJIUzI1NiJ9";
-	private static final String ISSUER = "RONCOO";
-	public static final String USERNO = "userNo";
-	public static final Long DATE = 30 * 24 * 3600 * 1000L; // 1个月
+    public static boolean verify(String jwt) {
+        String[] split = jwt.split("\\.");
+        if (split.length != 3) return false;
 
-	/**
-	 *
-	 * @param date
-	 * @return
-	 * @throws IllegalArgumentException
-	 * @throws JWTCreationException
-	 * @throws UnsupportedEncodingException
-	 */
-	public static String create(Long userNo, Long date) {
-		try {
-			return JWT.create().withIssuer(ISSUER).withClaim(USERNO, userNo.toString()).withExpiresAt(new Date(System.currentTimeMillis() + date)).sign(Algorithm.HMAC256(TOKEN_SECRET));
-		} catch (IllegalArgumentException | JWTCreationException | UnsupportedEncodingException e) {
-			logger.error("JWT生成失败", e);
-			return "";
-		}
-	}
+        return verify(split[0], split[1], split[2]);
+    }
 
-	/**
-	 * 
-	 * @param token
-	 * @return
-	 * @throws JWTVerificationException
-	 * @throws IllegalArgumentException
-	 * @throws UnsupportedEncodingException
-	 */
-	public static DecodedJWT verify(String token) throws JWTVerificationException, IllegalArgumentException, UnsupportedEncodingException {
-		return JWT.require(Algorithm.HMAC256(TOKEN_SECRET)).withIssuer(ISSUER).build().verify(token);
-	}
+    public static boolean verify(String headerBase64, String payloadBase64, String sign) {
+        return SMUtil.sm3Encode(headerBase64 + "." + payloadBase64).equals(sign);
+    }
 
-	/**
-	 *
-	 * @return
-	 * @throws JWTVerificationException
-	 * @throws IllegalArgumentException
-	 * @throws UnsupportedEncodingException
-	 */
-	public static Long getUserNo(DecodedJWT decodedJWT) {
-		return Long.valueOf(decodedJWT.getClaim(USERNO).asString());
-	}
-
+    public static UserVO getUserVo(String jwt) {
+        String[] split = jwt.split("\\.");
+        return JSON.parseObject(split[1], UserVO.class);
+    }
 }

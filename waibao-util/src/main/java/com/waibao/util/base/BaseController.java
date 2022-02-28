@@ -3,8 +3,8 @@
  */
 package com.waibao.util.base;
 
+import com.alibaba.fastjson.JSON;
 import com.waibao.util.enums.*;
-import com.waibao.util.tools.JSONUtil;
 import org.springframework.ui.ModelMap;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
@@ -79,7 +79,7 @@ public class BaseController  {
 			paramMap.put(key, map.get(key)[0]);
 		}
 		if (paramMap.isEmpty()) {
-			return new TreeMap<>(JSONUtil.parseObject(getString(request), TreeMap.class));
+			return new TreeMap<>(JSON.parseObject(getString(request), TreeMap.class));
 		}
 		return paramMap;
 	}
@@ -173,7 +173,7 @@ public class BaseController  {
 		Bjui bj = new Bjui();
 		bj.setStatusCode(OK);
 		bj.setForward(forward);
-		return JSONUtil.toJSONString(bj);
+		return JSON.toJSONString(bj);
 	}
 
 	/**
@@ -184,7 +184,7 @@ public class BaseController  {
 		bj.setCloseCurrent(closeCurrent);
 		bj.setTabid(targetId);
 		bj.setMessage(message);
-		return JSONUtil.toJSONString(bj);
+		return JSON.toJSONString(bj);
 	}
 
 }

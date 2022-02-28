@@ -16,6 +16,7 @@ public enum RedisDBEnum {
     RetailerOrder(7, "商户订单"),
     User(8, "用户"),
     Admin(9, "管理员"),
+    Transaction(10,"事务"),
     Storage(12, "商品库存表"),
     District(15, "中国省份城市数据库");
 

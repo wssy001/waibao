@@ -25,7 +25,7 @@ public class PurchasedUserCacheService {
     public static final String REDIS_PURCHASED_USER_KEY = "purchased-user-";
 
     @Resource
-    private RedisTemplate<String, Integer> UserRedisTemplate;
+    private RedisTemplate<String, Integer> userRedisTemplate;
 
     private ValueOperations<String, Integer> valueOperations;
     private DefaultRedisScript<Boolean> increaseCount;
@@ -50,7 +50,7 @@ public class PurchasedUserCacheService {
                 "if (currentCount == nil) then return false\n" +
                 "end\n" +
                 "return(currentCount >= limit)";
-        valueOperations = UserRedisTemplate.opsForValue();
+        valueOperations = userRedisTemplate.opsForValue();
         increaseCount = new DefaultRedisScript<>(luaScript1, Boolean.class);
         reachLimit = new DefaultRedisScript<>(luaScript2, Boolean.class);
     }

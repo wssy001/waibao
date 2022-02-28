@@ -31,7 +31,7 @@ public class SeckillGoodsStorageCacheService {
     private final SeckillGoodsMapper seckillGoodsMapper;
 
     @Resource
-    private RedisTemplate<String, Integer> StorageRedisTemplate;
+    private RedisTemplate<String, Integer> storageRedisTemplate;
 
     private ValueOperations<String, Integer> valueOperations;
     private DefaultRedisScript<Boolean> decreaseStorage;
@@ -47,7 +47,7 @@ public class SeckillGoodsStorageCacheService {
                 "return false\n" +
                 "else return true\n" +
                 "end";
-        valueOperations = StorageRedisTemplate.opsForValue();
+        valueOperations = storageRedisTemplate.opsForValue();
         decreaseStorage = new DefaultRedisScript<>(luaScript, Boolean.class);
     }
 

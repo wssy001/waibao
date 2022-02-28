@@ -23,7 +23,7 @@ import java.util.Collections;
 @RequiredArgsConstructor
 public class SeckillPathCacheService {
     @Resource
-    private RedisTemplate<String, Long> GoodsRetailerRedisTemplate;
+    private RedisTemplate<String, Long> goodsRetailerRedisTemplate;
 
     private ValueOperations<String, Long> valueOperations;
     private DefaultRedisScript<Boolean> deleteSeckillPath;
@@ -38,7 +38,7 @@ public class SeckillPathCacheService {
                 "else" +
                 "return false" +
                 "end";
-        valueOperations = GoodsRetailerRedisTemplate.opsForValue();
+        valueOperations = goodsRetailerRedisTemplate.opsForValue();
         deleteSeckillPath = new DefaultRedisScript<>(luaScript, Boolean.class);
     }
 

@@ -27,13 +27,13 @@ public class SeckillGoodsRetailerCacheService {
     private final SeckillGoodsMapper seckillGoodsMapper;
 
     @Resource
-    private RedisTemplate<String, SeckillGoods> GoodsRetailerRedisTemplate;
+    private RedisTemplate<String, SeckillGoods> goodsRetailerRedisTemplate;
 
     private ValueOperations<String, SeckillGoods> valueOperations;
 
     @PostConstruct
     void init() {
-        valueOperations = GoodsRetailerRedisTemplate.opsForValue();
+        valueOperations = goodsRetailerRedisTemplate.opsForValue();
     }
 
     public SeckillGoods get(Long goodsId) {

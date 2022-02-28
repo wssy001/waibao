@@ -18,13 +18,13 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class CaptchaCacheServiceRedisImpl implements CaptchaCacheService {
     @Resource
-    private RedisTemplate<String, String> CaptchaRedisTemplate;
+    private RedisTemplate<String, String> captchaRedisTemplate;
 
     private ValueOperations<String, String> valueOperations;
 
     @PostConstruct
     void init() {
-        valueOperations = CaptchaRedisTemplate.opsForValue();
+        valueOperations = captchaRedisTemplate.opsForValue();
     }
 
     @Override

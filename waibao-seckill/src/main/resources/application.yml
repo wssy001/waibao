@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: seckill-provider
+    name: waibao-seckill
 
   shardingsphere:
     datasource:
@@ -57,6 +57,18 @@ spring:
       pool:
         size: 5
       thread-name-prefix: 定时任务-
+
+  cloud:
+    nacos:
+      server-addr: 10.60.64.66:8848
+      discovery:
+        namespace: waibao
+      username: nacos
+      password: nacos
+
+      config:
+        namespace: waibao
+        extension-configs: application.properties,${spring.application.name}.properties
 
 rocketmq:
   name-server: 10.60.64.66:39876

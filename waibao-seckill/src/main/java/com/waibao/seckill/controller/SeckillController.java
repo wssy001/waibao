@@ -1,18 +1,24 @@
 package com.waibao.seckill.controller;
 
+import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson.JSONObject;
 import com.anji.captcha.model.common.ResponseModel;
 import com.anji.captcha.model.vo.CaptchaVO;
 import com.anji.captcha.service.CaptchaService;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
-import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
+import com.waibao.seckill.service.cache.SeckillGoodsRetailerCacheService;
 import com.waibao.seckill.service.cache.SeckillGoodsStorageCacheService;
 import com.waibao.seckill.service.cache.SeckillPathCacheService;
 import com.waibao.util.vo.GlobalResult;
+import com.waibao.util.vo.order.OrderVO;
 import com.waibao.util.vo.seckill.KillVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.producer.TransactionSendResult;
+import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
@@ -29,11 +35,12 @@ import java.util.concurrent.Future;
 @RequiredArgsConstructor
 @RequestMapping("/seckill")
 public class SeckillController {
-    private final SeckillGoodsCacheService seckillGoodsCacheService;
+    private final SeckillGoodsRetailerCacheService seckillGoodsRetailerCacheService;
     private final SeckillPathCacheService seckillPathCacheService;
     private final SeckillGoodsStorageCacheService seckillGoodsStorageCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;
     private final CaptchaService captchaService;
+    private final RocketMQTemplate rocketMQTemplate;
 
     @GetMapping("/goods/{goodsId}/seckillPath")
     public GlobalResult<JSONObject> getSeckillPath(
@@ -44,7 +51,7 @@ public class SeckillController {
         ResponseModel verification = captchaService.verification(captchaVO);
         if (!verification.isSuccess()) return GlobalResult.error(verification.getRepMsg());
 
-        SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
+        SeckillGoods seckillGoods = seckillGoodsRetailerCacheService.get(goodsId);
         if (seckillGoods.getGoodsId() == null) return GlobalResult.error("秒杀产品不存在");
         Date date = new Date();
         if (date.before(seckillGoods.getSeckillStartTime())) return GlobalResult.error("秒杀还未开始");
@@ -66,7 +73,7 @@ public class SeckillController {
     ) {
         Long goodsId = killVO.getGoodsId();
         if (!seckillPathCacheService.delete(killVO.getRandomStr(), goodsId)) return GlobalResult.error("秒杀地址无效！");
-        SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
+        SeckillGoods seckillGoods = seckillGoodsRetailerCacheService.get(goodsId);
         Integer purchaseLimit = seckillGoods.getPurchaseLimit();
         Integer count = killVO.getCount();
         if (count > purchaseLimit) return GlobalResult.error("秒杀失败，超过最大购买限制");
@@ -85,7 +92,6 @@ public class SeckillController {
             return GlobalResult.error("秒杀失败，服务器暂时无法执行操作");
         }
 
-        //todo 订单模块
         return GlobalResult.success("秒杀成功");
     }
 
@@ -115,6 +121,25 @@ public class SeckillController {
         }
 
         //todo 订单模块
+        OrderVO orderVO = new OrderVO();
+        String orderId = IdUtil.objectId();
+        orderVO.setOrderId(orderId);
+        orderVO.setGoodsId(goodsId);
+        orderVO.setUserId(userId);
+
+        try {
+            Message<OrderVO> message = MessageBuilder.withPayload(orderVO)
+                    .setHeader("KEYS", orderId)
+                    .build();
+
+            TransactionSendResult order = rocketMQTemplate.sendMessageInTransaction("order:create", message, null);
+
+            log.info("******SeckillController.seckillTest：");
+        } catch (Exception e) {
+            log.error("******SeckillController.seckill：{}", e.getMessage());
+            return GlobalResult.error("服务异常，无法创建订单");
+        }
+
         long end = new Date().getTime();
         return GlobalResult.success("秒杀成功，耗时：" + (end - start) + " ms");
     }

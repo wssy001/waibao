@@ -1,9 +1,9 @@
 package com.waibao.seckill.service.cache;
 
 import cn.hutool.core.lang.id.NanoId;
-import com.waibao.seckill.mapper.SeckillGoodsMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
@@ -22,11 +22,10 @@ import java.util.Collections;
 @Service
 @RequiredArgsConstructor
 public class SeckillPathCacheService {
-    private final SeckillGoodsMapper seckillGoodsMapper;
-
     @Resource
-    private ValueOperations<String, Long> valueOperations;
+    private RedisTemplate<String, Long> GoodsRetailerRedisTemplate;
 
+    private ValueOperations<String, Long> valueOperations;
     private DefaultRedisScript<Boolean> deleteSeckillPath;
 
     @PostConstruct
@@ -39,6 +38,7 @@ public class SeckillPathCacheService {
                 "else" +
                 "return false" +
                 "end";
+        valueOperations = GoodsRetailerRedisTemplate.opsForValue();
         deleteSeckillPath = new DefaultRedisScript<>(luaScript, Boolean.class);
     }
 

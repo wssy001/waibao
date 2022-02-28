@@ -1,3 +1,6 @@
+server:
+  port: 33381
+
 spring:
   application:
     name: seckill-provider
@@ -18,17 +21,17 @@ spring:
         username: root
         password: wssy001
 
-#    sharding:
-#      tables:
-#        user:
-#          actualDataNodes: master.user_$->{0..1}
-#          tableStrategy:
-#            inline:
-#              shardingColumn: id
-#              algorithmExpression: user_$->{id % 2}
-#          keyGenerator:
-#            column: id
-#            type: SNOWFLAKE
+    sharding:
+      tables:
+        user:
+          actualDataNodes: master.user_$->{0..1}
+          tableStrategy:
+            inline:
+              shardingColumn: id
+              algorithmExpression: user_$->{id % 2}
+          keyGenerator:
+            column: id
+            type: SNOWFLAKE
 
       master-slave-rules:
         master:
@@ -37,7 +40,6 @@ spring:
 
   redis:
     host: 10.60.64.66
-    database: 2
     password: wssy001
     timeout: 1000
     lettuce:
@@ -59,7 +61,8 @@ spring:
 rocketmq:
   name-server: 10.60.64.66:39876
   producer:
-    group: seckill
+    group: order-producer
+
 aj:
   captcha:
     cache-type: redis

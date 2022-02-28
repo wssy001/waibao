@@ -1,9 +1,11 @@
 package com.waibao.seckill.service.captcha;
 
 import com.anji.captcha.service.CaptchaCacheService;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.concurrent.TimeUnit;
 
@@ -16,7 +18,14 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class CaptchaCacheServiceRedisImpl implements CaptchaCacheService {
     @Resource
+    private RedisTemplate<String, String> CaptchaRedisTemplate;
+
     private ValueOperations<String, String> valueOperations;
+
+    @PostConstruct
+    void init() {
+        valueOperations = CaptchaRedisTemplate.opsForValue();
+    }
 
     @Override
     public String type() {

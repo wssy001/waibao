@@ -4,10 +4,12 @@ import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 
 /**
@@ -19,13 +21,20 @@ import javax.annotation.Resource;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SeckillGoodsCacheService {
+public class SeckillGoodsRetailerCacheService {
     public static final String REDIS_SECKILL_GOODS_KEY_PREFIX = "seckill-goods-";
 
     private final SeckillGoodsMapper seckillGoodsMapper;
 
     @Resource
+    private RedisTemplate<String, SeckillGoods> GoodsRetailerRedisTemplate;
+
     private ValueOperations<String, SeckillGoods> valueOperations;
+
+    @PostConstruct
+    void init() {
+        valueOperations = GoodsRetailerRedisTemplate.opsForValue();
+    }
 
     public SeckillGoods get(Long goodsId) {
         SeckillGoods seckillGoods = valueOperations.get(REDIS_SECKILL_GOODS_KEY_PREFIX + goodsId);

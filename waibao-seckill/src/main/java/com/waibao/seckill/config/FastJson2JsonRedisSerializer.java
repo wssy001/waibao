@@ -20,14 +20,12 @@ import java.nio.charset.StandardCharsets;
  * @since 2022-02-12
  */
 public class FastJson2JsonRedisSerializer<T> implements RedisSerializer<T> {
-    private ObjectMapper objectMapper = new ObjectMapper();
     public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
     private Class<T> clazz;
 
     static {
-        ParserConfig.getGlobalInstance().setAutoTypeSupport(true);
-        ParserConfig.getGlobalInstance().addAccept("cyou.wssy001.qqrobot");
+        ParserConfig.getGlobalInstance().addAccept("com.waibao.seckill");
     }
 
     public FastJson2JsonRedisSerializer(Class<T> clazz) {
@@ -53,7 +51,6 @@ public class FastJson2JsonRedisSerializer<T> implements RedisSerializer<T> {
 
     public void setObjectMapper(ObjectMapper objectMapper) {
         Assert.notNull(objectMapper, "'objectMapper' must not be null");
-        this.objectMapper = objectMapper;
     }
 
     protected JavaType getJavaType(Class<?> clazz) {

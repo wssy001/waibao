@@ -4,6 +4,7 @@ import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scheduling.annotation.Async;
@@ -30,8 +31,9 @@ public class SeckillGoodsStorageCacheService {
     private final SeckillGoodsMapper seckillGoodsMapper;
 
     @Resource
-    private ValueOperations<String, Integer> valueOperations;
+    private RedisTemplate<String, Integer> StorageRedisTemplate;
 
+    private ValueOperations<String, Integer> valueOperations;
     private DefaultRedisScript<Boolean> decreaseStorage;
 
     @PostConstruct
@@ -45,6 +47,7 @@ public class SeckillGoodsStorageCacheService {
                 "return false\n" +
                 "else return true\n" +
                 "end";
+        valueOperations = StorageRedisTemplate.opsForValue();
         decreaseStorage = new DefaultRedisScript<>(luaScript, Boolean.class);
     }
 

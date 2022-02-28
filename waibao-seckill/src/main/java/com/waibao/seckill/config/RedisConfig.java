@@ -1,17 +1,89 @@
 package com.waibao.seckill.config;
 
+import com.waibao.util.enums.RedisDBEnum;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.redis.connection.RedisConnection;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.core.*;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
+import org.springframework.data.redis.core.RedisTemplate;
 
+import java.time.Duration;
+
+@Setter
 @Configuration
+@RequiredArgsConstructor
 public class RedisConfig {
+    private final RedisProperties redisProperties;
 
-    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
+    @Bean
+    public RedisTemplate<String, Object> redisTemplate() {
+        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.Default);
+        return getStringObjectRedisTemplate(lettuceConnectionFactory);
+    }
+
+    @Bean
+    public RedisTemplate<String, Object> StorageRedisTemplate() {
+        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.Storage);
+        return getStringObjectRedisTemplate(lettuceConnectionFactory);
+    }
+
+    @Bean
+    public RedisTemplate<String, Object> CaptchaRedisTemplate() {
+        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.Captcha);
+        return getStringObjectRedisTemplate(lettuceConnectionFactory);
+    }
+
+    @Bean
+    public RedisTemplate<String, Object> UserRedisTemplate() {
+        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.User);
+        return getStringObjectRedisTemplate(lettuceConnectionFactory);
+    }
+
+    @Bean
+    public RedisTemplate<String, Object> GoodsRetailerRedisTemplate() {
+        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.GoodsRetailer);
+        return getStringObjectRedisTemplate(lettuceConnectionFactory);
+    }
+
+    private LettuceConnectionFactory createLettuceConnectionFactory(RedisDBEnum redisDBEnum) {
+        // Redis配置
+        RedisStandaloneConfiguration redisConfiguration = new RedisStandaloneConfiguration(redisProperties.getHost(), redisProperties.getPort());
+        redisConfiguration.setDatabase(redisDBEnum.getIndex());
+        redisConfiguration.setPassword(redisProperties.getPassword());
+
+        // 连接池配置
+        RedisProperties.Pool pool = redisProperties.getLettuce().getPool();
+        GenericObjectPoolConfig<Object> genericObjectPoolConfig = new GenericObjectPoolConfig<>();
+        genericObjectPoolConfig.setMaxIdle(pool.getMaxIdle());
+        genericObjectPoolConfig.setMinIdle(pool.getMinIdle());
+        genericObjectPoolConfig.setMaxTotal(pool.getMaxActive());
+        genericObjectPoolConfig.setMaxWaitMillis(pool.getMaxWait().toMillis());
+
+        // Redis客户端配置
+        LettucePoolingClientConfiguration.LettucePoolingClientConfigurationBuilder builder = LettucePoolingClientConfiguration
+                .builder().commandTimeout(redisProperties.getTimeout());
+
+        builder.shutdownTimeout(Duration.ofMillis(100));
+        builder.poolConfig(genericObjectPoolConfig);
+
+        // 根据配置和客户端配置创建连接
+        LettuceClientConfiguration lettuceClientConfiguration = builder.build();
+        LettuceConnectionFactory lettuceConnectionFactory = new LettuceConnectionFactory(redisConfiguration,
+                lettuceClientConfiguration);
+        lettuceConnectionFactory.afterPropertiesSet();
+
+        return lettuceConnectionFactory;
+    }
+
+    private RedisTemplate<String, Object> getStringObjectRedisTemplate(LettuceConnectionFactory lettuceConnectionFactory) {
         RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
-        redisTemplate.setConnectionFactory(connectionFactory);
+        redisTemplate.setConnectionFactory(lettuceConnectionFactory);
         redisTemplate.setHashKeySerializer(new FastJson2JsonRedisSerializer<>(String.class));
         redisTemplate.setHashValueSerializer(new FastJson2JsonRedisSerializer<>(Object.class));
         redisTemplate.setKeySerializer(new FastJson2JsonRedisSerializer<>(String.class));
@@ -19,40 +91,4 @@ public class RedisConfig {
         redisTemplate.afterPropertiesSet();
         return redisTemplate;
     }
-
-    @Bean
-    public RedisConnection connection(RedisConnectionFactory connectionFactory) {
-        return connectionFactory.getConnection();
-    }
-
-    @Bean
-    public RedisOperations<String, Object> redisOperations(RedisConnectionFactory factory) {
-        return redisTemplate(factory);
-    }
-
-    @Bean
-    public ValueOperations<String, Object> valueOperations(RedisConnectionFactory factory) {
-        return redisTemplate(factory).opsForValue();
-    }
-
-    @Bean
-    public ListOperations<String, Object> listOperations(RedisConnectionFactory factory) {
-        return redisTemplate(factory).opsForList();
-    }
-
-    @Bean
-    public HashOperations<String, Object, Object> hashOperations(RedisConnectionFactory factory) {
-        return redisTemplate(factory).opsForHash();
-    }
-
-    @Bean
-    public SetOperations<String, Object> setOperations(RedisConnectionFactory factory) {
-        return redisTemplate(factory).opsForSet();
-    }
-
-    @Bean
-    public ZSetOperations<String, Object> zSetOperations(RedisConnectionFactory factory) {
-        return redisTemplate(factory).opsForZSet();
-    }
-
 }

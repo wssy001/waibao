@@ -1,6 +1,7 @@
 package com.waibao.seckill.service.cache;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scheduling.annotation.Async;
@@ -24,8 +25,9 @@ public class PurchasedUserCacheService {
     public static final String REDIS_PURCHASED_USER_KEY = "purchased-user-";
 
     @Resource
-    private ValueOperations<String, Integer> valueOperations;
+    private RedisTemplate<String, Integer> UserRedisTemplate;
 
+    private ValueOperations<String, Integer> valueOperations;
     private DefaultRedisScript<Boolean> increaseCount;
     private DefaultRedisScript<Boolean> reachLimit;
 
@@ -48,6 +50,7 @@ public class PurchasedUserCacheService {
                 "if (currentCount == nil) then return false\n" +
                 "end\n" +
                 "return(currentCount >= limit)";
+        valueOperations = UserRedisTemplate.opsForValue();
         increaseCount = new DefaultRedisScript<>(luaScript1, Boolean.class);
         reachLimit = new DefaultRedisScript<>(luaScript2, Boolean.class);
     }
@@ -55,6 +58,10 @@ public class PurchasedUserCacheService {
     public Boolean increase(Long userId, int count, int limit) {
         return valueOperations.getOperations()
                 .execute(increaseCount, Collections.singletonList(REDIS_PURCHASED_USER_KEY + userId), count, limit);
+    }
+
+    public void increaseRollback(Long userId, int count) {
+        valueOperations.decrement(REDIS_PURCHASED_USER_KEY + userId, count);
     }
 
     @Async

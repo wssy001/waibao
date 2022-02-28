@@ -1,7 +1,7 @@
 package com.waibao.seckill.config;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
@@ -13,7 +13,9 @@ import org.springframework.context.annotation.Configuration;
  */
 @Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class RocketMQConfig {
+
     @Value("${rocketmq.name-server}")
     private String nameServer;
 
@@ -31,14 +33,28 @@ public class RocketMQConfig {
 //        return consumer;
 //    }
 
-    private DefaultMQPushConsumer getDefaultBatchConsumer() {
-        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer();
-        consumer.setNamesrvAddr(nameServer);
-        consumer.setPullInterval(1000);
-        consumer.setConsumeThreadMax(2);
-        consumer.setConsumeThreadMin(1);
-        consumer.setPullBatchSize(16);
-        consumer.setConsumeMessageBatchMaxSize(16);
-        return consumer;
-    }
+//    private DefaultMQPushConsumer getDefaultBatchConsumer() {
+//        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer();
+//        consumer.setNamesrvAddr(nameServer);
+//        consumer.setPullInterval(1000);
+//        consumer.setConsumeThreadMax(2);
+//        consumer.setConsumeThreadMin(1);
+//        consumer.setPullBatchSize(16);
+//        consumer.setConsumeMessageBatchMaxSize(16);
+//        return consumer;
+//    }
+
+//    @Bean
+//    @SneakyThrows
+//    public TransactionMQProducer seckillTransactionMQProducer() {
+//        TransactionMQProducer transactionMQProducer = new TransactionMQProducer();
+//        transactionMQProducer.setNamesrvAddr(nameServer);
+//        transactionMQProducer.setNamespace("seckill-service");
+//        transactionMQProducer.setProducerGroup("order-producer");
+//        transactionMQProducer.setInstanceName("SeckillTransactionMQProducer");
+//        transactionMQProducer.setRetryTimesWhenSendFailed(1);
+//        transactionMQProducer.start();
+//        return transactionMQProducer;
+//    }
+
 }

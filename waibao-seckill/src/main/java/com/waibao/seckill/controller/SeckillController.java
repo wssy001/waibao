@@ -10,11 +10,16 @@ import com.waibao.seckill.service.cache.PurchasedUserCacheService;
 import com.waibao.seckill.service.cache.SeckillGoodsRetailerCacheService;
 import com.waibao.seckill.service.cache.SeckillGoodsStorageCacheService;
 import com.waibao.seckill.service.cache.SeckillPathCacheService;
+import com.waibao.util.base.BaseException;
+import com.waibao.util.tools.BeanUtil;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.order.OrderVO;
 import com.waibao.util.vo.seckill.KillVO;
+import com.waibao.util.vo.seckill.SeckillGoodsVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.producer.LocalTransactionState;
+import org.apache.rocketmq.client.producer.SendStatus;
 import org.apache.rocketmq.client.producer.TransactionSendResult;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.messaging.Message;
@@ -66,6 +71,20 @@ public class SeckillController {
         return GlobalResult.success(jsonObject);
     }
 
+    @GetMapping("/goods/{goodsId}")
+    public GlobalResult<SeckillGoodsVO> getSeckillGoods(
+            @PathVariable("goodsId") Long goodsId,
+            @RequestParam("userId") Long userId
+    ) {
+        SeckillGoods seckillGoods = seckillGoodsRetailerCacheService.get(goodsId);
+        if (seckillGoods.getGoodsId() == null) return GlobalResult.error("秒杀产品不存在");
+
+        SeckillGoodsVO seckillGoodsVO = BeanUtil.copyProperties(seckillGoods, SeckillGoodsVO.class);
+        int currentStorage = seckillGoodsStorageCacheService.get(goodsId);
+        seckillGoodsVO.setCurrentStorage(currentStorage);
+        return GlobalResult.success(seckillGoodsVO);
+    }
+
     @PostMapping("/goods/kill")
     public GlobalResult<JSONObject> seckill(
             @RequestBody KillVO killVO,
@@ -85,11 +104,33 @@ public class SeckillController {
                 if (decreaseStorage.isDone() && increase.isDone()) break;
             }
             Boolean decreaseStorageResult = decreaseStorage.get();
+            log.info("******减库存操作执行完毕");
             Boolean increaseResult = increase.get();
+            log.info("******增加用户购买量操作执行完毕");
             if (!decreaseStorageResult) return GlobalResult.error("秒杀失败，库存不足");
             if (!increaseResult) return GlobalResult.error("秒杀失败，已超过个人最大购买量");
         } catch (Exception e) {
             return GlobalResult.error("秒杀失败，服务器暂时无法执行操作");
+        }
+
+        OrderVO orderVO = new OrderVO();
+        String orderId = IdUtil.objectId();
+        orderVO.setOrderId(orderId);
+        orderVO.setGoodsId(goodsId);
+        orderVO.setUserId(userId);
+        Message<OrderVO> message = MessageBuilder.withPayload(orderVO)
+                .setHeader("KEYS", orderId)
+                .build();
+
+        try {
+            TransactionSendResult sendResult = rocketMQTemplate.sendMessageInTransaction("order:create", message, null);
+            log.info("******SeckillController.seckillTest：");
+            if (!sendResult.getSendStatus().equals(SendStatus.SEND_OK) || sendResult.getLocalTransactionState().equals(LocalTransactionState.ROLLBACK_MESSAGE))
+                throw new BaseException();
+        } catch (Exception e) {
+            rocketMQTemplate.convertAndSend("storage:rollback", orderVO);
+            log.error("******SeckillController.seckill：{}", e.getMessage());
+            return GlobalResult.error("服务异常，无法创建订单");
         }
 
         return GlobalResult.success("秒杀成功");
@@ -120,22 +161,22 @@ public class SeckillController {
             return GlobalResult.error("秒杀失败，服务器暂时无法执行操作");
         }
 
-        //todo 订单模块
         OrderVO orderVO = new OrderVO();
         String orderId = IdUtil.objectId();
         orderVO.setOrderId(orderId);
         orderVO.setGoodsId(goodsId);
         orderVO.setUserId(userId);
+        Message<OrderVO> message = MessageBuilder.withPayload(orderVO)
+                .setHeader("KEYS", orderId)
+                .build();
 
         try {
-            Message<OrderVO> message = MessageBuilder.withPayload(orderVO)
-                    .setHeader("KEYS", orderId)
-                    .build();
-
-            TransactionSendResult order = rocketMQTemplate.sendMessageInTransaction("order:create", message, null);
-
+            TransactionSendResult sendResult = rocketMQTemplate.sendMessageInTransaction("order:create", message, null);
             log.info("******SeckillController.seckillTest：");
+            if (!sendResult.getSendStatus().equals(SendStatus.SEND_OK) || sendResult.getLocalTransactionState().equals(LocalTransactionState.ROLLBACK_MESSAGE))
+                throw new BaseException();
         } catch (Exception e) {
+            rocketMQTemplate.convertAndSend("storage:rollback", orderVO);
             log.error("******SeckillController.seckill：{}", e.getMessage());
             return GlobalResult.error("服务异常，无法创建订单");
         }

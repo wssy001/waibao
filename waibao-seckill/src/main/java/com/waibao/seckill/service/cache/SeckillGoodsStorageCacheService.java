@@ -28,33 +28,59 @@ import java.util.concurrent.Future;
 @RequiredArgsConstructor
 public class SeckillGoodsStorageCacheService {
     public static final String REDIS_SECKILL_GOODS_KEY_PREFIX = "seckill-goods-storage-";
+
     private final SeckillGoodsMapper seckillGoodsMapper;
+    private final SeckillGoodsRetailerCacheService seckillGoodsRetailerCacheService;
 
     @Resource
     private RedisTemplate<String, Integer> storageRedisTemplate;
 
     private ValueOperations<String, Integer> valueOperations;
+    private DefaultRedisScript<Boolean> increaseStorage;
     private DefaultRedisScript<Boolean> decreaseStorage;
 
     @PostConstruct
     public void init() {
-        String luaScript = "local key=KEYS[1]\n" +
+        String increaseScript = "local key = KEYS[1]\n" +
+                "local count = tonumber(ARGV[1])\n" +
+                "local limit = tonumber(ARGV[2])\n" +
+                "redis.call('INCRBY', key, count)\n" +
+                "local storage = tonumber(redis.call('GET', key))\n" +
+                "if (storage > limit) then\n" +
+                "    redis.call('DECRBY', KEYS[1], count)\n" +
+                "    return false\n" +
+                "else\n" +
+                "    return true\n" +
+                "end";
+        String decreaseScript = "local key=KEYS[1]\n" +
                 "local count = tonumber(ARGV[1])  \n" +
                 "redis.call('DECRBY', KEYS[1], count)\n" +
                 "local storage = tonumber(redis.call('GET',key))\n" +
-                "if (storage <= 0) then\n" +
+                "if (storage < 0) then\n" +
                 "redis.call('INCRBY',key,count)\n" +
                 "return false\n" +
                 "else return true\n" +
                 "end";
         valueOperations = storageRedisTemplate.opsForValue();
-        decreaseStorage = new DefaultRedisScript<>(luaScript, Boolean.class);
+        increaseStorage = new DefaultRedisScript<>(increaseScript, Boolean.class);
+        decreaseStorage = new DefaultRedisScript<>(decreaseScript, Boolean.class);
     }
 
     public int get(Long goodsId) {
         Integer storage = valueOperations.get(REDIS_SECKILL_GOODS_KEY_PREFIX + goodsId);
         if (storage == null || storage < 1) return 0;
         return storage;
+    }
+
+    public Boolean increaseStorage(Long goodsId, int count) {
+        SeckillGoods seckillGoods = seckillGoodsRetailerCacheService.get(goodsId);
+        return valueOperations.getOperations()
+                .execute(increaseStorage, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX + goodsId), count, seckillGoods.getStorage());
+    }
+
+    @Async
+    public Future<Boolean> increaseStorageAsync(Long goodsId, int count) {
+        return new AsyncResult<>(increaseStorage(goodsId, count));
     }
 
     public Boolean decreaseStorage(Long goodsId, int count) {

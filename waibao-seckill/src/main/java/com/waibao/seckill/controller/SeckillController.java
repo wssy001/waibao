@@ -128,12 +128,14 @@ public class SeckillController {
             if (!sendResult.getSendStatus().equals(SendStatus.SEND_OK) || sendResult.getLocalTransactionState().equals(LocalTransactionState.ROLLBACK_MESSAGE))
                 throw new BaseException();
         } catch (Exception e) {
-            rocketMQTemplate.convertAndSend("storage:rollback", orderVO);
+            rocketMQTemplate.asyncSend("storage:redisRollback", orderVO, null);
             log.error("******SeckillController.seckill：{}", e.getMessage());
             return GlobalResult.error("服务异常，无法创建订单");
         }
 
-        return GlobalResult.success("秒杀成功");
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("orderId", orderId);
+        return GlobalResult.success("秒杀成功", jsonObject);
     }
 
     @PostMapping("/goods/{goodsId}")
@@ -176,7 +178,7 @@ public class SeckillController {
             if (!sendResult.getSendStatus().equals(SendStatus.SEND_OK) || sendResult.getLocalTransactionState().equals(LocalTransactionState.ROLLBACK_MESSAGE))
                 throw new BaseException();
         } catch (Exception e) {
-            rocketMQTemplate.convertAndSend("storage:rollback", orderVO);
+            rocketMQTemplate.asyncSend("storage:redisRollback", orderVO, null);
             log.error("******SeckillController.seckill：{}", e.getMessage());
             return GlobalResult.error("服务异常，无法创建订单");
         }

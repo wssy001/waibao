@@ -1,4 +1,4 @@
-package com.waibao.seckill;
+package com.waibao.order;
 
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
@@ -8,18 +8,18 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * SeckillApplication
+ * OrderApplication
  *
  * @author alexpetertyler
- * @since 2022-02-17
+ * @since 2022/2/28
  */
 @Async
 @EnableScheduling
 @EnableDiscoveryClient
 @SpringBootApplication
-@MapperScan("com.waibao.seckill.mapper")
-public class SeckillApplication {
+@MapperScan("com.waibao.order.mapper")
+public class OrderApplication {
     public static void main(String[] args) {
-        SpringApplication.run(SeckillApplication.class, args);
+        SpringApplication.run(OrderApplication.class, args);
     }
 }

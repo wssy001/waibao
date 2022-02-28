@@ -22,7 +22,7 @@ import java.util.Objects;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@RocketMQMessageListener(consumerGroup = "redisStorageConsumer", topic = "storage", selectorExpression = "rollback", consumeMode = ConsumeMode.CONCURRENTLY)
+@RocketMQMessageListener(consumerGroup = "redisStorageConsumer", topic = "storage", selectorExpression = "rollback||redisRollback", consumeMode = ConsumeMode.CONCURRENTLY)
 public class RedisStorageRollbackConsumer implements RocketMQListener<OrderVO> {
     public static final String REDIS_TRANSACTION_STORAGE_KEY = "transaction-storage-rollback-";
 

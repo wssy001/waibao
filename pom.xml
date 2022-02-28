@@ -14,6 +14,7 @@
         <module>waibao-util</module>
         <module>waibao-user</module>
         <module>waibao-seckill</module>
+        <module>waibao-order</module>
     </modules>
 
     <properties>

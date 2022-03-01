@@ -74,8 +74,7 @@ public class SeckillGoodsStorageCacheService {
 
     public Boolean increaseStorage(Long goodsId, int count) {
         SeckillGoods seckillGoods = seckillGoodsRetailerCacheService.get(goodsId);
-        return valueOperations.getOperations()
-                .execute(increaseStorage, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX + goodsId), count, seckillGoods.getStorage());
+        return storageRedisTemplate.execute(increaseStorage, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX + goodsId), count, seckillGoods.getStorage());
     }
 
     @Async
@@ -84,8 +83,7 @@ public class SeckillGoodsStorageCacheService {
     }
 
     public Boolean decreaseStorage(Long goodsId, int count) {
-        return valueOperations.getOperations()
-                .execute(decreaseStorage, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX + goodsId), count);
+        return storageRedisTemplate.execute(decreaseStorage, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX + goodsId), count);
     }
 
     @Async

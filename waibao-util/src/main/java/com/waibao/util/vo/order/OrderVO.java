@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.Objects;
 
 /**
  * OrderVO
@@ -34,4 +35,17 @@ public class OrderVO {
     private Boolean paid = false;
 
     private String status;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof OrderVO)) return false;
+        OrderVO that = (OrderVO) o;
+        return getOrderId().equals(that.getOrderId());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getOrderId());
+    }
 }

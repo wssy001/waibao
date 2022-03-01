@@ -18,10 +18,11 @@ public enum RedisDBEnum {
     GoodsUser(5, "商品|用户"),
     OrderRetailer(6, "订单|商户"),
     OrderUser(7, "订单|用户"),
-    User(8, "用户"),
-    Admin(9, "管理员"),
-    Transaction(10,"事务"),
-    Storage(12, "商品库存表"),
+    OrderGoods(8, "订单|商品"),
+    User(11, "用户"),
+    Admin(12, "管理员"),
+    Transaction(13, "事务"),
+    Storage(14, "商品库存表"),
     District(15, "中国省份城市数据库");
 
     private int index;

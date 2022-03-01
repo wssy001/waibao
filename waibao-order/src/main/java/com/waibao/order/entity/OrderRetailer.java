@@ -11,10 +11,11 @@ import lombok.experimental.Accessors;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.Objects;
 
 /**
  * <p>
- * 
+ *
  * </p>
  *
  * @author alexpetertyler
@@ -91,10 +92,26 @@ public class OrderRetailer extends Model<OrderRetailer> {
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     private Date updateTime;
 
+    /**
+     * 逻辑删除
+     */
+    private Boolean enable;
 
     @Override
     public Serializable pkVal() {
         return this.orderId;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof OrderRetailer)) return false;
+        OrderRetailer that = (OrderRetailer) o;
+        return getOrderId().equals(that.getOrderId());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getOrderId());
+    }
 }

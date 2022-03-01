@@ -56,8 +56,7 @@ public class PurchasedUserCacheService {
     }
 
     public Boolean increase(Long userId, int count, int limit) {
-        return valueOperations.getOperations()
-                .execute(increaseCount, Collections.singletonList(REDIS_PURCHASED_USER_KEY + userId), count, limit);
+        return userRedisTemplate.execute(increaseCount, Collections.singletonList(REDIS_PURCHASED_USER_KEY + userId), count, limit);
     }
 
     public void increaseRollback(Long userId, int count) {
@@ -70,8 +69,7 @@ public class PurchasedUserCacheService {
     }
 
     public boolean reachLimit(Long userId, int limit) {
-        Boolean result = valueOperations.getOperations()
-                .execute(reachLimit, Collections.singletonList(REDIS_PURCHASED_USER_KEY + userId), limit);
+        Boolean result = userRedisTemplate.execute(reachLimit, Collections.singletonList(REDIS_PURCHASED_USER_KEY + userId), limit);
         return Boolean.TRUE.equals(result);
     }
 

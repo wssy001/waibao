@@ -111,3 +111,10 @@ rocketmq:
   name-server: 10.60.64.66:39876
   producer:
     group: order-producer
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: enable
+      logic-delete-value: false
+      logic-not-delete-value: true

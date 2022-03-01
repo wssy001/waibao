@@ -1,5 +1,6 @@
 package com.waibao.seckill.service.mq;
 
+import com.alibaba.fastjson.JSON;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +33,8 @@ public class SeckillTransactionListener implements RocketMQLocalTransactionListe
     @Override
     public RocketMQLocalTransactionState executeLocalTransaction(Message msg, Object arg) {
         try {
-            OrderVO orderVO = (OrderVO) msg.getPayload();
+            String s = new String((byte[]) msg.getPayload());
+            OrderVO orderVO = JSON.parseObject(s, OrderVO.class);
             return add(orderVO);
         } catch (Exception e) {
             return RocketMQLocalTransactionState.ROLLBACK;

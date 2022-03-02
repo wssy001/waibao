@@ -1,68 +1,65 @@
 package com.waibao.seckill.service.mq;
 
-import com.alibaba.fastjson.JSON;
-import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.spring.annotation.RocketMQTransactionListener;
-import org.apache.rocketmq.spring.core.RocketMQLocalTransactionListener;
-import org.apache.rocketmq.spring.core.RocketMQLocalTransactionState;
+import org.apache.rocketmq.client.producer.LocalTransactionState;
+import org.apache.rocketmq.client.producer.TransactionListener;
+import org.apache.rocketmq.common.message.Message;
+import org.apache.rocketmq.common.message.MessageExt;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
-import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * TransactionListener
  *
  * @author alexpetertyler
- * @since 2022/2/22
+ * @since 2022/3/2
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@RocketMQTransactionListener
-public class SeckillTransactionListener implements RocketMQLocalTransactionListener {
+public class SeckillTransactionListener implements TransactionListener {
     public static final String REDIS_TRANSACTION_ORDER_KEY = "transaction-order";
+    private final ConcurrentHashMap<String, Integer> tryTimes = new ConcurrentHashMap<>();
 
     @Resource
     private RedisTemplate<String, String> transactionRedisTemplate;
 
     @Override
-    public RocketMQLocalTransactionState executeLocalTransaction(Message msg, Object arg) {
+    public LocalTransactionState executeLocalTransaction(Message msg, Object arg) {
+        LocalTransactionState result;
+        String orderId = msg.getKeys();
         try {
-            String s = new String((byte[]) msg.getPayload());
-            OrderVO orderVO = JSON.parseObject(s, OrderVO.class);
-            return add(orderVO);
+            Boolean absent = transactionRedisTemplate.opsForValue()
+                    .setIfAbsent(REDIS_TRANSACTION_ORDER_KEY + msg.getTransactionId(), orderId);
+            result = Boolean.TRUE.equals(absent) ? LocalTransactionState.COMMIT_MESSAGE :
+                    LocalTransactionState.ROLLBACK_MESSAGE;
         } catch (Exception e) {
-            return RocketMQLocalTransactionState.ROLLBACK;
+            log.error("******SeckillTransactionListener.executeLocalTransaction：事务id：{} 原因：{} 处理方式：{}", orderId, e.getMessage(), "返回UNKNOWN");
+            return LocalTransactionState.UNKNOW;
         }
+        return result;
     }
 
     @Override
-    public RocketMQLocalTransactionState checkLocalTransaction(Message msg) {
+    public LocalTransactionState checkLocalTransaction(MessageExt msg) {
+        Boolean hasKey;
+        String transactionId = msg.getTransactionId();
         try {
-            OrderVO orderVO = (OrderVO) msg.getPayload();
-            String orderId = orderVO.getOrderId();
-            Boolean member = transactionRedisTemplate.opsForSet()
-                    .isMember(REDIS_TRANSACTION_ORDER_KEY, orderId);
-            if (Boolean.FALSE.equals(member)) return add(orderVO);
+            hasKey = transactionRedisTemplate.hasKey(REDIS_TRANSACTION_ORDER_KEY + transactionId);
         } catch (Exception e) {
-            return RocketMQLocalTransactionState.UNKNOWN;
+            Integer times = tryTimes.compute(transactionId, (k, v) -> v == null ? 1 : v + 1);
+            if (times < 4) {
+                log.error("******SeckillTransactionListener.executeLocalTransaction：事务id：{} 原因：{} 处理方式：{}", transactionId, "redis操作失败", "返回UNKNOWN");
+                return LocalTransactionState.UNKNOW;
+            }
+            log.error("******SeckillTransactionListener.executeLocalTransaction：事务id：{} 原因：{} 处理方式：{}", transactionId, "已达到重试上限", "ROLLBACK");
+            return LocalTransactionState.ROLLBACK_MESSAGE;
         }
-        return RocketMQLocalTransactionState.COMMIT;
-    }
-
-    private RocketMQLocalTransactionState add(OrderVO orderVO) {
-        String orderId = orderVO.getOrderId();
-        Long count = transactionRedisTemplate.opsForSet()
-                .add(REDIS_TRANSACTION_ORDER_KEY, orderId);
-        if (Objects.equals(count, 0L)) {
-            log.error("******SeckillTransactionListener.executeLocalTransaction：{} 重复消费", orderId);
-            return RocketMQLocalTransactionState.UNKNOWN;
-        }
-        return RocketMQLocalTransactionState.COMMIT;
+        if (Boolean.FALSE.equals(hasKey)) return LocalTransactionState.ROLLBACK_MESSAGE;
+        return LocalTransactionState.COMMIT_MESSAGE;
     }
 }

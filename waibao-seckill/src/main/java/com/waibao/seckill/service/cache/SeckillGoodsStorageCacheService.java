@@ -30,7 +30,7 @@ public class SeckillGoodsStorageCacheService {
     public static final String REDIS_SECKILL_GOODS_KEY_PREFIX = "seckill-goods-storage-";
 
     private final SeckillGoodsMapper seckillGoodsMapper;
-    private final SeckillGoodsRetailerCacheService seckillGoodsRetailerCacheService;
+    private final SeckillGoodsCacheService seckillGoodsCacheService;
 
     @Resource
     private RedisTemplate<String, Integer> storageRedisTemplate;
@@ -73,7 +73,7 @@ public class SeckillGoodsStorageCacheService {
     }
 
     public Boolean increaseStorage(Long goodsId, int count) {
-        SeckillGoods seckillGoods = seckillGoodsRetailerCacheService.get(goodsId);
+        SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         return storageRedisTemplate.execute(increaseStorage, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX + goodsId), count, seckillGoods.getStorage());
     }
 

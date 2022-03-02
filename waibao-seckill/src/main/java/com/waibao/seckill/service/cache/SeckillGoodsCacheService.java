@@ -21,7 +21,7 @@ import javax.annotation.Resource;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SeckillGoodsRetailerCacheService {
+public class SeckillGoodsCacheService {
     public static final String REDIS_SECKILL_GOODS_KEY_PREFIX = "seckill-goods-";
 
     private final SeckillGoodsMapper seckillGoodsMapper;

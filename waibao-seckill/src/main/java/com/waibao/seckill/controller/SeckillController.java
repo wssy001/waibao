@@ -1,29 +1,29 @@
 package com.waibao.seckill.controller;
 
 import cn.hutool.core.util.IdUtil;
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.anji.captcha.model.common.ResponseModel;
 import com.anji.captcha.model.vo.CaptchaVO;
 import com.anji.captcha.service.CaptchaService;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
-import com.waibao.seckill.service.cache.SeckillGoodsRetailerCacheService;
+import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.cache.SeckillGoodsStorageCacheService;
 import com.waibao.seckill.service.cache.SeckillPathCacheService;
-import com.waibao.util.base.BaseException;
 import com.waibao.util.tools.BeanUtil;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.order.OrderVO;
 import com.waibao.util.vo.seckill.KillVO;
 import com.waibao.util.vo.seckill.SeckillGoodsVO;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.LocalTransactionState;
-import org.apache.rocketmq.client.producer.SendStatus;
+import org.apache.rocketmq.client.producer.TransactionMQProducer;
 import org.apache.rocketmq.client.producer.TransactionSendResult;
+import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
@@ -40,12 +40,13 @@ import java.util.concurrent.Future;
 @RequiredArgsConstructor
 @RequestMapping("/seckill")
 public class SeckillController {
-    private final SeckillGoodsRetailerCacheService seckillGoodsRetailerCacheService;
+    private final SeckillGoodsCacheService seckillGoodsCacheService;
     private final SeckillPathCacheService seckillPathCacheService;
     private final SeckillGoodsStorageCacheService seckillGoodsStorageCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;
     private final CaptchaService captchaService;
     private final RocketMQTemplate rocketMQTemplate;
+    private final TransactionMQProducer seckillTransactionMQProducer;
 
     @GetMapping("/goods/{goodsId}/seckillPath")
     public GlobalResult<JSONObject> getSeckillPath(
@@ -56,7 +57,7 @@ public class SeckillController {
         ResponseModel verification = captchaService.verification(captchaVO);
         if (!verification.isSuccess()) return GlobalResult.error(verification.getRepMsg());
 
-        SeckillGoods seckillGoods = seckillGoodsRetailerCacheService.get(goodsId);
+        SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         if (seckillGoods.getGoodsId() == null) return GlobalResult.error("秒杀产品不存在");
         Date date = new Date();
         if (date.before(seckillGoods.getSeckillStartTime())) return GlobalResult.error("秒杀还未开始");
@@ -76,7 +77,7 @@ public class SeckillController {
             @PathVariable("goodsId") Long goodsId,
             @RequestParam("userId") Long userId
     ) {
-        SeckillGoods seckillGoods = seckillGoodsRetailerCacheService.get(goodsId);
+        SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         if (seckillGoods.getGoodsId() == null) return GlobalResult.error("秒杀产品不存在");
 
         SeckillGoodsVO seckillGoodsVO = BeanUtil.copyProperties(seckillGoods, SeckillGoodsVO.class);
@@ -85,6 +86,7 @@ public class SeckillController {
         return GlobalResult.success(seckillGoodsVO);
     }
 
+    @SneakyThrows
     @PostMapping("/goods/kill")
     public GlobalResult<JSONObject> seckill(
             @RequestBody KillVO killVO,
@@ -92,7 +94,7 @@ public class SeckillController {
     ) {
         Long goodsId = killVO.getGoodsId();
         if (!seckillPathCacheService.delete(killVO.getRandomStr(), goodsId)) return GlobalResult.error("秒杀地址无效！");
-        SeckillGoods seckillGoods = seckillGoodsRetailerCacheService.get(goodsId);
+        SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         Integer purchaseLimit = seckillGoods.getPurchaseLimit();
         Integer count = killVO.getCount();
         if (count > purchaseLimit) return GlobalResult.error("秒杀失败，超过最大购买限制");
@@ -118,19 +120,15 @@ public class SeckillController {
         orderVO.setOrderId(orderId);
         orderVO.setGoodsId(goodsId);
         orderVO.setUserId(userId);
-        Message<OrderVO> message = MessageBuilder.withPayload(orderVO)
-                .setHeader("KEYS", orderId)
-                .build();
 
-        try {
-            TransactionSendResult sendResult = rocketMQTemplate.sendMessageInTransaction("order:create", message, null);
-            log.info("******SeckillController.seckillTest：");
-            if (!sendResult.getSendStatus().equals(SendStatus.SEND_OK) || sendResult.getLocalTransactionState().equals(LocalTransactionState.ROLLBACK_MESSAGE))
-                throw new BaseException();
-        } catch (Exception e) {
-            rocketMQTemplate.asyncSend("storage:redisRollback", orderVO, null);
-            log.error("******SeckillController.seckill：{}", e.getMessage());
-            return GlobalResult.error("服务异常，无法创建订单");
+        Message message = new Message("order", "create", orderId, JSON.toJSONString(orderVO).getBytes());
+        message.setTransactionId(orderId);
+        TransactionSendResult sendResult = seckillTransactionMQProducer.sendMessageInTransaction(message, null);
+        if (sendResult.getLocalTransactionState().equals(LocalTransactionState.ROLLBACK_MESSAGE)) {
+            new Thread(() -> seckillGoodsStorageCacheService.increaseStorage(goodsId, count)).start();
+            new Thread(() -> purchasedUserCacheService.decrease(userId, count)).start();
+            log.error("******SeckillController.seckillTest：事务id：{} 原因：{} 处理:{}", orderId, "MQ事务消息发送失败", "人工介入");
+            return GlobalResult.error("服务异常，秒杀失败，请联系工作人员");
         }
 
         JSONObject jsonObject = new JSONObject();
@@ -138,6 +136,7 @@ public class SeckillController {
         return GlobalResult.success("秒杀成功", jsonObject);
     }
 
+    @SneakyThrows
     @PostMapping("/goods/{goodsId}")
     public GlobalResult<JSONObject> seckillTest(
             @PathVariable("goodsId") Long goodsId,
@@ -147,6 +146,7 @@ public class SeckillController {
     ) {
         long start = new Date().getTime();
         if (count > purchaseLimit) return GlobalResult.error("秒杀失败，超过最大购买限制");
+
         try {
             Future<Boolean> decreaseStorage = seckillGoodsStorageCacheService.decreaseStorageAsync(goodsId, count);
             Future<Boolean> increase = purchasedUserCacheService.increaseAsync(userId, count, purchaseLimit);
@@ -168,19 +168,15 @@ public class SeckillController {
         orderVO.setOrderId(orderId);
         orderVO.setGoodsId(goodsId);
         orderVO.setUserId(userId);
-        Message<OrderVO> message = MessageBuilder.withPayload(orderVO)
-                .setHeader("KEYS", orderId)
-                .build();
 
-        try {
-            TransactionSendResult sendResult = rocketMQTemplate.sendMessageInTransaction("order:create", message, null);
-            log.info("******SeckillController.seckillTest：");
-            if (!sendResult.getSendStatus().equals(SendStatus.SEND_OK) || sendResult.getLocalTransactionState().equals(LocalTransactionState.ROLLBACK_MESSAGE))
-                throw new BaseException();
-        } catch (Exception e) {
-            rocketMQTemplate.asyncSend("storage:redisRollback", orderVO, null);
-            log.error("******SeckillController.seckill：{}", e.getMessage());
-            return GlobalResult.error("服务异常，无法创建订单");
+        Message message = new Message("order", "create", orderId, JSON.toJSONString(orderVO).getBytes());
+        message.setTransactionId(IdUtil.objectId());
+        TransactionSendResult sendResult = seckillTransactionMQProducer.sendMessageInTransaction(message, null);
+        if (sendResult.getLocalTransactionState().equals(LocalTransactionState.ROLLBACK_MESSAGE)) {
+            new Thread(() -> seckillGoodsStorageCacheService.increaseStorage(goodsId, count)).start();
+            new Thread(() -> purchasedUserCacheService.decrease(userId, count)).start();
+            log.error("******SeckillController.seckillTest：订单id：{} 原因：{} 处理:{}", orderId, "MQ事务消息发送失败", "人工介入");
+            return GlobalResult.error("服务异常，秒杀失败，请联系工作人员");
         }
 
         long end = new Date().getTime();

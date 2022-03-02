@@ -59,13 +59,13 @@ public class PurchasedUserCacheService {
         return userRedisTemplate.execute(increaseCount, Collections.singletonList(REDIS_PURCHASED_USER_KEY + userId), count, limit);
     }
 
-    public void increaseRollback(Long userId, int count) {
-        valueOperations.decrement(REDIS_PURCHASED_USER_KEY + userId, count);
-    }
-
     @Async
     public Future<Boolean> increaseAsync(Long userId, int count, int limit) {
         return new AsyncResult<>(increase(userId, count, limit));
+    }
+
+    public void decrease(Long userId, int count) {
+        valueOperations.decrement(REDIS_PURCHASED_USER_KEY + userId, count);
     }
 
     public boolean reachLimit(Long userId, int limit) {

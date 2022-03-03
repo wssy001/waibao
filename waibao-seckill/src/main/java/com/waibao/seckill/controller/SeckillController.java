@@ -21,10 +21,7 @@ import com.waibao.util.vo.seckill.KillVO;
 import com.waibao.util.vo.seckill.SeckillGoodsVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.producer.DefaultMQProducer;
-import org.apache.rocketmq.client.producer.LocalTransactionState;
-import org.apache.rocketmq.client.producer.SendStatus;
-import org.apache.rocketmq.client.producer.TransactionSendResult;
+import org.apache.rocketmq.client.producer.*;
 import org.apache.rocketmq.common.message.Message;
 import org.springframework.web.bind.annotation.*;
 
@@ -47,8 +44,7 @@ public class SeckillController {
     private final SeckillGoodsStorageCacheService seckillGoodsStorageCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;
     private final CaptchaService captchaService;
-    private final DefaultMQProducer seckillTransactionMQProducer;
-    private final DefaultMQProducer seckillDelayMQProducer;
+    private final TransactionMQProducer seckillTransactionMQProducer;
     private final MqMsgCompensationService mqMsgCompensationService;
     private final AsyncService asyncService;
 
@@ -223,7 +219,6 @@ public class SeckillController {
         mqMsgCompensation.setTopic("order");
         mqMsgCompensation.setContent(jsonString);
         mqMsgCompensation.setMsgId(orderId);
-        mqMsgCompensation.setStatus("补偿消息未发送");
         mqMsgCompensation.setExceptionMsg(exceptionMsg);
         try {
             mqMsgCompensationService.saveOrUpdate(mqMsgCompensation);

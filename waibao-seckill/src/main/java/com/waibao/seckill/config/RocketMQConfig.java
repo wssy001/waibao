@@ -25,7 +25,7 @@ public class RocketMQConfig {
 
     @Bean
     @SneakyThrows
-    public DefaultMQProducer seckillTransactionMQProducer() {
+    public TransactionMQProducer seckillTransactionMQProducer() {
         TransactionMQProducer transactionMQProducer = new TransactionMQProducer("seckillTransaction");
         transactionMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
         transactionMQProducer.setTransactionListener(seckillTransactionListener);
@@ -35,8 +35,8 @@ public class RocketMQConfig {
 
     @Bean
     @SneakyThrows
-    public DefaultMQProducer seckillDelayMQProducer() {
-        DefaultMQProducer seckillDelay = new DefaultMQProducer("seckillDelay");
+    public DefaultMQProducer orderCompensationMQProducer() {
+        DefaultMQProducer seckillDelay = new DefaultMQProducer("orderCompensation");
         seckillDelay.setNamesrvAddr(rocketMQProperties.getNameServer());
         seckillDelay.start();
         return seckillDelay;

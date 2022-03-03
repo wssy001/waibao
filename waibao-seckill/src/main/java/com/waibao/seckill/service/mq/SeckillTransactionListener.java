@@ -23,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class SeckillTransactionListener implements TransactionListener {
     public static final String REDIS_TRANSACTION_ORDER_KEY = "transaction-order";
-    private final ConcurrentHashMap<String, Integer> tryTimes = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<String, Integer> tryTimes = new ConcurrentHashMap<>();
 
     @Resource
     private RedisTemplate<String, String> transactionRedisTemplate;

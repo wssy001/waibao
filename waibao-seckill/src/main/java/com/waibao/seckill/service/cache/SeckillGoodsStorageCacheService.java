@@ -7,15 +7,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.Collections;
-import java.util.concurrent.Future;
 
 /**
  * SeckillGoodsCacheService
@@ -77,18 +74,8 @@ public class SeckillGoodsStorageCacheService {
         return storageRedisTemplate.execute(increaseStorage, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX + goodsId), count, seckillGoods.getStorage());
     }
 
-    @Async
-    public Future<Boolean> increaseStorageAsync(Long goodsId, int count) {
-        return new AsyncResult<>(increaseStorage(goodsId, count));
-    }
-
     public Boolean decreaseStorage(Long goodsId, int count) {
         return storageRedisTemplate.execute(decreaseStorage, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX + goodsId), count);
-    }
-
-    @Async
-    public Future<Boolean> decreaseStorageAsync(Long goodsId, int count) {
-        return new AsyncResult<>(decreaseStorage(goodsId, count));
     }
 
     public void set(SeckillGoods seckillGoods) {

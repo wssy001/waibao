@@ -6,24 +6,26 @@ import com.alibaba.fastjson.JSONObject;
 import com.anji.captcha.model.common.ResponseModel;
 import com.anji.captcha.model.vo.CaptchaVO;
 import com.anji.captcha.service.CaptchaService;
+import com.waibao.seckill.entity.MqMsgCompensation;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
 import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.cache.SeckillGoodsStorageCacheService;
 import com.waibao.seckill.service.cache.SeckillPathCacheService;
+import com.waibao.seckill.service.db.MqMsgCompensationService;
+import com.waibao.util.async.AsyncService;
 import com.waibao.util.tools.BeanUtil;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.order.OrderVO;
 import com.waibao.util.vo.seckill.KillVO;
 import com.waibao.util.vo.seckill.SeckillGoodsVO;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.LocalTransactionState;
-import org.apache.rocketmq.client.producer.TransactionMQProducer;
+import org.apache.rocketmq.client.producer.SendStatus;
 import org.apache.rocketmq.client.producer.TransactionSendResult;
 import org.apache.rocketmq.common.message.Message;
-import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
@@ -45,8 +47,10 @@ public class SeckillController {
     private final SeckillGoodsStorageCacheService seckillGoodsStorageCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;
     private final CaptchaService captchaService;
-    private final RocketMQTemplate rocketMQTemplate;
-    private final TransactionMQProducer seckillTransactionMQProducer;
+    private final DefaultMQProducer seckillTransactionMQProducer;
+    private final DefaultMQProducer seckillDelayMQProducer;
+    private final MqMsgCompensationService mqMsgCompensationService;
+    private final AsyncService asyncService;
 
     @GetMapping("/goods/{goodsId}/seckillPath")
     public GlobalResult<JSONObject> getSeckillPath(
@@ -86,7 +90,6 @@ public class SeckillController {
         return GlobalResult.success(seckillGoodsVO);
     }
 
-    @SneakyThrows
     @PostMapping("/goods/kill")
     public GlobalResult<JSONObject> seckill(
             @RequestBody KillVO killVO,
@@ -100,8 +103,8 @@ public class SeckillController {
         if (count > purchaseLimit) return GlobalResult.error("秒杀失败，超过最大购买限制");
 
         try {
-            Future<Boolean> decreaseStorage = seckillGoodsStorageCacheService.decreaseStorageAsync(goodsId, count);
-            Future<Boolean> increase = purchasedUserCacheService.increaseAsync(userId, count, purchaseLimit);
+            Future<Boolean> decreaseStorage = asyncService.basicTask(seckillGoodsStorageCacheService.decreaseStorage(goodsId, count));
+            Future<Boolean> increase = asyncService.basicTask(purchasedUserCacheService.increase(userId, count, purchaseLimit));
             while (true) {
                 if (decreaseStorage.isDone() && increase.isDone()) break;
             }
@@ -121,13 +124,28 @@ public class SeckillController {
         orderVO.setGoodsId(goodsId);
         orderVO.setUserId(userId);
 
-        Message message = new Message("order", "create", orderId, JSON.toJSONString(orderVO).getBytes());
-        message.setTransactionId(orderId);
-        TransactionSendResult sendResult = seckillTransactionMQProducer.sendMessageInTransaction(message, null);
+        String jsonString = JSON.toJSONString(orderVO);
+        Message message = new Message("order", "create", orderId, jsonString.getBytes());
+        String transactionId = IdUtil.objectId();
+        message.setTransactionId(transactionId);
+        TransactionSendResult sendResult;
+        try {
+            sendResult = seckillTransactionMQProducer.sendMessageInTransaction(message, null);
+        } catch (Exception e) {
+            asyncService.basicTask(() -> log.error("******SeckillController.seckillTest：订单id：{} 原因：{} 处理:{}", orderId, "producer发送失败", "等待延迟补偿结果"));
+            asyncService.basicTask(() -> sendMqMsgCompensation(orderId, jsonString, transactionId, e.getMessage()));
+            return GlobalResult.error("服务异常，请等待，切勿重复下单");
+        }
+        if (!sendResult.getSendStatus().equals(SendStatus.SEND_OK)) {
+            String name = sendResult.getSendStatus().name();
+            asyncService.basicTask(() -> log.error("******SeckillController.seckillTest：订单id：{} 原因：{} 处理:{}", orderId, name, "等待延迟补偿结果"));
+            asyncService.basicTask(() -> sendMqMsgCompensation(orderId, jsonString, transactionId, name));
+            return GlobalResult.error("系统忙，请等待，切勿重复下单");
+        }
         if (sendResult.getLocalTransactionState().equals(LocalTransactionState.ROLLBACK_MESSAGE)) {
-            new Thread(() -> seckillGoodsStorageCacheService.increaseStorage(goodsId, count)).start();
-            new Thread(() -> purchasedUserCacheService.decrease(userId, count)).start();
-            log.error("******SeckillController.seckillTest：事务id：{} 原因：{} 处理:{}", orderId, "MQ事务消息发送失败", "人工介入");
+            asyncService.basicTask(() -> seckillGoodsStorageCacheService.increaseStorage(goodsId, count));
+            asyncService.basicTask(() -> purchasedUserCacheService.decrease(userId, count));
+            asyncService.basicTask(() -> log.error("******SeckillController.seckillTest：订单id：{} 原因：{} 处理:{}", orderId, "MQ事务消息发送失败", "人工介入"));
             return GlobalResult.error("服务异常，秒杀失败，请联系工作人员");
         }
 
@@ -136,7 +154,7 @@ public class SeckillController {
         return GlobalResult.success("秒杀成功", jsonObject);
     }
 
-    @SneakyThrows
+//    正常情况：第一次请求>=200ms，后续10次请求平均47ms
     @PostMapping("/goods/{goodsId}")
     public GlobalResult<JSONObject> seckillTest(
             @PathVariable("goodsId") Long goodsId,
@@ -148,8 +166,8 @@ public class SeckillController {
         if (count > purchaseLimit) return GlobalResult.error("秒杀失败，超过最大购买限制");
 
         try {
-            Future<Boolean> decreaseStorage = seckillGoodsStorageCacheService.decreaseStorageAsync(goodsId, count);
-            Future<Boolean> increase = purchasedUserCacheService.increaseAsync(userId, count, purchaseLimit);
+            Future<Boolean> decreaseStorage = asyncService.basicTask(seckillGoodsStorageCacheService.decreaseStorage(goodsId, count));
+            Future<Boolean> increase = asyncService.basicTask(purchasedUserCacheService.increase(userId, count, purchaseLimit));
             while (true) {
                 if (decreaseStorage.isDone() && increase.isDone()) break;
             }
@@ -169,17 +187,49 @@ public class SeckillController {
         orderVO.setGoodsId(goodsId);
         orderVO.setUserId(userId);
 
-        Message message = new Message("order", "create", orderId, JSON.toJSONString(orderVO).getBytes());
-        message.setTransactionId(IdUtil.objectId());
-        TransactionSendResult sendResult = seckillTransactionMQProducer.sendMessageInTransaction(message, null);
+        String jsonString = JSON.toJSONString(orderVO);
+        Message message = new Message("order", "create", orderId, jsonString.getBytes());
+        String transactionId = IdUtil.objectId();
+        message.setTransactionId(transactionId);
+        TransactionSendResult sendResult;
+        try {
+            sendResult = seckillTransactionMQProducer.sendMessageInTransaction(message, null);
+        } catch (Exception e) {
+            asyncService.basicTask(() -> log.error("******SeckillController.seckillTest：订单id：{} 原因：{} 处理:{}", orderId, "producer发送失败", "等待延迟补偿结果"));
+            asyncService.basicTask(() -> sendMqMsgCompensation(orderId, jsonString, transactionId, e.getMessage()));
+            return GlobalResult.error("服务异常，请等待，切勿重复下单");
+        }
+        if (!sendResult.getSendStatus().equals(SendStatus.SEND_OK)) {
+            String name = sendResult.getSendStatus().name();
+            asyncService.basicTask(() -> log.error("******SeckillController.seckillTest：订单id：{} 原因：{} 处理:{}", orderId, name, "等待延迟补偿结果"));
+            asyncService.basicTask(() -> sendMqMsgCompensation(orderId, jsonString, transactionId, name));
+            return GlobalResult.error("系统忙，请等待，切勿重复下单");
+        }
         if (sendResult.getLocalTransactionState().equals(LocalTransactionState.ROLLBACK_MESSAGE)) {
-            new Thread(() -> seckillGoodsStorageCacheService.increaseStorage(goodsId, count)).start();
-            new Thread(() -> purchasedUserCacheService.decrease(userId, count)).start();
-            log.error("******SeckillController.seckillTest：订单id：{} 原因：{} 处理:{}", orderId, "MQ事务消息发送失败", "人工介入");
+            asyncService.basicTask(() -> seckillGoodsStorageCacheService.increaseStorage(goodsId, count));
+            asyncService.basicTask(() -> purchasedUserCacheService.decrease(userId, count));
+            asyncService.basicTask(() -> log.error("******SeckillController.seckillTest：订单id：{} 原因：{} 处理:{}", orderId, "MQ事务消息发送失败", "人工介入"));
             return GlobalResult.error("服务异常，秒杀失败，请联系工作人员");
         }
 
         long end = new Date().getTime();
         return GlobalResult.success("秒杀成功，耗时：" + (end - start) + " ms");
+    }
+
+    private void sendMqMsgCompensation(String orderId, String jsonString, String transactionId, String exceptionMsg) {
+        MqMsgCompensation mqMsgCompensation = new MqMsgCompensation();
+        mqMsgCompensation.setBusinessKey(transactionId);
+        mqMsgCompensation.setTags("create");
+        mqMsgCompensation.setTopic("order");
+        mqMsgCompensation.setContent(jsonString);
+        mqMsgCompensation.setMsgId(orderId);
+        mqMsgCompensation.setStatus("补偿消息未发送");
+        mqMsgCompensation.setExceptionMsg(exceptionMsg);
+        try {
+            mqMsgCompensationService.saveOrUpdate(mqMsgCompensation);
+            log.info("******SeckillController.sendMqMsgCompensation：补偿消息发送成功，消息id：{}", orderId);
+        } catch (Exception e) {
+            log.info("******SeckillController.sendMqMsgCompensation：补偿消息发送失败，消息id：{}", orderId);
+        }
     }
 }

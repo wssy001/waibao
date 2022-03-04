@@ -1,11 +1,9 @@
 package com.waibao.seckill.config;
 
-import com.waibao.seckill.service.mq.SeckillTransactionListener;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
-import org.apache.rocketmq.client.producer.TransactionMQProducer;
 import org.apache.rocketmq.spring.autoconfigure.RocketMQProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,16 +19,14 @@ import org.springframework.context.annotation.Configuration;
 @RequiredArgsConstructor
 public class RocketMQConfig {
     private final RocketMQProperties rocketMQProperties;
-    private final SeckillTransactionListener seckillTransactionListener;
 
     @Bean
     @SneakyThrows
-    public TransactionMQProducer seckillTransactionMQProducer() {
-        TransactionMQProducer transactionMQProducer = new TransactionMQProducer("seckillTransaction");
-        transactionMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
-        transactionMQProducer.setTransactionListener(seckillTransactionListener);
-        transactionMQProducer.start();
-        return transactionMQProducer;
+    public DefaultMQProducer orderCreateMQProducer() {
+        DefaultMQProducer orderCreate = new DefaultMQProducer("orderCreate");
+        orderCreate.setNamesrvAddr(rocketMQProperties.getNameServer());
+        orderCreate.start();
+        return orderCreate;
     }
 
     @Bean

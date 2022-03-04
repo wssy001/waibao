@@ -19,8 +19,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @EnableDiscoveryClient
 @SpringBootApplication
-@Import({AsyncService.class})
 @MapperScan("com.waibao.seckill.mapper")
+@Import({AsyncService.class})
 public class SeckillApplication {
     public static void main(String[] args) {
         SpringApplication.run(SeckillApplication.class, args);

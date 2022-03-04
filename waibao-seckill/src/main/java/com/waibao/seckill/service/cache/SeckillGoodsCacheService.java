@@ -22,6 +22,7 @@ import javax.annotation.Resource;
 @Service
 @RequiredArgsConstructor
 public class SeckillGoodsCacheService {
+    //TODO  完善商品在Redis的分库
     public static final String REDIS_SECKILL_GOODS_KEY_PREFIX = "seckill-goods-";
 
     private final SeckillGoodsMapper seckillGoodsMapper;

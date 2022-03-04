@@ -15,6 +15,7 @@ import java.util.concurrent.Future;
 @Async
 @Service
 public class AsyncService {
+
     public void basicTask(Runnable runnable) {
         runnable.run();
     }

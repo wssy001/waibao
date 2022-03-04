@@ -36,7 +36,7 @@ public class MybatisGeneratorTest {
     }
 
     private DataSourceConfig.Builder getDataSourceConfig() {
-        String url = "jdbc:mysql://10.60.64.66:33306/waibao_order_retailer?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true";
+        String url = "jdbc:mysql://10.60.64.66:33306/waibao_v2?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true";
         String username = "root";
         String password = "wssy001";
         return new DataSourceConfig
@@ -49,8 +49,7 @@ public class MybatisGeneratorTest {
         return builder -> builder
 //                添加表名
                 .addInclude(
-                        "order_retailer_0",
-                        "order_retailer_1"
+                        "mq_msg_compensation"
                 )
 
                 .entityBuilder()

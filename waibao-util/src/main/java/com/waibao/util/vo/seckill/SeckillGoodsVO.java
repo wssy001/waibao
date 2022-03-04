@@ -17,6 +17,7 @@ import java.util.Date;
 @AllArgsConstructor
 public class SeckillGoodsVO {
     private Long goodsId;
+    private Long retailerId;
     private Integer storage;
     private Integer currentStorage;
     private Integer purchaseLimit;

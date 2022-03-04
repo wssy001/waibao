@@ -40,11 +40,7 @@ public class MsgCompensationService {
 
         if (collect.isEmpty()) return;
         List<Message> messageList = collect.parallelStream()
-                .map(mqMsgCompensation -> {
-                    Message message = new Message("order", "create", mqMsgCompensation.getMsgId(), mqMsgCompensation.getContent().getBytes());
-                    message.setTransactionId(mqMsgCompensation.getBusinessKey());
-                    return message;
-                }).collect(Collectors.toList());
+                .map(mqMsgCompensation -> new Message("order", "create", mqMsgCompensation.getMsgId(), mqMsgCompensation.getContent().getBytes())).collect(Collectors.toList());
 
         orderCompensationMQProducer.send(messageList, (SendCallback) null);
         mqMsgCompensationService.updateBatchById(collect);

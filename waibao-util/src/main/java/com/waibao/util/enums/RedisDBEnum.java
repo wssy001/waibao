@@ -15,7 +15,7 @@ public enum RedisDBEnum {
     Default(0, "默认"),
     Captcha(1, "验证码"),
     GoodsRetailer(4, "商品|商户"),
-    GoodsUser(5, "商品|用户"),
+    Goods(5, "商品"),
     OrderRetailer(6, "订单|商户"),
     OrderUser(7, "订单|用户"),
     OrderGoods(8, "订单|商品"),

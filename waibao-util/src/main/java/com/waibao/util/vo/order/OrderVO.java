@@ -28,6 +28,8 @@ public class OrderVO {
 
     private BigDecimal goodsPrice;
 
+    private Integer count;
+
     private BigDecimal orderPrice;
 
     private Date purchaseTime;

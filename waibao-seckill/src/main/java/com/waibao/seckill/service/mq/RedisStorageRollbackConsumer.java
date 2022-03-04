@@ -1,17 +1,23 @@
 package com.waibao.seckill.service.mq;
 
-import com.waibao.seckill.service.cache.SeckillGoodsStorageCacheService;
+import com.alibaba.fastjson.JSON;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.waibao.seckill.entity.MqMsgCompensation;
+import com.waibao.seckill.mapper.MqMsgCompensationMapper;
+import com.waibao.seckill.service.cache.GoodsStorageCacheService;
+import com.waibao.seckill.service.cache.PurchasedUserCacheService;
+import com.waibao.util.async.AsyncService;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.spring.annotation.ConsumeMode;
-import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
-import org.apache.rocketmq.spring.core.RocketMQListener;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
+import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
+import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
+import org.apache.rocketmq.common.message.MessageExt;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.Resource;
-import java.util.Objects;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * StorageConsumer
@@ -22,32 +28,48 @@ import java.util.Objects;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@RocketMQMessageListener(consumerGroup = "redisStorageRollback", topic = "storage", selectorExpression = "rollback||redisRollback", consumeMode = ConsumeMode.CONCURRENTLY)
-public class RedisStorageRollbackConsumer implements RocketMQListener<OrderVO> {
-    public static final String REDIS_TRANSACTION_STORAGE_KEY = "transaction-storage-rollback-";
-
-    private final SeckillGoodsStorageCacheService seckillGoodsStorageCacheService;
-
-    @Resource
-    private RedisTemplate<String, String> transactionRedisTemplate;
+public class RedisStorageRollbackConsumer implements MessageListenerConcurrently {
+    private final AsyncService asyncService;
+    private final MqMsgCompensationMapper mqMsgCompensationMapper;
+    private final GoodsStorageCacheService goodsStorageCacheService;
+    private final PurchasedUserCacheService purchasedUserCacheService;
 
     @Override
-    public void onMessage(OrderVO orderVO) {
-        String orderId = orderVO.getOrderId();
-        Long count = transactionRedisTemplate.opsForSet()
-                .add(REDIS_TRANSACTION_STORAGE_KEY + orderId, orderId);
-
-        if (Objects.equals(count, 0L)) {
-            log.error("******StorageConsumer.onMessage：{} 重复消费,回滚失败", orderId);
-            return;
-        }
-
-        Boolean increaseStorage = seckillGoodsStorageCacheService.increaseStorage(orderVO.getGoodsId(), 1);
-        if (Boolean.FALSE.equals(increaseStorage)) {
-            log.error("******StorageConsumer.onMessage：{} 库存已达最大限制，回滚失败", orderId);
-            return;
-        }
-
-        log.info("******StorageConsumer.onMessage：{} 库存回滚成功", orderId);
+    public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
+        List<OrderVO> orderVOList = convert(msgs);
+        asyncService.basicTask(() -> goodsStorageCacheService.increaseBatchStorage(orderVOList)
+                .forEach(orderVO -> goodsStorageCacheServiceLog(orderVO, orderVOList)));
+        asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
+                Wrappers.<MqMsgCompensation>lambdaUpdate()
+                        .in(MqMsgCompensation::getMsgId, orderVOList.parallelStream()
+                                .map(OrderVO::getOrderId)
+                                .collect(Collectors.toList()))
+                        .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
+        asyncService.basicTask(() -> purchasedUserCacheService.decreaseBatch(orderVOList)
+                .forEach(orderVO -> purchasedUserCacheServiceLog(orderVO, orderVOList)));
+        return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
+
+    private void goodsStorageCacheServiceLog(OrderVO orderVO, List<OrderVO> orderVOList) {
+        if (!orderVOList.contains(orderVO)) {
+            log.info("******RedisStorageRollbackConsumer.goodsStorageCacheServiceLog：订单id：{} Redis库存回滚成功", orderVO.getOrderId());
+        } else {
+            log.error("******RedisStorageRollbackConsumer.goodsStorageCacheServiceLog：订单id：{} Redis库存回滚失败，原因：{} 处理：{}", orderVO.getOrderId(), "商品ID不存在", "人工处理");
+        }
+    }
+
+    private void purchasedUserCacheServiceLog(OrderVO orderVO, List<OrderVO> orderVOList) {
+        if (!orderVOList.contains(orderVO)) {
+            log.info("******RedisStorageRollbackConsumer.purchasedUserCacheServiceLog：订单id：{} Redis用户已购买数回滚成功", orderVO.getOrderId());
+        } else {
+            log.error("******RedisStorageRollbackConsumer.purchasedUserCacheServiceLog：订单id：{} Redis用户已购买数回滚失败，原因：{} 处理：{}", orderVO.getOrderId(), "商品ID不存在", "人工处理");
+        }
+    }
+
+    private List<OrderVO> convert(List<MessageExt> msgs) {
+        return msgs.parallelStream()
+                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), OrderVO.class))
+                .collect(Collectors.toList());
+    }
+
 }

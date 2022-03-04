@@ -50,8 +50,10 @@ spring:
   task:
     execution:
       pool:
-        max-size: 16
-        keep-alive: "10s"
+        max-size: 20
+        keep-alive: 60s
+        core-size: 10
+        queue-capacity: 200
       thread-name-prefix: 异步任务-
     scheduling:
       pool:

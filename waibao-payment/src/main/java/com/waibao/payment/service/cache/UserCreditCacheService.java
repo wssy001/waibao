@@ -14,9 +14,11 @@ import com.waibao.util.vo.user.PageVO;
 import com.waibao.util.vo.user.UserCreditVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,28 +32,32 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class UserCreditCacheService {
-    private final String REDIS_USER_CREDIT_KEY_PREFIX="user_credit-";
+    private final String REDIS_USER_CREDIT_KEY_PREFIX = "user-credit-";
+
+    private final UserCreditMapper userCreditMapper;
+    private final UserService userService;
+    private final UserCreditService userCreditService;
 
     @Resource
-    private UserCreditMapper userCreditMapper;
-
-    @Resource
-    private UserService userService;
-
-    @Resource
-    private UserCreditService userCreditService;
+    private RedisTemplate<String, UserCredit> userCreditRedisTemplate;
 
     private ValueOperations<String, UserCredit> valueOperations;
 
-    public GlobalResult<UserCreditVO> add(UserCreditVO userCreditVO){
+    @PostConstruct
+    public void init() {
+        valueOperations = userCreditRedisTemplate.opsForValue();
+    }
+
+    public GlobalResult<UserCreditVO> add(UserCreditVO userCreditVO) {
         GlobalResult<String> result = userService.checkUser(userCreditVO.getUserId());
-        if(result.getCode()!=200) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
+        if (result.getCode() != 200) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
         UserCredit record = BeanUtil.copyProperties(userCreditVO, UserCredit.class);
         int insert = userCreditMapper.insert(record);
-        if(insert==0) return GlobalResult.error(ResultEnum.SYSTEM_SAVE_FAIL);
+        if (insert == 0) return GlobalResult.error(ResultEnum.SYSTEM_SAVE_FAIL);
         this.set(record);
         return GlobalResult.success(userCreditVO);
     }
+
     public GlobalResult<UserCreditVO> get(Long userId) {
         UserCredit credit = valueOperations.get(REDIS_USER_CREDIT_KEY_PREFIX + userId);
         if (credit == null) {
@@ -64,7 +70,7 @@ public class UserCreditCacheService {
         return GlobalResult.success(record);
     }
 
-    public GlobalResult<PageVO<UserCreditVO>> list(PageVO<UserCreditVO> pageVO ) {
+    public GlobalResult<PageVO<UserCreditVO>> list(PageVO<UserCreditVO> pageVO) {
         IPage<UserCredit> creditPage = new Page<>(pageVO.getIndex(), pageVO.getCount());
         creditPage = userCreditMapper.selectPage(creditPage, Wrappers.<UserCredit>lambdaQuery().orderByDesc(UserCredit::getUpdateTime));
 
@@ -82,12 +88,12 @@ public class UserCreditCacheService {
         return GlobalResult.success(ResultEnum.SUCCESS, pageVO);
     }
 
-    public GlobalResult<UserCreditVO> update(UserCreditVO userCreditVO){
+    public GlobalResult<UserCreditVO> update(UserCreditVO userCreditVO) {
         GlobalResult<String> result = userService.checkUser(userCreditVO.getUserId());
-        if(result.getCode()!=200) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
+        if (result.getCode() != 200) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
         UserCredit record = BeanUtil.copyProperties(userCreditVO, UserCredit.class);
         int insert = userCreditMapper.updateByPrimaryKeySelective(record);
-        if(insert==0) return GlobalResult.error(ResultEnum.SYSTEM_UPDATE_FAIL);
+        if (insert == 0) return GlobalResult.error(ResultEnum.SYSTEM_UPDATE_FAIL);
         return GlobalResult.success(userCreditVO);
     }
 

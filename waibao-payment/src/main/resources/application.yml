@@ -50,17 +50,15 @@ spring:
 
     sharding:
       tables:
-        admin:
-          actualDataNodes: master.admin
-        seckill_goods:
-          actualDataNodes: master.seckill_goods
-        order_user:
+        mq_msg_compensation:
+          actualDataNodes: master.mq_msg_compensation
+        user_credit:
           actualDataNodes: master-credit-user.user_credit_$->{0..1}
           tableStrategy:
             inline:
               shardingColumn: user_id
               algorithmExpression: user_credit_$->{user_id % 2}
-        order_retailer:
+        payment:
           actualDataNodes: master-payment.payment_$->{0..1}
           tableStrategy:
             inline:
@@ -87,6 +85,18 @@ spring:
       pool:
         min-idle: 5
         max-idle: 10
+
+  task:
+    execution:
+      pool:
+        max-size: 16
+        keep-alive: "10s"
+      thread-name-prefix: 异步任务-
+    scheduling:
+      pool:
+        size: 5
+      thread-name-prefix: 定时任务-
+
   cloud:
     nacos:
       server-addr: 10.60.64.66:8848
@@ -98,3 +108,15 @@ spring:
       config:
         namespace: waibao
         extension-configs: application.properties,${spring.application.name}.properties
+
+rocketmq:
+  name-server: 10.60.64.66:39876
+  producer:
+    group: order-producer
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: enable
+      logic-delete-value: false
+      logic-not-delete-value: true

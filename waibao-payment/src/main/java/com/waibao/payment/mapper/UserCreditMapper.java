@@ -3,12 +3,10 @@ package com.waibao.payment.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.waibao.payment.entity.UserCredit;
 import com.waibao.payment.entity.UserCreditExample;
-import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
-@Mapper
 public interface UserCreditMapper extends BaseMapper<UserCredit> {
     long countByExample(UserCreditExample example);
 

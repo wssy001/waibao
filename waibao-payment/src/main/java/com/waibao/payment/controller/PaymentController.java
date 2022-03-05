@@ -1,11 +1,9 @@
 package com.waibao.payment.controller;
 
-import com.waibao.payment.service.PaymentCacheService;
-import com.waibao.payment.service.UserCreditCacheService;
+import com.waibao.payment.service.cache.PaymentCacheService;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.payment.PaymentVO;
 import com.waibao.util.vo.user.PageVO;
-import com.waibao.util.vo.user.UserCreditVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;

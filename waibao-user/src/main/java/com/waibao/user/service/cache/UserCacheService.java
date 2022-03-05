@@ -1,4 +1,4 @@
-package com.waibao.user.service;
+package com.waibao.user.service.cache;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;

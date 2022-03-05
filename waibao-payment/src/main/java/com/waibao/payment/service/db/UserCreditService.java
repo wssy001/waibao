@@ -1,7 +1,7 @@
 package com.waibao.payment.service.db;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.waibao.payment.entitiy.UserCredit;
+import com.waibao.payment.entity.UserCredit;
 
 /**
  * @Author: wwj

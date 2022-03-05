@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.waibao.user.entity.Admin;
 import com.waibao.user.mapper.AdminMapper;
-import com.waibao.user.service.AdminCacheService;
+import com.waibao.user.service.cache.AdminCacheService;
 import com.waibao.util.enums.ResultEnum;
 import com.waibao.util.feign.AdminService;
 import com.waibao.util.tools.JWTUtil;

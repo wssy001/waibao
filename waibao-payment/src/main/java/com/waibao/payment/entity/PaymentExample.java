@@ -1,4 +1,4 @@
-package com.waibao.payment.entitiy;
+package com.waibao.payment.entity;
 
 import java.util.ArrayList;
 import java.util.Date;

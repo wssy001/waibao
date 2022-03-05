@@ -1,4 +1,4 @@
-package com.waibao.payment.entitiy;
+package com.waibao.payment.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.baomidou.mybatisplus.extension.activerecord.Model;

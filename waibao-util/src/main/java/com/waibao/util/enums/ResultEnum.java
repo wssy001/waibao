@@ -19,13 +19,6 @@ public enum ResultEnum {
 
     MENU_PAST(305, "菜单过期"), MENU_NO(306, "没此权限，请联系管理员！"),
 
-    // 题库异常，4开头
-    QUESTION_SAVE_FAIL(403, "添加失败"), QUESTION_UPDATE_FAIL(404, "更新失败"), QUESTION_DELETE_FAIL(405, "删除失败"),
-    // 课程异常，4开头
-    COURSE_SAVE_FAIL(403, "添加失败"), COURSE_UPDATE_FAIL(404, "更新失败"), COURSE_DELETE_FAIL(405, "删除失败"),
-    //
-    COLLECTION(406, "已收藏"), USER_ADVICE(406, "保存建议失败,不能重复提建议"), COURSE_AUDIT_FAIL(407, "审核失败"),
-
     // 用户异常，5开头
     USER_IS_NOT_EXIST(501, "用户不存在"),
     //

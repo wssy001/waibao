@@ -16,7 +16,10 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -36,7 +39,10 @@ public class RedisStorageRollbackConsumer implements MessageListenerConcurrently
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        List<OrderVO> orderVOList = convert(msgs);
+        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
+        msgs.parallelStream()
+                .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
+        List<OrderVO> orderVOList = convert(messageExtMap.values());
         asyncService.basicTask(() -> goodsStorageCacheService.increaseBatchStorage(orderVOList)
                 .forEach(orderVO -> goodsStorageCacheServiceLog(orderVO, orderVOList)));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
@@ -66,7 +72,7 @@ public class RedisStorageRollbackConsumer implements MessageListenerConcurrently
         }
     }
 
-    private List<OrderVO> convert(List<MessageExt> msgs) {
+    private List<OrderVO> convert(Collection<MessageExt> msgs) {
         return msgs.parallelStream()
                 .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), OrderVO.class))
                 .collect(Collectors.toList());

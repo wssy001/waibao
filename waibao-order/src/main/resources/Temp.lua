@@ -36,6 +36,20 @@ else
     return cjson.encode(orderUserList)
 end
 
+-- canalSyncScript OrderUserCacheService
+local key = KEYS[1]
+for index, value in ipairs(ARGV) do
+    local redisCommand = cjson.decode(value)
+    local orderUser = redisCommand['value']
+    key = '\"' .. string.gsub(key, '\"', '') .. orderUser['userId'] .. '\"'
+    if redisCommand['command'] == 'SET' then
+        orderUser['@type'] = 'com.waibao.order.entity.OrderUser'
+        redis.call('SET', key, cjson.encode(orderUser))
+    else
+        redis.call('DEL', key)
+    end
+end
+
 -- batchInsertScript OrderRetailerCacheService
 local key = KEYS[1]
 local orderRetailerList = {}
@@ -66,6 +80,20 @@ if table.maxn(orderRetailerList) == 0 then
     return nil
 else
     return cjson.encode(orderRetailerList)
+end
+
+-- canalSyncScript OrderRetailerCacheService
+local key = KEYS[1]
+for index, value in ipairs(ARGV) do
+    local redisCommand = cjson.decode(value)
+    local orderRetailer = redisCommand['value']
+    key = '\"' .. string.gsub(key, '\"', '') .. orderRetailer['retailerId'] .. '\"'
+    if redisCommand['command'] == 'SET' then
+        orderRetailer['@type'] = 'com.waibao.order.entity.OrderRetailer'
+        redis.call('SET', key, cjson.encode(orderRetailer))
+    else
+        redis.call('DEL', key)
+    end
 end
 
 -- batchInsertScript OrderGoodsCacheService
@@ -116,4 +144,18 @@ if table.maxn(orderGoodsList) == 0 then
     return nil
 else
     return cjson.encode(orderGoodsList)
+end
+
+-- canalSyncScript OrderGoodsCacheService
+local key = KEYS[1]
+for index, value in ipairs(ARGV) do
+    local redisCommand = cjson.decode(value)
+    local orderVO = redisCommand['value']
+    key = '\"' .. string.gsub(key, '\"', '') .. orderVO['orderId'] .. '\"'
+    if redisCommand['command'] == 'SET' then
+        orderVO['@type'] = 'com.waibao.util.vo.order.OrderVO'
+        redis.call('SET', key, cjson.encode(orderVO))
+    else
+        redis.call('DEL', key)
+    end
 end

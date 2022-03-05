@@ -43,12 +43,6 @@ public class RedisConfig {
         return getStringObjectRedisTemplate(lettuceConnectionFactory);
     }
 
-    @Bean
-    public RedisTemplate<String, Object> transactionRedisTemplate() {
-        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.Transaction);
-        return getStringObjectRedisTemplate(lettuceConnectionFactory);
-    }
-
     private LettuceConnectionFactory createLettuceConnectionFactory(RedisDBEnum redisDBEnum) {
         // Redis配置
         RedisStandaloneConfiguration redisConfiguration = new RedisStandaloneConfiguration(redisProperties.getHost(), redisProperties.getPort());

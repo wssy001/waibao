@@ -88,6 +88,6 @@ public class GoodsCacheService {
 
     public void canalSync(List<RedisCommand> redisCommandList) {
         goodsRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX),
-                redisCommandList.size() > 1 ? redisCommandList.toArray() : redisCommandList.get(0));
+                redisCommandList.toArray());
     }
 }

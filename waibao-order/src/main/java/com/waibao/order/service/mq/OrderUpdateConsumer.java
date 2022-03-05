@@ -1,13 +1,12 @@
 package com.waibao.order.service.mq;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.alibaba.fastjson.JSON;
 import com.waibao.order.entity.OrderRetailer;
 import com.waibao.order.entity.OrderUser;
-import com.waibao.order.service.cache.OrderGoodsCacheService;
 import com.waibao.order.service.db.OrderRetailerService;
 import com.waibao.order.service.db.OrderUserService;
-import com.waibao.util.tools.BeanUtil;
-import com.waibao.util.vo.order.OrderVO;
+import com.waibao.util.async.AsyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -15,11 +14,12 @@ import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.common.message.MessageExt;
-import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.Future;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -32,38 +32,31 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class OrderUpdateConsumer implements MessageListenerConcurrently {
-    private final OrderGoodsCacheService orderGoodsCacheService;
-    private final OrderRetailerService orderRetailerService;
+    private final AsyncService asyncService;
     private final OrderUserService orderUserService;
+    private final OrderRetailerService orderRetailerService;
 
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        List<OrderVO> orderVOs = convert(msgs);
-        List<OrderVO> failUpdateOrderVOs = orderGoodsCacheService.updateBatch(orderVOs);
-        orderVOs.removeAll(failUpdateOrderVOs);
+        List<OrderUser> orderUsers = convert(msgs);
 
-        Future<List<OrderRetailer>> orderRetailerFuture = convertAsync(orderVOs, OrderRetailer.class);
-        Future<List<OrderUser>> orderUserFuture = convertAsync(orderVOs, OrderUser.class);
-        while (true) {
-            if (orderRetailerFuture.isDone() && orderUserFuture.isDone()) break;
-        }
-        List<OrderRetailer> orderRetailers = orderRetailerFuture.get();
-        List<OrderUser> orderUsers = orderUserFuture.get();
-        if (!orderUsers.isEmpty()) new Thread(() -> orderUserService.updateBatchById(orderUsers)).start();
-        if (!orderRetailers.isEmpty()) new Thread(() -> orderRetailerService.updateBatchById(orderRetailers)).start();
+        Map<String, OrderUser> orderUserMap = new ConcurrentHashMap<>();
+        Map<String, OrderRetailer> orderRetailerMap = new ConcurrentHashMap<>();
+        orderUsers.parallelStream()
+                .forEach(orderUser -> {
+                    orderUserMap.put(orderUser.getOrderId(), orderUser);
+                    orderRetailerMap.put(orderUser.getOrderId(), BeanUtil.copyProperties(orderUser, OrderRetailer.class));
+                });
+
+        asyncService.basicTask(() -> orderUserService.updateBatchById(orderUserMap.values()));
+        asyncService.basicTask(() -> orderRetailerService.updateBatchById(orderRetailerMap.values()));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
-    private List<OrderVO> convert(List<MessageExt> msgs) {
+    private List<OrderUser> convert(Collection<MessageExt> msgs) {
         return msgs.parallelStream()
-                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), OrderVO.class))
+                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), OrderUser.class))
                 .collect(Collectors.toList());
-    }
-
-    private <T> Future<List<T>> convertAsync(List<OrderVO> msgs, Class<T> clazz) {
-        return new AsyncResult<>(msgs.parallelStream()
-                .map(orderVO -> BeanUtil.copyProperties(orderVO, clazz))
-                .collect(Collectors.toList()));
     }
 }

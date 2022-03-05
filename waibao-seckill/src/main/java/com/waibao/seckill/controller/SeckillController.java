@@ -139,7 +139,6 @@ public class SeckillController {
             @RequestParam("count") Integer count,
             @RequestParam("purchaseLimit") Integer purchaseLimit
     ) {
-        //TODO 移除事务消息
         long start = new Date().getTime();
         if (count > purchaseLimit) return GlobalResult.error("秒杀失败，超过最大购买限制");
 

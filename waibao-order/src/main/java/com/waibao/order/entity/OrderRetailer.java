@@ -57,6 +57,11 @@ public class OrderRetailer extends Model<OrderRetailer> {
     private BigDecimal goodsPrice;
 
     /**
+     * 购买数量数量
+     */
+    private Integer count;
+
+    /**
      * 订单金额
      */
     @TableField("order_price")

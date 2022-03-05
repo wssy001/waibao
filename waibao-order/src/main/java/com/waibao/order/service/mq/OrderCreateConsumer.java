@@ -1,14 +1,15 @@
 package com.waibao.order.service.mq;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.alibaba.fastjson.JSON;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.waibao.order.entity.MqMsgCompensation;
 import com.waibao.order.entity.OrderRetailer;
 import com.waibao.order.entity.OrderUser;
-import com.waibao.order.service.cache.OrderGoodsCacheService;
-import com.waibao.order.service.cache.OrderRetailerCacheService;
-import com.waibao.order.service.cache.OrderUserCacheService;
+import com.waibao.order.mapper.MqMsgCompensationMapper;
 import com.waibao.order.service.db.OrderRetailerService;
 import com.waibao.order.service.db.OrderUserService;
-import com.waibao.util.vo.order.OrderVO;
+import com.waibao.util.async.AsyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -16,11 +17,12 @@ import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.common.message.MessageExt;
-import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.Future;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -33,45 +35,39 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class OrderCreateConsumer implements MessageListenerConcurrently {
-    private final OrderGoodsCacheService orderGoodsCacheService;
-    private final OrderRetailerCacheService orderRetailerCacheService;
-    private final OrderUserCacheService orderUserCacheService;
-    private final OrderRetailerService orderRetailerService;
+    private final AsyncService asyncService;
     private final OrderUserService orderUserService;
+    private final OrderRetailerService orderRetailerService;
+    private final MqMsgCompensationMapper mqMsgCompensationMapper;
 
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        Future<List<OrderRetailer>> orderRetailerFuture = convertAsync(msgs, OrderRetailer.class);
-        Future<List<OrderUser>> orderUserFuture = convertAsync(msgs, OrderUser.class);
-        Future<List<OrderVO>> orderVOFuture = convertAsync(msgs, OrderVO.class);
-        while (true) {
-            if (orderRetailerFuture.isDone() && orderUserFuture.isDone() && orderVOFuture.isDone()) break;
-        }
-        List<OrderRetailer> orderRetailers = orderRetailerFuture.get();
-        List<OrderUser> orderUsers = orderUserFuture.get();
-        List<OrderVO> orderVOs = orderVOFuture.get();
+        List<OrderUser> orderUsers = convert(msgs);
+        Map<String, OrderUser> orderUserMap = new ConcurrentHashMap<>();
+        Map<String, OrderRetailer> orderRetailerMap = new ConcurrentHashMap<>();
+        orderUsers.parallelStream()
+                .forEach(orderUser -> {
+                    orderUserMap.put(orderUser.getOrderId(), orderUser);
+                    orderRetailerMap.put(orderUser.getOrderId(), BeanUtil.copyProperties(orderUser, OrderRetailer.class));
+                });
 
-        orderGoodsCacheService.insertBatchAsync(orderVOs);
-        orderRetailerFuture = orderRetailerCacheService.insertBatchAsync(orderRetailers);
-        orderUserFuture = orderUserCacheService.insertBatchAsync(orderUsers);
-        while (true) {
-            if (orderRetailerFuture.isDone() && orderUserFuture.isDone()) break;
-        }
-        List<OrderRetailer> failInsertOrderRetailers = orderRetailerFuture.get();
-        List<OrderUser> failInsertOrderUsers = orderUserFuture.get();
+        asyncService.basicTask(() -> orderUserService.saveBatch(orderUserMap.values()));
+        asyncService.basicTask(() -> orderRetailerService.saveBatch(orderRetailerMap.values()));
+        asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
+                Wrappers.<MqMsgCompensation>lambdaUpdate()
+                        .in(MqMsgCompensation::getMsgId, orderUsers.parallelStream()
+                                .map(OrderUser::getOrderId)
+                                .collect(Collectors.toList()))
+                        .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
 
-        orderUsers.removeAll(failInsertOrderUsers);
-        orderRetailers.removeAll(failInsertOrderRetailers);
-        if (!orderUsers.isEmpty()) new Thread(() -> orderUserService.saveBatch(orderUsers)).start();
-        if (!orderRetailers.isEmpty()) new Thread(() -> orderRetailerService.saveBatch(orderRetailers)).start();
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
-    private <T> Future<List<T>> convertAsync(List<MessageExt> msgs, Class<T> clazz) {
-        return new AsyncResult<>(msgs.parallelStream()
-                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), clazz))
-                .collect(Collectors.toList()));
+    private List<OrderUser> convert(Collection<MessageExt> msgs) {
+        return msgs.parallelStream()
+                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), OrderUser.class))
+                .collect(Collectors.toList());
     }
 
 }

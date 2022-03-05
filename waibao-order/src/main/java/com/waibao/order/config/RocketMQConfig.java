@@ -1,12 +1,11 @@
 package com.waibao.order.config;
 
-import com.waibao.order.service.mq.OrderCancelConsumer;
-import com.waibao.order.service.mq.OrderCreateConsumer;
-import com.waibao.order.service.mq.OrderDeleteConsumer;
-import com.waibao.order.service.mq.OrderUpdateConsumer;
+import com.waibao.order.service.mq.*;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
+import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.spring.autoconfigure.RocketMQProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,65 +20,110 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @RequiredArgsConstructor
 public class RocketMQConfig {
+    private final RocketMQProperties rocketMQProperties;
     private final OrderCreateConsumer orderCreateConsumer;
     private final OrderUpdateConsumer orderUpdateConsumer;
     private final OrderCancelConsumer orderCancelConsumer;
     private final OrderDeleteConsumer orderDeleteConsumer;
-    private final RocketMQProperties rocketMQProperties;
+    private final RedisOrderUserCanalConsumer redisOrderUserCanalConsumer;
+    private final RedisOrderGoodsCanalConsumer redisOrderGoodsCanalConsumer;
+    private final RedisOrderRetailerCanalConsumer redisOrderRetailerCanalConsumer;
 
     @Bean
+    @SneakyThrows
+    public DefaultMQProducer orderCancelMQProducer() {
+        DefaultMQProducer orderCancel = new DefaultMQProducer("orderCancel");
+        orderCancel.setNamesrvAddr(rocketMQProperties.getNameServer());
+        orderCancel.start();
+        return orderCancel;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQProducer orderDeleteMQProducer() {
+        DefaultMQProducer orderCancel = new DefaultMQProducer("orderDelete");
+        orderCancel.setNamesrvAddr(rocketMQProperties.getNameServer());
+        orderCancel.start();
+        return orderCancel;
+    }
+
+    @Bean
+    @SneakyThrows
     public DefaultMQPushConsumer orderCreateDBBatchConsumer() {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(orderCreateConsumer);
         consumer.setConsumerGroup("orderCreate");
-        try {
-            consumer.subscribe("order", "create");
-            consumer.start();
-        } catch (Exception e) {
-            log.error("******RocketMQConfig.orderCreateDBBatchConsumer：{}", e.getMessage());
-        }
+        consumer.subscribe("order", "create");
+        consumer.start();
         return consumer;
     }
 
     @Bean
+    @SneakyThrows
     public DefaultMQPushConsumer orderUpdateDBBatchConsumer() {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(orderUpdateConsumer);
         consumer.setConsumerGroup("orderUpdate");
-        try {
-            consumer.subscribe("order", "update");
-            consumer.start();
-        } catch (Exception e) {
-            log.error("******RocketMQConfig.orderUpdateDBBatchConsumer：{}", e.getMessage());
-        }
+        consumer.subscribe("order", "update");
+        consumer.start();
         return consumer;
     }
 
     @Bean
+    @SneakyThrows
     public DefaultMQPushConsumer orderCancelDBBatchConsumer() {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(orderCancelConsumer);
         consumer.setConsumerGroup("orderCancel");
-        try {
-            consumer.subscribe("order", "cancel");
-            consumer.start();
-        } catch (Exception e) {
-            log.error("******RocketMQConfig.orderCancelDBBatchConsumer：{}", e.getMessage());
-        }
+        consumer.subscribe("order", "cancel");
+        consumer.start();
         return consumer;
     }
 
     @Bean
+    @SneakyThrows
     public DefaultMQPushConsumer orderDeleteDBBatchConsumer() {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(orderDeleteConsumer);
         consumer.setConsumerGroup("orderDelete");
-        try {
-            consumer.subscribe("order", "delete");
-            consumer.start();
-        } catch (Exception e) {
-            log.error("******RocketMQConfig.orderDeleteDBBatchConsumer：{}", e.getMessage());
-        }
+        consumer.subscribe("order", "delete");
+        consumer.start();
+        return consumer;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer orderUserCanalConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(redisOrderUserCanalConsumer);
+        consumer.setConsumerGroup("orderUserCanal");
+        consumer.subscribe("waibao_order_user_order_user_0", "*");
+        consumer.subscribe("waibao_order_user_order_user_1", "*");
+        consumer.start();
+        return consumer;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer orderGoodsCanalConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(redisOrderGoodsCanalConsumer);
+        consumer.setConsumerGroup("orderGoodsCanal");
+        consumer.subscribe("waibao_order_user_order_user_0", "*");
+        consumer.subscribe("waibao_order_user_order_user_1", "*");
+        consumer.start();
+        return consumer;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer orderRetailerCanalConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(redisOrderRetailerCanalConsumer);
+        consumer.setConsumerGroup("orderRetailerCanal");
+        consumer.subscribe("waibao_order_retailer_order_retailer_0", "*");
+        consumer.subscribe("waibao_order_retailer_order_retailer_1", "*");
+        consumer.start();
         return consumer;
     }
 
@@ -93,6 +137,5 @@ public class RocketMQConfig {
         consumer.setConsumeMessageBatchMaxSize(760);
         return consumer;
     }
-
 
 }

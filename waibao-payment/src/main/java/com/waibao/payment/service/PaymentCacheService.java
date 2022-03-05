@@ -51,7 +51,7 @@ public class PaymentCacheService {
         GlobalResult<String> result = userService.checkUser(paymentVO.getUserId());
         if(result.getCode()!=200) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
         //TODO 判断商品是否存在、判断订单是否存在、判断账户信息是否存在
-
+        //TODO 从账户信息表扣除客户对应金额，银行账户（账户信息表事先添加银行账户）增加金额
         Payment record = BeanUtil.copyProperties(paymentVO, Payment.class);
         record.setPayId(IdWorker.getId());
         int insert = paymentMapper.insert(record);
@@ -74,7 +74,6 @@ public class PaymentCacheService {
     public GlobalResult<PageVO<PaymentVO>> list(PageVO<PaymentVO> pageVO ) {
         IPage<Payment> paymentPage = new Page<>(pageVO.getIndex(), pageVO.getCount());
         paymentPage = paymentMapper.selectPage(paymentPage, Wrappers.<Payment>lambdaQuery().orderByDesc(Payment::getUpdateTime));
-
         List<Payment> records = paymentPage.getRecords();
         if (records == null) {
             records = new ArrayList<>();

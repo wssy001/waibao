@@ -46,4 +46,8 @@ public class UserCreditController {
         return  userCreditCacheService.list(pageVO);
     }
 
+    @PostMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)
+    public GlobalResult<UserCreditVO> update(@RequestBody UserCreditVO userCreditVO) {
+        return  userCreditCacheService.update(userCreditVO);
+    }
 }

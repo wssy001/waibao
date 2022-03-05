@@ -86,6 +86,15 @@ public class UserCreditCacheService {
         return GlobalResult.success(ResultEnum.SUCCESS, pageVO);
     }
 
+    public GlobalResult<UserCreditVO> update(UserCreditVO userCreditVO){
+        GlobalResult<String> result = userService.checkUser(userCreditVO.getUserId());
+        if(result.getCode()!=200) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
+        UserCredit record = BeanUtil.copyProperties(userCreditVO, UserCredit.class);
+        int insert = userCreditMapper.updateByPrimaryKeySelective(record);
+        if(insert==0) return GlobalResult.error(ResultEnum.SYSTEM_UPDATE_FAIL);
+        return GlobalResult.success(userCreditVO);
+    }
+
     private void set(UserCredit userCredit) {
         valueOperations.set(REDIS_USER_CREDIT_KEY_PREFIX + userCredit.getUserId(), userCredit);
     }

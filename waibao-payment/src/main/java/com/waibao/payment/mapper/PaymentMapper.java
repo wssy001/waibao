@@ -4,12 +4,10 @@ package com.waibao.payment.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.waibao.payment.entity.Payment;
 import com.waibao.payment.entity.PaymentExample;
-import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
-@Mapper
 public interface PaymentMapper extends BaseMapper<Payment> {
     long countByExample(PaymentExample example);
 

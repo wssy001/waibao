@@ -4,7 +4,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.Date;
+import java.util.Objects;
 
 /**
  * OrderVO
@@ -17,10 +19,35 @@ import java.util.Date;
 @AllArgsConstructor
 public class OrderVO {
     private String orderId;
+
     private Long goodsId;
+
     private Long userId;
-    private Date orderTime;
-    private Date payTime;
-    private Boolean paid;
+
+    private Long retailerId;
+
+    private BigDecimal goodsPrice;
+
+    private Integer count;
+
+    private BigDecimal orderPrice;
+
+    private Date purchaseTime;
+
+    private Boolean paid = false;
+
     private String status;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof OrderVO)) return false;
+        OrderVO that = (OrderVO) o;
+        return getOrderId().equals(that.getOrderId());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getOrderId());
+    }
 }

@@ -25,7 +25,7 @@ public class FastJson2JsonRedisSerializer<T> implements RedisSerializer<T> {
     private Class<T> clazz;
 
     static {
-        ParserConfig.getGlobalInstance().addAccept("com.waibao.user");
+        ParserConfig.getGlobalInstance().addAccept("com.waibao.payment");
     }
 
     public FastJson2JsonRedisSerializer(Class<T> clazz) {

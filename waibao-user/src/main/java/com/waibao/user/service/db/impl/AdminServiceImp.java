@@ -1,4 +1,4 @@
-package com.waibao.user.service.impl;
+package com.waibao.user.service.db.impl;
 
 import com.waibao.user.entity.Admin;
 import com.waibao.user.mapper.AdminMapper;

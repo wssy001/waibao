@@ -2,8 +2,8 @@ package com.waibao.payment.mapper;
 
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.waibao.payment.entitiy.Payment;
-import com.waibao.payment.entitiy.PaymentExample;
+import com.waibao.payment.entity.Payment;
+import com.waibao.payment.entity.PaymentExample;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 

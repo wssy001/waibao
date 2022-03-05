@@ -1,7 +1,7 @@
-package com.waibao.payment.service.impl;
+package com.waibao.payment.service.db.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.waibao.payment.entitiy.Payment;
+import com.waibao.payment.entity.Payment;
 import com.waibao.payment.mapper.PaymentMapper;
 import com.waibao.payment.service.db.PaymentService;
 import org.springframework.stereotype.Service;

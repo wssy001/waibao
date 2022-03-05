@@ -13,17 +13,21 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum RedisDBEnum {
     Default(0, "默认"),
-    Captcha(1, "验证码"),
-    ShoppingCart(2, "购物车"),
-    Order(3, "订单"),
-    GoodsRetailer(4, "商品商户"),
-    RetailerGoods(5, "商户商品"),
-    OrderRetailer(6, "订单商户"),
-    RetailerOrder(7, "商户订单"),
-    User(8, "用户"),
-    Admin(9, "管理员"),
-    Transaction(10,"事务"),
-    Storage(12, "商品库存表"),
+    Captcha(0, "验证码"),
+    LogOrder(1, "订单日志"),
+    LogPayment(2, "支付日志"),
+    LogStorage(3, "库存日志"),
+    GoodsRetailer(4, "商品|商户"),
+    Goods(5, "商品"),
+    OrderRetailer(6, "订单|商户"),
+    OrderUser(7, "订单|用户"),
+    OrderGoods(8, "订单|商品"),
+    Payment(9, "支付"),
+    UserCredit(10, "用户积分"),
+    User(11, "用户"),
+    Admin(12, "管理员"),
+    Transaction(13, "事务"),
+    Storage(14, "商品库存表"),
     District(15, "中国省份城市数据库");
 
     private int index;

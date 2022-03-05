@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.waibao.payment.mapper.UserCreditMapper">
-  <resultMap id="BaseResultMap" type="com.waibao.payment.entitiy.UserCredit">
+  <resultMap id="BaseResultMap" type="com.waibao.payment.entity.UserCredit">
     <id column="id" jdbcType="BIGINT" property="id" />
     <result column="user_id" jdbcType="BIGINT" property="userId" />
     <result column="money" jdbcType="DECIMAL" property="money" />
@@ -69,7 +69,7 @@
   <sql id="Base_Column_List">
     id, user_id, money, create_time, update_time
   </sql>
-  <select id="selectByExample" parameterType="com.waibao.payment.entitiy.UserCreditExample" resultMap="BaseResultMap">
+  <select id="selectByExample" parameterType="com.waibao.payment.entity.UserCreditExample" resultMap="BaseResultMap">
     select
     <if test="distinct">
       distinct
@@ -97,19 +97,19 @@
     delete from user_credit
     where id = #{id,jdbcType=BIGINT}
   </delete>
-  <delete id="deleteByExample" parameterType="com.waibao.payment.entitiy.UserCreditExample">
+  <delete id="deleteByExample" parameterType="com.waibao.payment.entity.UserCreditExample">
     delete from user_credit
     <if test="_parameter != null">
       <include refid="Example_Where_Clause" />
     </if>
   </delete>
-  <insert id="insert" parameterType="com.waibao.payment.entitiy.UserCredit">
+  <insert id="insert" parameterType="com.waibao.payment.entity.UserCredit">
     insert into user_credit (id, user_id, money, 
       create_time, update_time)
     values (#{id,jdbcType=BIGINT}, #{userId,jdbcType=BIGINT}, #{money,jdbcType=DECIMAL}, 
       #{createTime,jdbcType=TIMESTAMP}, #{updateTime,jdbcType=TIMESTAMP})
   </insert>
-  <insert id="insertSelective" parameterType="com.waibao.payment.entitiy.UserCredit">
+  <insert id="insertSelective" parameterType="com.waibao.payment.entity.UserCredit">
     insert into user_credit
     <trim prefix="(" suffix=")" suffixOverrides=",">
       <if test="id != null">
@@ -146,7 +146,7 @@
       </if>
     </trim>
   </insert>
-  <select id="countByExample" parameterType="com.waibao.payment.entitiy.UserCreditExample" resultType="java.lang.Long">
+  <select id="countByExample" parameterType="com.waibao.payment.entity.UserCreditExample" resultType="java.lang.Long">
     select count(*) from user_credit
     <if test="_parameter != null">
       <include refid="Example_Where_Clause" />
@@ -186,7 +186,7 @@
       <include refid="Update_By_Example_Where_Clause" />
     </if>
   </update>
-  <update id="updateByPrimaryKeySelective" parameterType="com.waibao.payment.entitiy.UserCredit">
+  <update id="updateByPrimaryKeySelective" parameterType="com.waibao.payment.entity.UserCredit">
     update user_credit
     <set>
       <if test="userId != null">
@@ -204,7 +204,7 @@
     </set>
     where id = #{id,jdbcType=BIGINT}
   </update>
-  <update id="updateByPrimaryKey" parameterType="com.waibao.payment.entitiy.UserCredit">
+  <update id="updateByPrimaryKey" parameterType="com.waibao.payment.entity.UserCredit">
     update user_credit
     set user_id = #{userId,jdbcType=BIGINT},
       money = #{money,jdbcType=DECIMAL},

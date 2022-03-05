@@ -13,6 +13,7 @@
         <module>waibao-gateway</module>
         <module>waibao-util</module>
         <module>waibao-user</module>
+        <module>waibao-payment</module>
     </modules>
 
     <properties>

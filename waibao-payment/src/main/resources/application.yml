@@ -1,0 +1,48 @@
+server:
+  port: 8005
+logging:
+  level:
+    root: info
+
+spring:
+  application:
+    name: waibao-payment
+
+  datasource:
+    dynamic:
+      hikari:
+        max-lifetime: 28770000
+        connection-timeout: 28770000
+        max-pool-size: 20
+        min-idle: 5
+      primary: master
+      strict: false
+      datasource:
+        master:
+          url: jdbc:mysql://10.60.64.66:33306/waibao
+          username: root
+          password: wssy001
+        slave_1:
+          url: jdbc:mysql://10.60.64.66:33307/waibao
+          username: root
+          password: wssy001
+  redis:
+    host: 10.60.64.66
+    database: 2
+    password: wssy001
+    timeout: 1000
+    lettuce:
+      pool:
+        min-idle: 5
+        max-idle: 10
+  cloud:
+    nacos:
+      server-addr: 10.60.64.66:8848
+      discovery:
+        namespace: waibao
+      username: nacos
+      password: nacos
+
+      config:
+        namespace: waibao
+        extension-configs: application.properties,${spring.application.name}.properties

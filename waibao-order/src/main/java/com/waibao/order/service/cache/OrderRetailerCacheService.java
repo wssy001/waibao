@@ -71,7 +71,7 @@ public class OrderRetailerCacheService {
                 "for index, value in ipairs(ARGV) do\n" +
                 "    local redisCommand = cjson.decode(value)\n" +
                 "    local orderRetailer = redisCommand['value']\n" +
-                "    key = '\\\"' .. string.gsub(key, '\\\"', '') .. orderRetailer['retailerId'] .. '\\\"'\n" +
+                "    key = '\"' .. string.gsub(key, '\"', '') .. orderRetailer['retailerId'] .. '\"'\n" +
                 "    if redisCommand['command'] == 'SET' then\n" +
                 "        orderRetailer['@type'] = 'com.waibao.order.entity.OrderRetailer'\n" +
                 "        redis.call('SET', key, cjson.encode(orderRetailer))\n" +

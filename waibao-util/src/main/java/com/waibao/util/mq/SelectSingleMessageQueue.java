@@ -12,7 +12,23 @@ import org.apache.rocketmq.common.message.MessageQueue;
  */
 public class SelectSingleMessageQueue {
     public static MessageQueue selectFirst(DefaultMQProducer defaultMQProducer, String topic) {
+        return selectCreate(defaultMQProducer, topic);
+    }
+
+    public static MessageQueue selectCreate(DefaultMQProducer defaultMQProducer, String topic) {
         return select(defaultMQProducer, topic, 0);
+    }
+
+    public static MessageQueue selectUpdate(DefaultMQProducer defaultMQProducer, String topic) {
+        return select(defaultMQProducer, topic, 1);
+    }
+
+    public static MessageQueue selectCancel(DefaultMQProducer defaultMQProducer, String topic) {
+        return select(defaultMQProducer, topic, 2);
+    }
+
+    public static MessageQueue selectDelete(DefaultMQProducer defaultMQProducer, String topic) {
+        return select(defaultMQProducer, topic, 3);
     }
 
     @SneakyThrows

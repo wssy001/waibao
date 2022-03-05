@@ -27,7 +27,9 @@ public class RocketMQConfig {
     private final OrderDeleteConsumer orderDeleteConsumer;
     private final RedisOrderUserCanalConsumer redisOrderUserCanalConsumer;
     private final RedisOrderGoodsCanalConsumer redisOrderGoodsCanalConsumer;
+    private final RedisLogOrderUserCanalConsumer redisLogOrderUserCanalConsumer;
     private final RedisOrderRetailerCanalConsumer redisOrderRetailerCanalConsumer;
+    private final RedisLogOrderRetailerCanalConsumer redisLogOrderRetailerCanalConsumer;
 
     @Bean
     @SneakyThrows
@@ -117,10 +119,34 @@ public class RocketMQConfig {
 
     @Bean
     @SneakyThrows
+    public DefaultMQPushConsumer logOrderUserCanalConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(redisLogOrderUserCanalConsumer);
+        consumer.setConsumerGroup("logOrderUserCanal");
+        consumer.subscribe("waibao_order_user_order_user_0", "*");
+        consumer.subscribe("waibao_order_user_order_user_1", "*");
+        consumer.start();
+        return consumer;
+    }
+
+    @Bean
+    @SneakyThrows
     public DefaultMQPushConsumer orderRetailerCanalConsumer() {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(redisOrderRetailerCanalConsumer);
         consumer.setConsumerGroup("orderRetailerCanal");
+        consumer.subscribe("waibao_order_retailer_order_retailer_0", "*");
+        consumer.subscribe("waibao_order_retailer_order_retailer_1", "*");
+        consumer.start();
+        return consumer;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer logOrderRetailerCanalConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(redisOrderRetailerCanalConsumer);
+        consumer.setConsumerGroup("logOrderRetailerCanal");
         consumer.subscribe("waibao_order_retailer_order_retailer_0", "*");
         consumer.subscribe("waibao_order_retailer_order_retailer_1", "*");
         consumer.start();
@@ -134,6 +160,7 @@ public class RocketMQConfig {
         consumer.setConsumeThreadMax(1);
         consumer.setConsumeThreadMin(1);
         consumer.setPullBatchSize(760);
+        consumer.setMaxReconsumeTimes(3);
         consumer.setConsumeMessageBatchMaxSize(760);
         return consumer;
     }

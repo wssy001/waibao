@@ -1,5 +1,6 @@
 package com.waibao.seckill.config;
 
+import com.waibao.seckill.service.mq.LogGoodsCanalConsumer;
 import com.waibao.seckill.service.mq.RedisGoodsCanalConsumer;
 import com.waibao.seckill.service.mq.RedisStorageRollbackConsumer;
 import lombok.RequiredArgsConstructor;
@@ -22,8 +23,9 @@ import org.springframework.context.annotation.Configuration;
 @RequiredArgsConstructor
 public class RocketMQConfig {
     private final RocketMQProperties rocketMQProperties;
-    private final RedisStorageRollbackConsumer redisStorageRollbackConsumer;
+    private final LogGoodsCanalConsumer logGoodsCanalConsumer;
     private final RedisGoodsCanalConsumer redisGoodsCanalConsumer;
+    private final RedisStorageRollbackConsumer redisStorageRollbackConsumer;
 
     @Bean
     @SneakyThrows
@@ -65,6 +67,17 @@ public class RocketMQConfig {
         return consumer;
     }
 
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer LogGoodsCanalConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(logGoodsCanalConsumer);
+        consumer.setConsumerGroup("LogGoodsCanal");
+        consumer.subscribe("waibao_v2_seckill_goods", "*");
+        consumer.start();
+        return consumer;
+    }
+
     private DefaultMQPushConsumer getSingleThreadBatchConsumer() {
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer();
         consumer.setNamesrvAddr(rocketMQProperties.getNameServer());
@@ -72,6 +85,7 @@ public class RocketMQConfig {
         consumer.setConsumeThreadMax(1);
         consumer.setConsumeThreadMin(1);
         consumer.setPullBatchSize(760);
+        consumer.setMaxReconsumeTimes(3);
         consumer.setConsumeMessageBatchMaxSize(760);
         return consumer;
     }

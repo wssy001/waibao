@@ -16,5 +16,6 @@ import lombok.NoArgsConstructor;
 public class RedisCommand {
     private String command;
     private Object value;
+    private Object oldValue;
     private Long timestamp;
 }

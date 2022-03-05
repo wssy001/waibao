@@ -1,13 +1,14 @@
-package com.waibao.order.service.mq;
+package com.waibao.seckill.service.mq;
 
+import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.waibao.order.entity.OrderUser;
-import com.waibao.order.service.cache.OrderUserCacheService;
-import com.waibao.util.async.AsyncService;
+import com.waibao.seckill.entity.LogSeckillGoods;
+import com.waibao.seckill.service.db.LogSeckillGoodsService;
 import com.waibao.util.base.RedisCommand;
+import com.waibao.util.tools.BeanUtil;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
@@ -19,35 +20,37 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * OrderCanalSyncConsumer
+ * GoodsCanalConsumer
  *
  * @author alexpetertyler
  * @since 2022/3/4
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
-public class RedisOrderUserCanalConsumer implements MessageListenerConcurrently {
-    private final AsyncService asyncService;
-    private final OrderUserCacheService orderUserCacheService;
+public class LogGoodsCanalConsumer implements MessageListenerConcurrently {
+    private final LogSeckillGoodsService logSeckillGoodsService;
 
     @Override
-    @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
-
-        List<RedisCommand> redisCommandList = messageExtMap.values()
+        List<LogSeckillGoods> logSeckillGoodsList = messageExtMap.values()
                 .parallelStream()
                 .map(messageExt -> (JSONObject) JSON.parse(messageExt.getBody()))
                 .flatMap(jsonObject -> convert(jsonObject).stream())
                 .filter(Objects::nonNull)
                 .sorted(Comparator.comparingLong(RedisCommand::getTimestamp))
+                .map(redisCommand -> {
+                    LogSeckillGoods logSeckillGoods = BeanUtil.copyProperties(redisCommand.getValue(), LogSeckillGoods.class);
+                    logSeckillGoods.setSeckillGoodsId(logSeckillGoods.getId());
+                    logSeckillGoods.setOperation(redisCommand.getCommand());
+                    return logSeckillGoods;
+                })
                 .collect(Collectors.toList());
-        if (redisCommandList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
-        asyncService.basicTask(() -> orderUserCacheService.canalSync(redisCommandList));
-
+        logSeckillGoodsService.saveBatch(logSeckillGoodsList);
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
@@ -59,16 +62,19 @@ public class RedisOrderUserCanalConsumer implements MessageListenerConcurrently 
                     RedisCommand redisCommand = new RedisCommand();
                     switch (jsonObject.getString("type")) {
                         case "INSERT":
+                            redisCommand.setCommand("INSERT");
+                            break;
                         case "UPDATE":
-                            redisCommand.setCommand("SET");
+                            redisCommand.setCommand("UPDATE");
                             break;
                         case "DELETE":
-                            redisCommand.setCommand("DEL");
-                            break;
-                        default:
-                            return;
+                            redisCommand.setCommand("DELETE");
                     }
-                    redisCommand.setValue(((JSONObject) v).toJavaObject(OrderUser.class));
+                    if (StrUtil.isBlank(redisCommand.getCommand())) {
+                        list.add(null);
+                        return;
+                    }
+                    redisCommand.setValue(((JSONObject) v).toJavaObject(LogSeckillGoods.class));
                     redisCommand.setTimestamp(timestamp);
                     list.add(redisCommand);
                 });

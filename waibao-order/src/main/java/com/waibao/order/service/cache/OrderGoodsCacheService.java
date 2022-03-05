@@ -84,7 +84,7 @@ public class OrderGoodsCacheService {
                 "for index, value in ipairs(ARGV) do\n" +
                 "    local redisCommand = cjson.decode(value)\n" +
                 "    local orderVO = redisCommand['value']\n" +
-                "    key = '\\\"' .. string.gsub(key, '\\\"', '') .. orderVO['orderId'] .. '\\\"'\n" +
+                "    key = '\"' .. string.gsub(key, '\"', '') .. orderVO['orderId'] .. '\"'\n" +
                 "    if redisCommand['command'] == 'SET' then\n" +
                 "        orderVO['@type'] = 'com.waibao.util.vo.order.OrderVO'\n" +
                 "        redis.call('SET', key, cjson.encode(orderVO))\n" +

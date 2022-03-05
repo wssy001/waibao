@@ -2,8 +2,8 @@ package com.waibao.order.service.mq;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.waibao.order.entity.OrderUser;
-import com.waibao.order.service.cache.OrderUserCacheService;
+import com.waibao.order.entity.LogOrderUser;
+import com.waibao.order.service.cache.LogOrderUserCacheService;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
 import lombok.RequiredArgsConstructor;
@@ -19,16 +19,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * OrderCanalSyncConsumer
+ * RedisLogOrderUserCanalConsumer
  *
  * @author alexpetertyler
- * @since 2022/3/4
+ * @since 2022/3/6
  */
 @Component
 @RequiredArgsConstructor
-public class RedisOrderUserCanalConsumer implements MessageListenerConcurrently {
+public class RedisLogOrderUserCanalConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
-    private final OrderUserCacheService orderUserCacheService;
+    private final LogOrderUserCacheService logOrderUserCacheService;
 
     @Override
     @SneakyThrows
@@ -46,12 +46,12 @@ public class RedisOrderUserCanalConsumer implements MessageListenerConcurrently 
                 .collect(Collectors.toList());
         if (redisCommandList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
-        asyncService.basicTask(() -> orderUserCacheService.canalSync(redisCommandList));
+        asyncService.basicTask(() -> logOrderUserCacheService.canalSync(redisCommandList));
 
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
-    private List<RedisCommand> convert(JSONObject jsonObject) {
+    private <T> List<RedisCommand> convert(JSONObject jsonObject) {
         List<RedisCommand> list = new ArrayList<>();
         Long timestamp = jsonObject.getLong("ts");
         jsonObject.getJSONArray("data")
@@ -59,16 +59,19 @@ public class RedisOrderUserCanalConsumer implements MessageListenerConcurrently 
                     RedisCommand redisCommand = new RedisCommand();
                     switch (jsonObject.getString("type")) {
                         case "INSERT":
+                            redisCommand.setCommand("INSERT");
+                            break;
                         case "UPDATE":
-                            redisCommand.setCommand("SET");
+                            redisCommand.setCommand("UPDATE");
+                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(LogOrderUser.class));
                             break;
                         case "DELETE":
-                            redisCommand.setCommand("DEL");
+                            redisCommand.setCommand("DELETE");
                             break;
                         default:
                             return;
                     }
-                    redisCommand.setValue(((JSONObject) v).toJavaObject(OrderUser.class));
+                    redisCommand.setValue(((JSONObject) v).toJavaObject(LogOrderUser.class));
                     redisCommand.setTimestamp(timestamp);
                     list.add(redisCommand);
                 });

@@ -1,10 +1,10 @@
 package com.waibao.order.service.mq;
 
-import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.waibao.order.entity.OrderRetailer;
 import com.waibao.order.service.cache.OrderRetailerCacheService;
+import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -14,10 +14,8 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -29,12 +27,18 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class RedisOrderRetailerCanalConsumer implements MessageListenerConcurrently {
+    private final AsyncService asyncService;
     private final OrderRetailerCacheService orderRetailerCacheService;
 
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        List<RedisCommand> redisCommandList = msgs.parallelStream()
+        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
+        msgs.parallelStream()
+                .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
+
+        List<RedisCommand> redisCommandList = messageExtMap.values()
+                .parallelStream()
                 .map(messageExt -> (JSONObject) JSON.parse(messageExt.getBody()))
                 .flatMap(jsonObject -> convert(jsonObject).stream())
                 .filter(Objects::nonNull)
@@ -42,12 +46,12 @@ public class RedisOrderRetailerCanalConsumer implements MessageListenerConcurren
                 .collect(Collectors.toList());
         if (redisCommandList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
-        orderRetailerCacheService.canalSync(redisCommandList);
+        asyncService.basicTask(() -> orderRetailerCacheService.canalSync(redisCommandList));
 
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
-    private <T> List<RedisCommand> convert(JSONObject jsonObject) {
+    private List<RedisCommand> convert(JSONObject jsonObject) {
         List<RedisCommand> list = new ArrayList<>();
         Long timestamp = jsonObject.getLong("ts");
         jsonObject.getJSONArray("data")
@@ -60,10 +64,9 @@ public class RedisOrderRetailerCanalConsumer implements MessageListenerConcurren
                             break;
                         case "DELETE":
                             redisCommand.setCommand("DEL");
-                    }
-                    if (StrUtil.isBlank(redisCommand.getCommand())) {
-                        list.add(null);
-                        return;
+                            break;
+                        default:
+                            return;
                     }
                     redisCommand.setValue(((JSONObject) v).toJavaObject(OrderRetailer.class));
                     redisCommand.setTimestamp(timestamp);

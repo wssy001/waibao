@@ -46,9 +46,11 @@ public class OrderCancelConsumer implements MessageListenerConcurrently {
 
         asyncService.basicTask(() -> orderUserService.update(Wrappers.<OrderUser>lambdaUpdate().in(OrderUser::getOrderId, orderIds).set(OrderUser::getStatus, "订单取消")));
         asyncService.basicTask(() -> orderRetailerService.update(Wrappers.<OrderRetailer>lambdaUpdate().in(OrderRetailer::getOrderId, orderIds).set(OrderRetailer::getStatus, "订单取消")));
-        asyncMQMessage.sendMessage(orderCancelMQProducer, msgs.parallelStream()
+        List<Message> collect = msgs.parallelStream()
                 .map(messageExt -> new Message("storage", "rollback", messageExt.getKeys(), messageExt.getBody()))
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList());
+        asyncMQMessage.sendMessage(orderCancelMQProducer, collect);
+        asyncMQMessage.sendDelayedMessage(orderCancelMQProducer, collect, 2);
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, orderIds)

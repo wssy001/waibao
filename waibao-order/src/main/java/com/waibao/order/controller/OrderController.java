@@ -44,7 +44,9 @@ public class OrderController {
     ) {
         OrderVO orderVO = getOrderId(orderId, userId);
         if (orderVO == null) return GlobalResult.error("订单ID无效");
-        asyncMQMessage.sendMessage(orderCancelMQProducer, new Message("order", "cancel", orderId, JSON.toJSONBytes(orderVO)));
+        Message message = new Message("order", "cancel", orderId, JSON.toJSONBytes(orderVO));
+        asyncMQMessage.sendMessage(orderCancelMQProducer, message);
+        asyncMQMessage.sendDelayedMessage(orderDeleteMQProducer, message, 2);
         return GlobalResult.success("订单取消请求提交成功", orderVO);
     }
 
@@ -55,7 +57,9 @@ public class OrderController {
     ) {
         OrderVO orderVO = getOrderId(orderId, userId);
         if (orderVO == null) return GlobalResult.error("订单ID无效");
-        asyncMQMessage.sendMessage(orderDeleteMQProducer, new Message("order", "cancel", orderId, JSON.toJSONBytes(orderVO)));
+        Message message = new Message("order", "delete", orderId, JSON.toJSONBytes(orderVO));
+        asyncMQMessage.sendMessage(orderDeleteMQProducer, message);
+        asyncMQMessage.sendDelayedMessage(orderDeleteMQProducer, message, 2);
         return GlobalResult.success("订单删除请求提交成功", orderVO);
     }
 

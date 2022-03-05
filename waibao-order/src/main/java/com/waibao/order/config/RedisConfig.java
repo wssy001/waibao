@@ -43,6 +43,18 @@ public class RedisConfig {
         return getStringObjectRedisTemplate(lettuceConnectionFactory);
     }
 
+    @Bean
+    public RedisTemplate<String, Object> logOrderUserRedisTemplate() {
+        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.LogOrder);
+        return getStringObjectRedisTemplate(lettuceConnectionFactory);
+    }
+
+    @Bean
+    public RedisTemplate<String, Object> logOrderRetailerRedisTemplate() {
+        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.LogOrder);
+        return getStringObjectRedisTemplate(lettuceConnectionFactory);
+    }
+
     private LettuceConnectionFactory createLettuceConnectionFactory(RedisDBEnum redisDBEnum) {
         // Redis配置
         RedisStandaloneConfiguration redisConfiguration = new RedisStandaloneConfiguration(redisProperties.getHost(), redisProperties.getPort());

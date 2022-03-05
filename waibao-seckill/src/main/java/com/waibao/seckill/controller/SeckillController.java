@@ -126,7 +126,8 @@ public class SeckillController {
 
         String jsonString = JSON.toJSONString(orderVO);
         Message message = new Message("order", "create", orderId, jsonString.getBytes());
-        asyncService.basicTask(() -> asyncMQMessage.sendMessage(orderCreateMQProducer, message));
+        asyncMQMessage.sendMessage(orderCreateMQProducer, message);
+        asyncMQMessage.sendDelayedMessage(orderCreateMQProducer, message, 2);
 
         return GlobalResult.success("秒杀成功", orderVO);
     }
@@ -170,7 +171,8 @@ public class SeckillController {
 
         String jsonString = JSON.toJSONString(orderVO);
         Message message = new Message("order", "create", orderId, jsonString.getBytes());
-        asyncService.basicTask(() -> asyncMQMessage.sendMessage(orderCreateMQProducer, message));
+        asyncMQMessage.sendMessage(orderCreateMQProducer, message);
+        asyncMQMessage.sendDelayedMessage(orderCreateMQProducer, message, 2);
 
         long end = new Date().getTime();
         return GlobalResult.success("秒杀成功，耗时：" + (end - start) + " ms");

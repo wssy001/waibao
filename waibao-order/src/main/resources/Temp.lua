@@ -41,7 +41,7 @@ local key = KEYS[1]
 for index, value in ipairs(ARGV) do
     local redisCommand = cjson.decode(value)
     local orderUser = redisCommand['value']
-    key = '\"' .. string.gsub(key, '\"', '') .. orderUser['userId'] .. '\"'
+    key = '"' .. string.gsub(key, '"', '') .. orderUser['userId'] .. '"'
     if redisCommand['command'] == 'SET' then
         orderUser['@type'] = 'com.waibao.order.entity.OrderUser'
         redis.call('SET', key, cjson.encode(orderUser))
@@ -87,7 +87,7 @@ local key = KEYS[1]
 for index, value in ipairs(ARGV) do
     local redisCommand = cjson.decode(value)
     local orderRetailer = redisCommand['value']
-    key = '\"' .. string.gsub(key, '\"', '') .. orderRetailer['retailerId'] .. '\"'
+    key = '"' .. string.gsub(key, '"', '') .. orderRetailer['retailerId'] .. '"'
     if redisCommand['command'] == 'SET' then
         orderRetailer['@type'] = 'com.waibao.order.entity.OrderRetailer'
         redis.call('SET', key, cjson.encode(orderRetailer))
@@ -151,11 +151,82 @@ local key = KEYS[1]
 for index, value in ipairs(ARGV) do
     local redisCommand = cjson.decode(value)
     local orderVO = redisCommand['value']
-    key = '\"' .. string.gsub(key, '\"', '') .. orderVO['orderId'] .. '\"'
+    key = '"' .. string.gsub(key, '"', '') .. orderVO['orderId'] .. '"'
     if redisCommand['command'] == 'SET' then
         orderVO['@type'] = 'com.waibao.util.vo.order.OrderVO'
         redis.call('SET', key, cjson.encode(orderVO))
     else
         redis.call('DEL', key)
+    end
+end
+
+-- checkOperation LogOrderRetailerCacheService
+local key = KEYS[1]
+local count = tonumber(redis.call('LREM', key, 0, ARGV[1] .. '-' .. ARGV[2]))
+if count > 0 then
+    redis.call('LPUSH', key, ARGV[1] .. '-' .. ARGV[2])
+    return true
+else
+    return false
+end
+
+-- batchInsertScript LogOrderRetailerCacheService
+local key = KEYS[1]
+for index, value in ipairs(ARGV) do
+    local logOrderRetailer = cjson.decode(value)
+    key = '"' .. string.gsub(key, '"', '') .. logOrderRetailer['retailerId'] .. '"'
+    redis.call('LPUSH', key, logOrderRetailer['orderId'] .. '-' .. logOrderRetailer['operation'])
+end
+
+-- canalSyncScript LogOrderRetailerCacheService
+local key = KEYS[1]
+for index, value in ipairs(ARGV) do
+    local redisCommand = cjson.decode(value)
+    local logOrderRetailer = redisCommand['value']
+    key = '"' .. string.gsub(key, '"', '') .. logOrderRetailer['retailerId'] .. '"'
+    local command = redisCommand['command']
+    if command == 'INSERT' then
+        redis.call('LPUSH', key, logOrderRetailer['orderId'] .. '-' .. logOrderRetailer['operation'])
+    elseif command == 'UPDATE' then
+        local oldLogOrderRetailer = redisCommand['oldValue']
+        if oldLogOrderRetailer['operation'] ~= nil then
+            redis.call('LPUSH', key, logOrderRetailer['orderId'] .. '-' .. logOrderRetailer['operation'])
+            redis.call('LREM', key, 0, logOrderRetailer['orderId'] .. '-' .. oldLogOrderRetailer['operation'])
+        end
+    else
+        redis.call('LREM', key, 0, logOrderRetailer['orderId'] .. '-' .. logOrderRetailer['operation'])
+    end
+end
+
+-- checkOperation LogOrderUserCacheService
+local key = KEYS[1]
+local count = tonumber(redis.call('LREM', key, 0, ARGV[1] .. '-' .. ARGV[2]))
+return count ~= true
+
+-- batchInsertScript LogOrderUserCacheService
+local key = KEYS[1]
+for index, value in ipairs(ARGV) do
+    local logOrderUser = cjson.decode(value)
+    key = '"' .. string.gsub(key, '"', '') .. logOrderUser['userId'] .. '"'
+    redis.call('LPUSH', key, logOrderUser['orderId'] .. '-' .. logOrderUser['operation'])
+end
+
+-- canalSyncScript LogOrderUserCacheService
+local key = KEYS[1]
+for index, value in ipairs(ARGV) do
+    local redisCommand = cjson.decode(value)
+    local logOrderUser = redisCommand['value']
+    key = '"' .. string.gsub(key, '"', '') .. logOrderUser['userId'] .. '"'
+    local command = redisCommand['command']
+    if command == 'INSERT' then
+        redis.call('LPUSH', key, logOrderUser['orderId'] .. '-' .. logOrderUser['operation'])
+    elseif command == 'UPDATE' then
+        local oldLogOrderUser = redisCommand['oldValue']
+        if oldLogOrderUser['operation'] ~= nil then
+            redis.call('LPUSH', key, logOrderUser['orderId'] .. '-' .. logOrderUser['operation'])
+            redis.call('LREM', key, 0, logOrderUser['orderId'] .. '-' .. oldLogOrderUser['operation'])
+        end
+    else
+        redis.call('LREM', key, 0, logOrderUser['orderId'] .. '-' .. logOrderUser['operation'])
     end
 end

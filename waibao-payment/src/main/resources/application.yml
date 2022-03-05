@@ -10,7 +10,7 @@ spring:
 
   shardingsphere:
     datasource:
-      names: master,slave
+      names: master,slave,master-credit-user,master-payment,slave-credit-user,slave-payment
       master:
         type: com.zaxxer.hikari.HikariDataSource
         driverClassName: com.mysql.cj.jdbc.Driver
@@ -23,23 +23,61 @@ spring:
         jdbcUrl: jdbc:mysql://10.60.64.66:33307/waibao_v2?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
         username: root
         password: wssy001
+      master-credit-user:
+        type: com.zaxxer.hikari.HikariDataSource
+        driverClassName: com.mysql.cj.jdbc.Driver
+        jdbcUrl: jdbc:mysql://10.60.64.66:33306/waibao_credit_user?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
+        username: root
+        password: wssy001
+      master-payment:
+        type: com.zaxxer.hikari.HikariDataSource
+        driverClassName: com.mysql.cj.jdbc.Driver
+        jdbcUrl: jdbc:mysql://10.60.64.66:33306/waibao_payment?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
+        username: root
+        password: wssy001
+      slave-credit-user:
+        type: com.zaxxer.hikari.HikariDataSource
+        driverClassName: com.mysql.cj.jdbc.Driver
+        jdbcUrl: jdbc:mysql://10.60.64.66:33307/waibao_credit_user?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
+        username: root
+        password: wssy001
+      slave-payment:
+        type: com.zaxxer.hikari.HikariDataSource
+        driverClassName: com.mysql.cj.jdbc.Driver
+        jdbcUrl: jdbc:mysql://10.60.64.66:33307/waibao_payment?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
+        username: root
+        password: wssy001
 
     sharding:
       tables:
-        user:
-          actualDataNodes: master.user_$->{0..1}
+        admin:
+          actualDataNodes: master.admin
+        seckill_goods:
+          actualDataNodes: master.seckill_goods
+        order_user:
+          actualDataNodes: master-credit-user.user_credit_$->{0..1}
           tableStrategy:
             inline:
-              shardingColumn: id
-              algorithmExpression: user_$->{id % 2}
-          keyGenerator:
-            column: id
-            type: SNOWFLAKE
+              shardingColumn: user_id
+              algorithmExpression: user_credit_$->{user_id % 2}
+        order_retailer:
+          actualDataNodes: master-payment.payment_$->{0..1}
+          tableStrategy:
+            inline:
+              shardingColumn: pay_id
+              algorithmExpression: payment_$->{pay_id % 2}
 
       master-slave-rules:
         master:
           master-data-source-name: master
           SlaveDataSourceNames: slave
+        master-order-user:
+          master-data-source-name: master-credit-user
+          SlaveDataSourceNames: slave-credit-user
+        master-order-retailer:
+          master-data-source-name: master-payment
+          SlaveDataSourceNames: slave-payment
+
   redis:
     host: 10.60.64.66
     database: 2

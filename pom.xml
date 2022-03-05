@@ -14,6 +14,7 @@
         <module>waibao-util</module>
         <module>waibao-user</module>
         <module>waibao-payment</module>
+        <module>waibao-seckill</module>
     </modules>
 
     <properties>
@@ -22,18 +23,22 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
-        <springboot.version>2.6.1</springboot.version>
-        <springcloud.version>2021.0.0</springcloud.version>
+        <springboot.version>2.5.9</springboot.version>
+        <springcloud.version>2020.0.4</springcloud.version>
         <cloudalibaba.version>2.2.7.RELEASE</cloudalibaba.version>
         <fastjson.version>1.2.79</fastjson.version>
         <hutool.version>5.7.20</hutool.version>
         <mybatis-plus.version>3.5.1</mybatis-plus.version>
         <mybatis-plus-generator.version>3.5.1</mybatis-plus-generator.version>
         <velocity.version>2.3</velocity.version>
+        <jwt.version>3.2.0</jwt.version>
         <lambok.version>1.18.16</lambok.version>
         <dynamic-datasource.version>3.5.0</dynamic-datasource.version>
         <bcprov.version>1.69</bcprov.version>
         <redisson.version>3.16.8</redisson.version>
+        <rocketMQ.version>2.2.1</rocketMQ.version>
+        <aj-captcha.version>1.3.0</aj-captcha.version>
+        <shardingsphere.version>4.1.1</shardingsphere.version>
     </properties>
 
     <dependencyManagement>
@@ -101,11 +106,11 @@
                 <artifactId>velocity-engine-core</artifactId>
                 <version>${velocity.version}</version>
             </dependency>
-            <!--dynamic datasource            -->
+            <!--shardingsphere-jdbc-->
             <dependency>
-                <groupId>com.baomidou</groupId>
-                <artifactId>dynamic-datasource-spring-boot-starter</artifactId>
-                <version>${dynamic-datasource.version}</version>
+                <groupId>org.apache.shardingsphere</groupId>
+                <artifactId>sharding-jdbc-spring-boot-starter</artifactId>
+                <version>${shardingsphere.version}</version>
             </dependency>
             <!-- lambok  -->
             <dependency>
@@ -120,10 +125,22 @@
                 <artifactId>redisson</artifactId>
                 <version>${redisson.version}</version>
             </dependency>
+            <!--RocketMQ            -->
+            <dependency>
+                <groupId>org.apache.rocketmq</groupId>
+                <artifactId>rocketmq-spring-boot-starter</artifactId>
+                <version>${rocketMQ.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.example.waibao</groupId>
                 <artifactId>waibao-util</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+            <!--AJ Captcha            -->
+            <dependency>
+                <groupId>com.anji-plus</groupId>
+                <artifactId>spring-boot-starter-captcha</artifactId>
+                <version>${aj-captcha.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -33,10 +34,12 @@ public class AdminCacheService {
     private final AdminMapper adminMapper;
     private final AdminService adminService;
     private final RedissonClient redissonClient;
-    private RBloomFilter<Long> bloomFilter;
-    private AtomicLong atomicLong;
 
     @Resource
+    private RedisTemplate<String, Admin> adminRedisTemplate;
+
+    private RBloomFilter<Long> bloomFilter;
+    private AtomicLong atomicLong;
     private ValueOperations<String, Admin> valueOperations;
 
     @PostConstruct
@@ -45,6 +48,7 @@ public class AdminCacheService {
         bloomFilter.tryInit(1000L, 0.03);
         Long count = adminMapper.selectCount(null);
         atomicLong = new AtomicLong(count / 1000 + 1);
+        valueOperations = adminRedisTemplate.opsForValue();
     }
 
     public Admin get(Long id) {

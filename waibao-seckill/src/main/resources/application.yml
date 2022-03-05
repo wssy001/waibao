@@ -1,13 +1,9 @@
 server:
-  port: 8001
-
-logging:
-  level:
-    root: info
+  port: 33381
 
 spring:
   application:
-    name: waibao-user
+    name: waibao-seckill
 
   shardingsphere:
     datasource:
@@ -44,13 +40,24 @@ spring:
 
   redis:
     host: 10.60.64.66
-    database: 2
     password: wssy001
     timeout: 1000
     lettuce:
       pool:
         min-idle: 5
         max-idle: 10
+
+  task:
+    execution:
+      pool:
+        max-size: 16
+        keep-alive: "10s"
+      thread-name-prefix: 异步任务-
+    scheduling:
+      pool:
+        size: 5
+      thread-name-prefix: 定时任务-
+
   cloud:
     nacos:
       server-addr: 10.60.64.66:8848
@@ -62,3 +69,14 @@ spring:
       config:
         namespace: waibao
         extension-configs: application.properties,${spring.application.name}.properties
+
+rocketmq:
+  name-server: 10.60.64.66:39876
+  producer:
+    group: order-producer
+
+aj:
+  captcha:
+    cache-type: redis
+    interference-options: 2
+    type: blockpuzzle

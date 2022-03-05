@@ -1,4 +1,4 @@
-package com.waibao.user.config;
+package com.waibao.seckill.config;
 
 import com.waibao.util.enums.RedisDBEnum;
 import lombok.RequiredArgsConstructor;
@@ -26,14 +26,32 @@ public class RedisConfig {
     }
 
     @Bean
+    public RedisTemplate<String, Object> storageRedisTemplate() {
+        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.Storage);
+        return getStringObjectRedisTemplate(lettuceConnectionFactory);
+    }
+
+    @Bean
+    public RedisTemplate<String, Object> captchaRedisTemplate() {
+        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.Captcha);
+        return getStringObjectRedisTemplate(lettuceConnectionFactory);
+    }
+
+    @Bean
     public RedisTemplate<String, Object> userRedisTemplate() {
         LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.User);
         return getStringObjectRedisTemplate(lettuceConnectionFactory);
     }
 
     @Bean
-    public RedisTemplate<String, Object> adminRedisTemplate() {
-        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.Admin);
+    public RedisTemplate<String, Object> goodsRetailerRedisTemplate() {
+        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.GoodsRetailer);
+        return getStringObjectRedisTemplate(lettuceConnectionFactory);
+    }
+
+    @Bean
+    public RedisTemplate<String, Object> transactionRedisTemplate() {
+        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.Transaction);
         return getStringObjectRedisTemplate(lettuceConnectionFactory);
     }
 

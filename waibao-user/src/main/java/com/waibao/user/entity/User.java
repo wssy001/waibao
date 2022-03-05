@@ -20,7 +20,6 @@ import java.util.Date;
 @Getter
 @Setter
 @Accessors(chain = true)
-@TableName("user")
 public class User extends Model<User> {
 
     /**

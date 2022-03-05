@@ -1,4 +1,4 @@
-package com.waibao.user.config;
+package com.waibao.seckill.config;
 
 import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;

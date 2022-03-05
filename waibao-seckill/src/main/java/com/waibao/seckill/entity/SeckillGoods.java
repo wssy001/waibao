@@ -1,4 +1,4 @@
-package com.waibao.user.entity;
+package com.waibao.seckill.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.baomidou.mybatisplus.extension.activerecord.Model;
@@ -11,16 +11,17 @@ import java.util.Date;
 
 /**
  * <p>
- * 管理员表
+ * 
  * </p>
  *
  * @author alexpetertyler
- * @since 2022-02-15
+ * @since 2022-02-18
  */
 @Getter
 @Setter
 @Accessors(chain = true)
-public class Admin extends Model<Admin> {
+@TableName("seckill_goods")
+public class SeckillGoods extends Model<SeckillGoods> {
 
     /**
      * 自增ID
@@ -29,34 +30,34 @@ public class Admin extends Model<Admin> {
     private Long id;
 
     /**
-     * 管理员名称
+     * 商品ID
      */
-    @TableField("`name`")
-    private String name;
+    @TableField("goods_id")
+    private Long goodsId;
 
     /**
-     * 密码
+     * 库存量
      */
-    @TableField("`password`")
-    private String password;
+    @TableField("`storage`")
+    private Integer storage;
 
     /**
-     * 管理员级别
+     * 每位顾客可购买量
      */
-    @TableField("`level`")
-    private Integer level;
+    @TableField("purchase_limit")
+    private Integer purchaseLimit;
 
     /**
-     * 创建时间
+     * 秒杀开始时间
      */
-    @TableField(value = "create_time", fill = FieldFill.INSERT)
-    private Date createTime;
+    @TableField("seckill_start_time")
+    private Date seckillStartTime;
 
     /**
-     * 更新时间
+     * 秒杀结束时间
      */
-    @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
-    private Date updateTime;
+    @TableField("seckill_end_time")
+    private Date seckillEndTime;
 
 
     @Override

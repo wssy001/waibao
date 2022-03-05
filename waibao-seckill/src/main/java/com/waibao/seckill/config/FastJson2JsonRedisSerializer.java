@@ -1,4 +1,4 @@
-package com.waibao.user.config;
+package com.waibao.seckill.config;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.parser.ParserConfig;
@@ -25,7 +25,7 @@ public class FastJson2JsonRedisSerializer<T> implements RedisSerializer<T> {
     private Class<T> clazz;
 
     static {
-        ParserConfig.getGlobalInstance().addAccept("com.waibao.user");
+        ParserConfig.getGlobalInstance().addAccept("com.waibao.seckill");
     }
 
     public FastJson2JsonRedisSerializer(Class<T> clazz) {

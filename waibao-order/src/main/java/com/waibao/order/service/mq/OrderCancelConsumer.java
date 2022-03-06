@@ -1,14 +1,19 @@
 package com.waibao.order.service.mq;
 
+import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.waibao.order.entity.LogOrderGoods;
 import com.waibao.order.entity.MqMsgCompensation;
 import com.waibao.order.entity.OrderRetailer;
 import com.waibao.order.entity.OrderUser;
 import com.waibao.order.mapper.MqMsgCompensationMapper;
+import com.waibao.order.service.cache.LogOrderGoodsCacheService;
+import com.waibao.order.service.db.LogOrderGoodsService;
 import com.waibao.order.service.db.OrderRetailerService;
 import com.waibao.order.service.db.OrderUserService;
 import com.waibao.util.async.AsyncService;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
@@ -20,7 +25,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 /**
@@ -37,30 +44,57 @@ public class OrderCancelConsumer implements MessageListenerConcurrently {
     private final AsyncMQMessage asyncMQMessage;
     private final OrderUserService orderUserService;
     private final DefaultMQProducer orderCancelMQProducer;
+    private final LogOrderGoodsService logOrderGoodsService;
     private final OrderRetailerService orderRetailerService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
+    private final LogOrderGoodsCacheService logOrderGoodsCacheService;
 
     @Override
+    @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        Set<String> orderIds = convert(msgs);
+        //        去重
+        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
+        msgs.parallelStream()
+                .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
+        convert(messageExtMap.values(), OrderUser.class)
+                .parallelStream()
+                .filter(orderUser -> logOrderGoodsCacheService.hasConsumedTags(orderUser.getGoodsId(), orderUser.getOrderId(), "cancel"))
+                .map(OrderUser::getOrderId)
+                .forEach(messageExtMap::remove);
 
-        asyncService.basicTask(() -> orderUserService.update(Wrappers.<OrderUser>lambdaUpdate().in(OrderUser::getOrderId, orderIds).set(OrderUser::getStatus, "订单取消")));
-        asyncService.basicTask(() -> orderRetailerService.update(Wrappers.<OrderRetailer>lambdaUpdate().in(OrderRetailer::getOrderId, orderIds).set(OrderRetailer::getStatus, "订单取消")));
+        Future<List<OrderUser>> orderUsersFuture = asyncService.basicTask(convert(messageExtMap.values(), OrderUser.class));
+        Future<List<OrderRetailer>> orderRetailersFuture = asyncService.basicTask(convert(messageExtMap.values(), OrderRetailer.class));
+        Future<List<LogOrderGoods>> logOrderGoodsFuture = asyncService.basicTask(convert(messageExtMap.values(), LogOrderGoods.class));
+        while (true) {
+            if (orderRetailersFuture.isDone() && orderUsersFuture.isDone() && logOrderGoodsFuture.isDone()) break;
+        }
+
+        List<OrderUser> orderUsers = orderUsersFuture.get();
+        List<OrderRetailer> orderRetailers = orderRetailersFuture.get();
+        List<LogOrderGoods> logOrderGoods = logOrderGoodsFuture.get();
+
+        asyncService.basicTask(() -> orderUserService.updateBatchById(orderUsers));
+        asyncService.basicTask(() -> logOrderGoodsService.saveBatch(logOrderGoods));
+        asyncService.basicTask(() -> orderRetailerService.updateBatchById(orderRetailers));
         List<Message> collect = msgs.parallelStream()
                 .map(messageExt -> new Message("storage", "rollback", messageExt.getKeys(), messageExt.getBody()))
                 .collect(Collectors.toList());
         asyncMQMessage.sendMessage(orderCancelMQProducer, collect);
-        asyncMQMessage.sendDelayedMessage(orderCancelMQProducer, collect, 2);
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
-                        .in(MqMsgCompensation::getMsgId, orderIds)
+                        .in(MqMsgCompensation::getMsgId, messageExtMap.keySet())
                         .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
-    private Set<String> convert(Collection<MessageExt> msgs) {
+    private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
         return msgs.parallelStream()
-                .map(MessageExt::getKeys)
-                .collect(Collectors.toSet());
+                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
+                .peek(jsonObject -> jsonObject.put("status", "订单取消"))
+                .peek(jsonObject -> {
+                    if (clazz == LogOrderGoods.class) jsonObject.put("topic", "cancel");
+                })
+                .map(jsonObject -> jsonObject.toJavaObject(clazz))
+                .collect(Collectors.toList());
     }
 }

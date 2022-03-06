@@ -1,9 +1,11 @@
 package com.waibao.order.service.mq;
 
-import cn.hutool.core.bean.BeanUtil;
 import com.alibaba.fastjson.JSON;
+import com.waibao.order.entity.LogOrderGoods;
 import com.waibao.order.entity.OrderRetailer;
 import com.waibao.order.entity.OrderUser;
+import com.waibao.order.service.cache.LogOrderGoodsCacheService;
+import com.waibao.order.service.db.LogOrderGoodsService;
 import com.waibao.order.service.db.OrderRetailerService;
 import com.waibao.order.service.db.OrderUserService;
 import com.waibao.util.async.AsyncService;
@@ -20,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 /**
@@ -34,29 +37,47 @@ import java.util.stream.Collectors;
 public class OrderUpdateConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
     private final OrderUserService orderUserService;
+    private final LogOrderGoodsService logOrderGoodsService;
     private final OrderRetailerService orderRetailerService;
+    private final LogOrderGoodsCacheService logOrderGoodsCacheService;
 
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        List<OrderUser> orderUsers = convert(msgs);
+        //        去重
+        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
+        msgs.parallelStream()
+                .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
+        convert(messageExtMap.values(), OrderUser.class)
+                .parallelStream()
+                .filter(orderUser -> logOrderGoodsCacheService.hasConsumedTags(orderUser.getGoodsId(), orderUser.getOrderId(), "update"))
+                .map(OrderUser::getOrderId)
+                .forEach(messageExtMap::remove);
 
-        Map<String, OrderUser> orderUserMap = new ConcurrentHashMap<>();
-        Map<String, OrderRetailer> orderRetailerMap = new ConcurrentHashMap<>();
-        orderUsers.parallelStream()
-                .forEach(orderUser -> {
-                    orderUserMap.put(orderUser.getOrderId(), orderUser);
-                    orderRetailerMap.put(orderUser.getOrderId(), BeanUtil.copyProperties(orderUser, OrderRetailer.class));
-                });
+        Future<List<OrderUser>> orderUsersFuture = asyncService.basicTask(convert(messageExtMap.values(), OrderUser.class));
+        Future<List<OrderRetailer>> orderRetailersFuture = asyncService.basicTask(convert(messageExtMap.values(), OrderRetailer.class));
+        Future<List<LogOrderGoods>> logOrderGoodsFuture = asyncService.basicTask(convert(messageExtMap.values(), LogOrderGoods.class));
+        while (true) {
+            if (orderRetailersFuture.isDone() && orderUsersFuture.isDone() && logOrderGoodsFuture.isDone()) break;
+        }
 
-        asyncService.basicTask(() -> orderUserService.updateBatchById(orderUserMap.values()));
-        asyncService.basicTask(() -> orderRetailerService.updateBatchById(orderRetailerMap.values()));
+        List<OrderUser> orderUsers = orderUsersFuture.get();
+        List<OrderRetailer> orderRetailers = orderRetailersFuture.get();
+        List<LogOrderGoods> logOrderGoods = logOrderGoodsFuture.get();
+
+        asyncService.basicTask(() -> orderUserService.updateBatchById(orderUsers));
+        asyncService.basicTask(() -> orderRetailerService.updateBatchById(orderRetailers));
+        asyncService.basicTask(() -> logOrderGoodsService.saveBatch(logOrderGoods));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
-    private List<OrderUser> convert(Collection<MessageExt> msgs) {
+    private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
         return msgs.parallelStream()
-                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), OrderUser.class))
+                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
+                .peek(jsonObject -> {
+                    if (clazz == LogOrderGoods.class) jsonObject.put("topic", "update");
+                })
+                .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());
     }
 }

@@ -10,7 +10,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.waibao.user.entity.User;
 import com.waibao.user.mapper.UserMapper;
-import com.waibao.user.service.UserCacheService;
+import com.waibao.user.service.cache.UserCacheService;
 import com.waibao.util.enums.ResultEnum;
 import com.waibao.util.feign.UserService;
 import com.waibao.util.tools.JWTUtil;

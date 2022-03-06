@@ -20,6 +20,7 @@ import javax.annotation.Resource;
 @Component
 @RequiredArgsConstructor
 @RocketMQTransactionListener
+// 已废弃
 public class SeckillTransactionListener implements RocketMQLocalTransactionListener {
     public static final String REDIS_TRANSACTION_ORDER_KEY = "transaction-storage-rollback-";
 
@@ -27,7 +28,6 @@ public class SeckillTransactionListener implements RocketMQLocalTransactionListe
 
     @Resource
     private RedisTemplate<String, String> transactionRedisTemplate;
-//todo 完成事务消息
 
     @Override
     public RocketMQLocalTransactionState executeLocalTransaction(Message msg, Object arg) {

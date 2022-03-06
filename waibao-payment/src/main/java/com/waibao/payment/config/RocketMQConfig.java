@@ -6,6 +6,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
+import org.apache.rocketmq.client.producer.TransactionMQProducer;
 import org.apache.rocketmq.spring.autoconfigure.RocketMQProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,20 +26,37 @@ public class RocketMQConfig {
     private final PaymentCreateConsumer paymentCreateConsumer;
     private final PaymentDeleteConsumer paymentDeleteConsumer;
     private final PaymentUpdateConsumer paymentUpdateConsumer;
-    private final UserCreditCancelConsumer userCreditCancelConsumer;
-    private final UserCreditCreateConsumer userCreditCreateConsumer;
-    private final UserCreditDeleteConsumer userCreditDeleteConsumer;
-    private final UserCreditUpdateConsumer userCreditUpdateConsumer;
     private final RedisPaymentCanalConsumer redisPaymentCanalConsumer;
-    private final RedisUserCreditCanalConsumer redisUserCreditCanalConsumer;
+    private final PaymentTransactionListener paymentTransactionListener;
+
+    //TODO 完成paymentCheck
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQProducer paymentCancelMQProducer() {
+        DefaultMQProducer paymentCancelMQProducer = new DefaultMQProducer("paymentCancel");
+        paymentCancelMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
+        paymentCancelMQProducer.start();
+        return paymentCancelMQProducer;
+    }
 
     @Bean
     @SneakyThrows
     public DefaultMQProducer paymentCreateMQProducer() {
-        DefaultMQProducer orderCancel = new DefaultMQProducer("paymentCreate");
-        orderCancel.setNamesrvAddr(rocketMQProperties.getNameServer());
-        orderCancel.start();
-        return orderCancel;
+        TransactionMQProducer transactionMQProducer = new TransactionMQProducer("paymentCreateTransaction");
+        transactionMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
+        transactionMQProducer.setTransactionListener(paymentTransactionListener);
+        transactionMQProducer.start();
+        return transactionMQProducer;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQProducer paymentUpdateMQProducer() {
+        DefaultMQProducer paymentCancelMQProducer = new DefaultMQProducer("paymentUpdate");
+        paymentCancelMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
+        paymentCancelMQProducer.start();
+        return paymentCancelMQProducer;
     }
 
     @Bean
@@ -85,49 +103,6 @@ public class RocketMQConfig {
         return consumer;
     }
 
-    @Bean
-    @SneakyThrows
-    public DefaultMQPushConsumer userCreditCancelRedisBatchConsumer() {
-        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
-        consumer.registerMessageListener(userCreditCancelConsumer);
-        consumer.setConsumerGroup("userCreditCancel");
-        consumer.subscribe("userCredit", "cancel");
-        consumer.start();
-        return consumer;
-    }
-
-    @Bean
-    @SneakyThrows
-    public DefaultMQPushConsumer userCreditCreateRedisBatchConsumer() {
-        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
-        consumer.registerMessageListener(userCreditCreateConsumer);
-        consumer.setConsumerGroup("userCreditCreate");
-        consumer.subscribe("userCredit", "create");
-        consumer.start();
-        return consumer;
-    }
-
-    @Bean
-    @SneakyThrows
-    public DefaultMQPushConsumer userCreditDeleteRedisBatchConsumer() {
-        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
-        consumer.registerMessageListener(userCreditDeleteConsumer);
-        consumer.setConsumerGroup("userCreditDelete");
-        consumer.subscribe("userCredit", "delete");
-        consumer.start();
-        return consumer;
-    }
-
-    @Bean
-    @SneakyThrows
-    public DefaultMQPushConsumer userCreditUpdateRedisBatchConsumer() {
-        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
-        consumer.registerMessageListener(userCreditUpdateConsumer);
-        consumer.setConsumerGroup("userCreditUpdate");
-        consumer.subscribe("userCredit", "update");
-        consumer.start();
-        return consumer;
-    }
 
     @Bean
     @SneakyThrows
@@ -137,18 +112,6 @@ public class RocketMQConfig {
         consumer.setConsumerGroup("paymentCanal");
         consumer.subscribe("waibao_payment_payment_0", "*");
         consumer.subscribe("waibao_payment_payment_1", "*");
-        consumer.start();
-        return consumer;
-    }
-
-    @Bean
-    @SneakyThrows
-    public DefaultMQPushConsumer userCreditCanalConsumer() {
-        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
-        consumer.registerMessageListener(redisUserCreditCanalConsumer);
-        consumer.setConsumerGroup("userCreditCanal");
-        consumer.subscribe("waibao_credit_user_user_credit_0", "*");
-        consumer.subscribe("waibao_credit_user_user_credit_1", "*");
         consumer.start();
         return consumer;
     }

@@ -3,7 +3,7 @@ package com.waibao.payment.controller;
 import com.waibao.payment.service.cache.UserCreditCacheService;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.user.PageVO;
-import com.waibao.util.vo.user.UserCreditVO;
+import com.waibao.util.vo.payment.UserCreditVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;

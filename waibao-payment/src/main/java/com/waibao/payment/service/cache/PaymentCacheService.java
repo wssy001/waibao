@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.waibao.payment.entity.Payment;
 import com.waibao.payment.mapper.PaymentMapper;
 import com.waibao.payment.service.db.PaymentService;
+import com.waibao.util.base.RedisCommand;
 import com.waibao.util.enums.ResultEnum;
 import com.waibao.util.feign.UserService;
 import com.waibao.util.tools.BeanUtil;
@@ -17,11 +18,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -42,11 +45,24 @@ public class PaymentCacheService {
     @Resource
     private RedisTemplate<String, Payment> paymentRedisTemplate;
 
+    private DefaultRedisScript<String> canalSync;
     private ValueOperations<String, Payment> valueOperations;
 
     @PostConstruct
     public void init() {
+        String canalSyncScript = "for index, value in ipairs(ARGV) do\n" +
+                "    local redisCommand = cjson.decode(value)\n" +
+                "    local payment = redisCommand['value']\n" +
+                "    key = '\"' .. string.gsub(key, '\"', '') .. payment['payId'] .. '\"'\n" +
+                "    if redisCommand['command'] == 'SET' then\n" +
+                "        payment['@type'] = 'com.waibao.payment.entity.Payment'\n" +
+                "        redis.call('SET', key, cjson.encode(payment))\n" +
+                "    else\n" +
+                "        redis.call('DEL', key)\n" +
+                "    end\n" +
+                "end";
         valueOperations = paymentRedisTemplate.opsForValue();
+        canalSync = new DefaultRedisScript<>(canalSyncScript);
     }
 
     public GlobalResult<PaymentVO> add(PaymentVO paymentVO) {
@@ -54,7 +70,6 @@ public class PaymentCacheService {
         GlobalResult<String> result = userService.checkUser(paymentVO.getUserId());
         if (result.getCode() != 200) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
         //TODO 判断商品是否存在、判断订单是否存在、判断账户信息是否存在
-        //TODO 从账户信息表扣除客户对应金额，银行账户（账户信息表事先添加银行账户）增加金额
         Payment record = BeanUtil.copyProperties(paymentVO, Payment.class);
         record.setPayId(IdWorker.getId());
         int insert = paymentMapper.insert(record);
@@ -94,5 +109,9 @@ public class PaymentCacheService {
 
     private void set(Payment payment) {
         valueOperations.set(REDIS_USER_CREDIT_KEY_PREFIX + payment.getPayId(), payment);
+    }
+
+    public void canalSync(List<RedisCommand> redisCommandList) {
+        paymentRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), redisCommandList.toArray());
     }
 }

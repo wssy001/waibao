@@ -3,6 +3,8 @@ package com.waibao.payment.service.mq;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.waibao.payment.entity.Payment;
+import com.waibao.payment.service.cache.PaymentCacheService;
+import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,10 +28,12 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class RedisPaymentCanalConsumer implements MessageListenerConcurrently {
+    private final AsyncService asyncService;
+    private final PaymentCacheService paymentCacheService;
 
     /**
      * RedisPaymentCanalConsumer监听Canal，接收到的信息是payment（Binlog）
-     *
+     * <p>
      * MessageExt messageExt = new MessageExt();
      * 消息ID
      * messageExt.getKeys();
@@ -53,6 +57,9 @@ public class RedisPaymentCanalConsumer implements MessageListenerConcurrently {
                 .filter(Objects::nonNull)
                 .sorted(Comparator.comparingLong(RedisCommand::getTimestamp))
                 .collect(Collectors.toList());
+        if (redisCommandList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
+
+        asyncService.basicTask(() -> paymentCacheService.canalSync(redisCommandList));
 
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }

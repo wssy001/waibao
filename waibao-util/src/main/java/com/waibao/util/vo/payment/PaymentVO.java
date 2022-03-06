@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
-import java.util.Date;
+import java.math.BigDecimal;
 
 /**
  * @Author: wwj
@@ -19,17 +19,11 @@ public class PaymentVO implements Serializable {
 
     private Long id;
 
-    private Long payId;
-
     private Long userId;
 
-    private Long orderId;
+    private String orderId;
 
     private Long goodsId;
 
-    private Long money;
-
-    private Date createTime;
-
-    private Date updateTime;
+    private BigDecimal money;
 }

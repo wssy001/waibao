@@ -51,6 +51,8 @@ spring:
           actualDataNodes: master.admin
         mq_msg_compensation:
           actualDataNodes: master.mq_msg_compensation
+        log_order_goods:
+          actualDataNodes: master.log_order_goods
         seckill_goods:
           actualDataNodes: master.seckill_goods
         order_user:
@@ -110,7 +112,7 @@ spring:
         extension-configs: application.properties,${spring.application.name}.properties
 
 rocketmq:
-  name-server: wssy001.cn:39876
+  name-server: 10.60.64.66:39876
   producer:
     group: order-producer
 

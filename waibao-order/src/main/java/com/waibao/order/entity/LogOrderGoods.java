@@ -23,7 +23,7 @@ import java.util.Date;
 @Getter
 @Setter
 @Accessors(chain = true)
-public class LogOrderUser extends Model<LogOrderUser> {
+public class LogOrderGoods extends Model<LogOrderGoods> {
 
     /**
      * 自增ID
@@ -92,10 +92,10 @@ public class LogOrderUser extends Model<LogOrderUser> {
     private String status;
 
     /**
-     * 操作类型
+     * 标签
      */
-    @TableField("operation")
-    private String operation;
+    @TableField("tags")
+    private String tags;
 
 
     @Override

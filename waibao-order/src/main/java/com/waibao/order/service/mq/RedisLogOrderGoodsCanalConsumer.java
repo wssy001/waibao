@@ -2,8 +2,8 @@ package com.waibao.order.service.mq;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.waibao.order.entity.LogOrderUser;
-import com.waibao.order.service.cache.LogOrderUserCacheService;
+import com.waibao.order.entity.LogOrderGoods;
+import com.waibao.order.service.cache.LogOrderGoodsCacheService;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
 import lombok.RequiredArgsConstructor;
@@ -26,9 +26,9 @@ import java.util.stream.Collectors;
  */
 @Component
 @RequiredArgsConstructor
-public class RedisLogOrderUserCanalConsumer implements MessageListenerConcurrently {
+public class RedisLogOrderGoodsCanalConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
-    private final LogOrderUserCacheService logOrderUserCacheService;
+    private final LogOrderGoodsCacheService logOrderGoodsCacheService;
 
     @Override
     @SneakyThrows
@@ -46,12 +46,12 @@ public class RedisLogOrderUserCanalConsumer implements MessageListenerConcurrent
                 .collect(Collectors.toList());
         if (redisCommandList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
-        asyncService.basicTask(() -> logOrderUserCacheService.canalSync(redisCommandList));
+        asyncService.basicTask(() -> logOrderGoodsCacheService.canalSync(redisCommandList));
 
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
-    private <T> List<RedisCommand> convert(JSONObject jsonObject) {
+    private List<RedisCommand> convert(JSONObject jsonObject) {
         List<RedisCommand> list = new ArrayList<>();
         Long timestamp = jsonObject.getLong("ts");
         jsonObject.getJSONArray("data")
@@ -63,7 +63,7 @@ public class RedisLogOrderUserCanalConsumer implements MessageListenerConcurrent
                             break;
                         case "UPDATE":
                             redisCommand.setCommand("UPDATE");
-                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(LogOrderUser.class));
+                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(LogOrderGoods.class));
                             break;
                         case "DELETE":
                             redisCommand.setCommand("DELETE");
@@ -71,7 +71,7 @@ public class RedisLogOrderUserCanalConsumer implements MessageListenerConcurrent
                         default:
                             return;
                     }
-                    redisCommand.setValue(((JSONObject) v).toJavaObject(LogOrderUser.class));
+                    redisCommand.setValue(((JSONObject) v).toJavaObject(LogOrderGoods.class));
                     redisCommand.setTimestamp(timestamp);
                     list.add(redisCommand);
                 });

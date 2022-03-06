@@ -2,12 +2,11 @@ package com.waibao.order.service.mq;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.waibao.order.entity.LogOrderRetailer;
-import com.waibao.order.entity.LogOrderUser;
-import com.waibao.order.service.db.LogOrderRetailerService;
-import com.waibao.order.service.db.LogOrderUserService;
+import com.waibao.order.entity.LogOrderGoods;
+import com.waibao.order.service.db.LogOrderGoodsService;
 import com.waibao.util.async.AsyncService;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
@@ -33,28 +32,26 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class LogOrderConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
-    private final LogOrderUserService logOrderUserService;
+    private final LogOrderGoodsService logOrderUserService;
     private final LogOrderRetailerService logOrderRetailerService;
 
     @Override
+    @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
 
         Future<List<LogOrderUser>> logOrderUsersFuture = asyncService.basicTask(convert(messageExtMap.values(), LogOrderUser.class));
-        Future<List<LogOrderRetailer>> logOrderRetailersFuture = asyncService.basicTask(convert(messageExtMap.values(), LogOrderRetailer.class));
+        Future<List<LogOrderGoods>> logOrderRetailersFuture = asyncService.basicTask(convert(messageExtMap.values(), LogOrderGoods.class));
         while (true) {
             if (logOrderRetailersFuture.isDone() && logOrderUsersFuture.isDone()) break;
         }
-        asyncService.basicTask(() -> {
-            List<LogOrderUser> logOrderUserList = logOrderUsersFuture.get();
-            return logOrderUserService.saveBatch(logOrderUserList);
-        });
-        asyncService.basicTask(() -> {
-            List<LogOrderRetailer> logOrderRetailerList = logOrderRetailersFuture.get();
-            return logOrderRetailerService.saveBatch(logOrderRetailerList);
-        });
+
+        List<LogOrderUser> logOrderUsers = logOrderUsersFuture.get();
+        List<LogOrderGoods> logOrderRetailerList = logOrderRetailersFuture.get();
+        asyncService.basicTask(() -> logOrderUserService.saveBatch(logOrderUsers));
+        asyncService.basicTask(() -> logOrderRetailerService.saveBatch(logOrderRetailerList));
 
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }

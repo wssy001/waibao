@@ -9,11 +9,7 @@ import com.baomidou.mybatisplus.generator.config.rules.DateType;
 import com.baomidou.mybatisplus.generator.config.rules.NamingStrategy;
 import com.baomidou.mybatisplus.generator.fill.Column;
 import com.baomidou.mybatisplus.generator.keywords.MySqlKeyWordsHandler;
-import com.waibao.user.UserApplication;
-import lombok.Data;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -25,16 +21,7 @@ import java.util.function.Function;
  * @author alexpetertyler
  * @since 2022/1/8
  */
-@Data
-@SpringBootTest(classes = UserApplication.class)
 public class MybatisGeneratorTest {
-    @Value("${spring.datasource.dynamic.datasource.master.url}")
-    private String url;
-    @Value("${spring.datasource.dynamic.datasource.master.username}")
-    private String username;
-    @Value("${spring.datasource.dynamic.datasource.master.password}")
-    private String password;
-
     @Test
     void mybatisPlusGenerator() {
         FastAutoGenerator.create(getDataSourceConfig())
@@ -48,6 +35,9 @@ public class MybatisGeneratorTest {
     }
 
     private DataSourceConfig.Builder getDataSourceConfig() {
+        String url = "jdbc:mysql://10.60.64.66:33306/waibao_payment?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true";
+        String username = "root";
+        String password = "wssy001";
         return new DataSourceConfig
                 .Builder(url, username, password)
                 .typeConvert(new MySqlTypeConvert())
@@ -58,7 +48,7 @@ public class MybatisGeneratorTest {
         return builder -> builder
 //                添加表名
                 .addInclude(
-                        "seckill_goods"
+                        "log_payment"
                 )
 
                 .entityBuilder()
@@ -104,11 +94,11 @@ public class MybatisGeneratorTest {
         return (scanner, builder) ->
 //                作者
                 builder.author("alexpetertyler")
-                .disableOpenDir()
-                .dateType(DateType.ONLY_DATE)
-                .outputDir(System.getProperty("user.dir") + "/src/main/java")
-                // Swagger 2 API Doc相关注解，Knife4j适用
+                        .disableOpenDir()
+                        .dateType(DateType.ONLY_DATE)
+                        .outputDir(System.getProperty("user.dir") + "/src/main/java")
+                        // Swagger 2 API Doc相关注解，Knife4j适用
 //                .enableSwagger()
-                .fileOverride();
+                        .fileOverride();
     }
 }

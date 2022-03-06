@@ -5,9 +5,7 @@ import com.waibao.payment.service.db.MqMsgCompensationService;
 import com.waibao.util.mq.SelectSingleMessageQueue;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.producer.DefaultMQProducer;
-import org.apache.rocketmq.client.producer.SendResult;
-import org.apache.rocketmq.client.producer.SendStatus;
+import org.apache.rocketmq.client.producer.*;
 import org.apache.rocketmq.common.message.Message;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -48,6 +46,7 @@ public class AsyncMQMessage {
         }
     }
 
+    //    1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h
     public void sendDelayedMessage(DefaultMQProducer producer, Message message, int delayedLevel) {
         message.setTags(message.getTags() + "Check");
         message.setDelayTimeLevel(delayedLevel);
@@ -69,6 +68,36 @@ public class AsyncMQMessage {
             log.info("******AsyncMQMessage.sendDelayedMessage：消息id：{} 发送成功", msgId);
         }
     }
+
+    public void sendMessageInTransaction(DefaultMQProducer producer, Message message) {
+        String msgId = message.getKeys();
+        TransactionSendResult send;
+        try {
+            send = producer.sendMessageInTransaction(message, null);
+        } catch (Exception e) {
+            log.error("******AsyncMQMessage.sendMessageInTransaction：消息id：{} 原因：{} 处理:{}", msgId, "producer发送失败", "等待延迟补偿结果");
+            sendMqMsgCompensation(message, e.getMessage());
+            return;
+        }
+
+        if (!send.getSendStatus().equals(SendStatus.SEND_OK)) {
+            String name = send.getSendStatus().name();
+            log.error("******AsyncMQMessage.sendMessageInTransaction：消息id：{} 原因：{} 处理:{}", msgId, name, "等待延迟补偿结果");
+            sendMqMsgCompensation(message, name);
+            return;
+        }
+
+        LocalTransactionState localTransactionState = send.getLocalTransactionState();
+        if (localTransactionState.equals(LocalTransactionState.COMMIT_MESSAGE)) {
+            log.info("******AsyncMQMessage.sendMessageInTransaction：消息id：{} 发送成功", msgId);
+        } else if (localTransactionState.equals(LocalTransactionState.ROLLBACK_MESSAGE)) {
+            log.info("******AsyncMQMessage.sendMessageInTransaction：消息id：{} 发送失败，处理：{}", msgId, "回滚");
+        } else {
+            log.info("******AsyncMQMessage.sendMessageInTransaction：消息id：{} 发送失败，处理：{}", msgId, "等待回查");
+        }
+
+    }
+
 
     public void sendMessage(DefaultMQProducer producer, List<Message> messages) {
         messages.parallelStream()

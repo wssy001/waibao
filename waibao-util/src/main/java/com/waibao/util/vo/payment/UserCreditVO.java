@@ -1,11 +1,11 @@
-package com.waibao.util.vo.user;
+package com.waibao.util.vo.payment;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
-import java.util.Date;
+import java.math.BigDecimal;
 
 /**
  * @Author: wwj
@@ -19,8 +19,6 @@ public class UserCreditVO implements Serializable {
 
     private Long id;
     private Long userId;
-    private Long money;
-    private Date createTime;
-    private Date updateTime;
+    private BigDecimal money;
 
 }

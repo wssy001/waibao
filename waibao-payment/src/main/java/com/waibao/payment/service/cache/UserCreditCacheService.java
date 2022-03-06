@@ -11,7 +11,7 @@ import com.waibao.util.feign.UserService;
 import com.waibao.util.tools.BeanUtil;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.user.PageVO;
-import com.waibao.util.vo.user.UserCreditVO;
+import com.waibao.util.vo.payment.UserCreditVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;

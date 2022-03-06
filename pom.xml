@@ -16,6 +16,7 @@
         <module>waibao-payment</module>
         <module>waibao-seckill</module>
         <module>waibao-order</module>
+        <module>waibao-rcde</module>
     </modules>
 
     <properties>

@@ -1,5 +1,6 @@
 package com.waibao.payment.service.cache;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -8,10 +9,9 @@ import com.waibao.payment.mapper.UserCreditMapper;
 import com.waibao.payment.service.db.UserCreditService;
 import com.waibao.util.enums.ResultEnum;
 import com.waibao.util.feign.UserService;
-import com.waibao.util.tools.BeanUtil;
 import com.waibao.util.vo.GlobalResult;
-import com.waibao.util.vo.user.PageVO;
 import com.waibao.util.vo.payment.UserCreditVO;
+import com.waibao.util.vo.user.PageVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;

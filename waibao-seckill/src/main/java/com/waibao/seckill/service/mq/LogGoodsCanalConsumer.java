@@ -1,12 +1,12 @@
 package com.waibao.seckill.service.mq;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.waibao.seckill.entity.LogSeckillGoods;
 import com.waibao.seckill.service.db.LogSeckillGoodsService;
 import com.waibao.util.base.RedisCommand;
-import com.waibao.util.tools.BeanUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;

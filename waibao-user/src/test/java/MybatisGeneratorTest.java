@@ -22,6 +22,7 @@ import java.util.function.Function;
  * @since 2022/1/8
  */
 public class MybatisGeneratorTest {
+
     @Test
     void mybatisPlusGenerator() {
         FastAutoGenerator.create(getDataSourceConfig())
@@ -35,7 +36,7 @@ public class MybatisGeneratorTest {
     }
 
     private DataSourceConfig.Builder getDataSourceConfig() {
-        String url = "jdbc:mysql://10.60.64.66:33306/waibao_payment?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true";
+        String url = "jdbc:mysql://10.60.64.66:33306/waibao_order_retailer?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true";
         String username = "root";
         String password = "wssy001";
         return new DataSourceConfig
@@ -48,7 +49,7 @@ public class MybatisGeneratorTest {
         return builder -> builder
 //                添加表名
                 .addInclude(
-                        "log_payment"
+                        "log_order_retailer"
                 )
 
                 .entityBuilder()

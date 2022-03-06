@@ -7,6 +7,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Date;
 
 /**
@@ -34,6 +35,24 @@ public class SeckillGoods extends Model<SeckillGoods> {
      */
     @TableField("goods_id")
     private Long goodsId;
+
+    /**
+     * 卖家ID
+     */
+    @TableField("retailer_id")
+    private Long retailerId;
+
+    /**
+     * 原价
+     */
+    @TableField("price")
+    private BigDecimal price;
+
+    /**
+     * 秒杀价
+     */
+    @TableField("seckill_price")
+    private BigDecimal seckillPrice;
 
     /**
      * 库存量

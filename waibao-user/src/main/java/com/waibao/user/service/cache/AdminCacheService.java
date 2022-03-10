@@ -11,11 +11,14 @@ import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
 
@@ -41,15 +44,24 @@ public class AdminCacheService {
     private RBloomFilter<Long> bloomFilter;
     private LongAdder longAdder;
     private ValueOperations<String, Admin> valueOperations;
+    private DefaultRedisScript<String> batchInsertUser;
 
     @PostConstruct
     public void init() {
+        String batchInsertScript = "local key = KEYS[1]\n" +
+                "local admin\n" +
+                "for index, value in ipairs(ARGV) do\n" +
+                "    admin = cjson.decode(value)\n" +
+                "    admin['@type'] = 'com.waibao.user.entity.Admin'\n" +
+                "    redis.call('SET', key .. admin[\"id\"], cjson.encode(admin))\n" +
+                "end";
         bloomFilter = redissonClient.getBloomFilter("adminList");
         bloomFilter.tryInit(1000L, 0.03);
         Long count = adminMapper.selectCount(null);
         longAdder = new LongAdder();
         longAdder.add(count / 1000 + 1);
         valueOperations = adminRedisTemplate.opsForValue();
+        batchInsertUser = new DefaultRedisScript<>(batchInsertScript);
     }
 
     public Admin get(Long id) {
@@ -79,12 +91,14 @@ public class AdminCacheService {
         if (l > 0) {
             IPage<Admin> adminPage = new Page<>(l, 1000);
             adminPage = adminMapper.selectPage(adminPage, null);
-
-            adminPage.getRecords()
-                    .parallelStream()
-                    .forEach(this::set);
+            insertBatch(adminPage.getRecords());
             longAdder.decrement();
         }
         log.info("******AdminCacheService：读取数据库放入缓存结束");
+    }
+
+    private void insertBatch(List<Admin> adminList) {
+        adminRedisTemplate.execute(batchInsertUser, Collections.singletonList(REDIS_ADMIN_KEY_PREFIX),
+                adminList.toArray());
     }
 }

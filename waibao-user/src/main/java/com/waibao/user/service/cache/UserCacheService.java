@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * UserService
@@ -40,7 +40,7 @@ public class UserCacheService {
     private RedisTemplate<String, User> userRedisTemplate;
 
     private RBloomFilter<Long> bloomFilter;
-    private AtomicLong atomicLong;
+    private LongAdder longAdder;
     private ValueOperations<String, User> valueOperations;
 
     @PostConstruct
@@ -48,7 +48,8 @@ public class UserCacheService {
         bloomFilter = redissonClient.getBloomFilter("userList");
         bloomFilter.tryInit(1000000L, 0.03);
         Long count = userMapper.selectCount(null);
-        atomicLong = new AtomicLong(count / 1000 + 1);
+        longAdder = new LongAdder();
+        longAdder.add(count / 1000 + 1);
         valueOperations = userRedisTemplate.opsForValue();
     }
 
@@ -77,7 +78,8 @@ public class UserCacheService {
     @Scheduled(fixedDelay = 60 * 1000L)
     public void storeUser() {
         log.info("******UserCacheService：开始读取数据库放入缓存");
-        long l = atomicLong.get();
+        longAdder.longValue();
+        long l = longAdder.longValue();
         if (l > 0) {
             IPage<User> userPage = new Page<>(l, 1000);
             userPage = userMapper.selectPage(userPage, null);
@@ -85,7 +87,7 @@ public class UserCacheService {
             userPage.getRecords()
                     .parallelStream()
                     .forEach(this::set);
-            atomicLong.getAndDecrement();
+            longAdder.decrement();
         }
         log.info("******UserCacheService：读取数据库放入缓存结束");
     }

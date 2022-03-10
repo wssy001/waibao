@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * AdminService
@@ -39,7 +39,7 @@ public class AdminCacheService {
     private RedisTemplate<String, Admin> adminRedisTemplate;
 
     private RBloomFilter<Long> bloomFilter;
-    private AtomicLong atomicLong;
+    private LongAdder longAdder;
     private ValueOperations<String, Admin> valueOperations;
 
     @PostConstruct
@@ -47,7 +47,8 @@ public class AdminCacheService {
         bloomFilter = redissonClient.getBloomFilter("adminList");
         bloomFilter.tryInit(1000L, 0.03);
         Long count = adminMapper.selectCount(null);
-        atomicLong = new AtomicLong(count / 1000 + 1);
+        longAdder = new LongAdder();
+        longAdder.add(count / 1000 + 1);
         valueOperations = adminRedisTemplate.opsForValue();
     }
 
@@ -74,7 +75,7 @@ public class AdminCacheService {
     @Scheduled(fixedDelay = 60 * 1000L)
     public void storeUser() {
         log.info("******AdminCacheService：开始读取数据库放入缓存");
-        long l = atomicLong.get();
+        long l = longAdder.longValue();
         if (l > 0) {
             IPage<Admin> adminPage = new Page<>(l, 1000);
             adminPage = adminMapper.selectPage(adminPage, null);
@@ -82,7 +83,7 @@ public class AdminCacheService {
             adminPage.getRecords()
                     .parallelStream()
                     .forEach(this::set);
-            atomicLong.getAndDecrement();
+            longAdder.decrement();
         }
         log.info("******AdminCacheService：读取数据库放入缓存结束");
     }

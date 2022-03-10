@@ -6,6 +6,7 @@ import com.waibao.payment.entity.LogPayment;
 import com.waibao.payment.entity.MqMsgCompensation;
 import com.waibao.payment.entity.Payment;
 import com.waibao.payment.mapper.MqMsgCompensationMapper;
+import com.waibao.payment.service.cache.LogPaymentCacheService;
 import com.waibao.payment.service.db.LogPaymentService;
 import com.waibao.payment.service.db.PaymentService;
 import com.waibao.util.async.AsyncService;
@@ -40,6 +41,7 @@ public class PaymentDeleteConsumer implements MessageListenerConcurrently {
     private final LogPaymentService logPaymentService;
     private final PaymentService paymentService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
+    private final LogPaymentCacheService logPaymentCacheService;
 
     @Override
     @SneakyThrows
@@ -50,8 +52,8 @@ public class PaymentDeleteConsumer implements MessageListenerConcurrently {
                 .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
         convert(messageExtMap.values(), Payment.class)
                 .parallelStream()
-                //没有logPaymentCacheService类和查询redis里符合operation操作的lua
-                //.filter()
+                //
+                .filter(payment -> logPaymentCacheService.hasConsumeTags(payment.getUserId(),payment.getPayId(),"delete"))
                 .map(Payment::getUserId)
                 .forEach(messageExtMap::remove);
 

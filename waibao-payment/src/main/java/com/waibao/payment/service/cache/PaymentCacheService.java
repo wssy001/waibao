@@ -50,9 +50,12 @@ public class PaymentCacheService {
 
     @PostConstruct
     public void init() {
-        String canalSyncScript = "for index, value in ipairs(ARGV) do\n" +
-                "    local redisCommand = cjson.decode(value)\n" +
-                "    local payment = redisCommand['value']\n" +
+        String canalSyncScript = "local key = KEYS[1]\n" +
+                "local redisCommand\n" +
+                "local payment\n" +
+                "for index, value in ipairs(ARGV) do\n" +
+                "    redisCommand = cjson.decode(value)\n" +
+                "    payment = redisCommand['value']\n" +
                 "    key = '\"' .. string.gsub(key, '\"', '') .. payment['payId'] .. '\"'\n" +
                 "    if redisCommand['command'] == 'SET' then\n" +
                 "        payment['@type'] = 'com.waibao.payment.entity.Payment'\n" +

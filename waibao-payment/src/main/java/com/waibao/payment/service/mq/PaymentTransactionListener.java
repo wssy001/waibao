@@ -107,7 +107,9 @@ public class PaymentTransactionListener implements TransactionListener {
             List<Long> userIdList = userIdMapFuture.get();
 
 //            这里获取的都是用户金额
-//            TODO 获取银行账户
+//            TODO 获取银行账户（完成？），银行内部账户放账户信息表第一个
+            final UserCredit bankCredit = userCreditService.getById(1);
+
             Map<Long, UserCredit> userCreditMap = new ConcurrentHashMap<>();
             userCreditService.list(Wrappers.<UserCredit>lambdaQuery().in(UserCredit::getUserId, userIdList))
                     .parallelStream()
@@ -123,10 +125,16 @@ public class PaymentTransactionListener implements TransactionListener {
 //                        扣款前的钱
                         BigDecimal oldMoney = userCredit.getMoney();
                         logUserCredit.setOldMoney(oldMoney);
-                        userCredit = userCreditMap.computeIfPresent(userId, (k, v) -> v.setMoney(oldMoney.min(payment.getMoney())));
+                        userCredit = userCreditMap.computeIfPresent(userId, (k, v) -> v.setMoney(oldMoney.subtract(payment.getMoney())));
 //                        扣款后的钱
                         BigDecimal money = userCredit.getMoney();
-//                        TODO 给银行内部账号加钱
+//                        TODO 给银行内部账号加钱(完成？)
+                        //银行之前的钱
+                        BigDecimal oldBankMoney=bankCredit.getMoney();
+                        //加钱
+                        BigDecimal bankMoney=bankCredit.getMoney().add(payment.getMoney());
+                        bankCredit.setMoney(bankMoney);
+                        userCreditMap.put(bankCredit.getId(),bankCredit);
 
                         logUserCredit.setMoney(money);
                         logUserCredit.setOperation("INSERT");
@@ -135,6 +143,13 @@ public class PaymentTransactionListener implements TransactionListener {
                     })
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
+
+            //银行账户流水记录
+            LogUserCredit logBankCredit=new LogUserCredit();
+            logBankCredit.setMoney(bankCredit.getMoney());
+            logBankCredit.setOperation("INSERT");
+            logBankCredit.setUserId(bankCredit.getUserId());
+            logUserCreditList.add(logBankCredit);
 
             asyncService.basicTask(userCreditService.saveBatch(userCreditMap.values()));
             asyncService.basicTask(logUserCreditService.saveBatch(logUserCreditList));

@@ -12,13 +12,16 @@ import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * UserService
@@ -40,16 +43,26 @@ public class UserCacheService {
     private RedisTemplate<String, User> userRedisTemplate;
 
     private RBloomFilter<Long> bloomFilter;
-    private AtomicLong atomicLong;
+    private LongAdder longAdder;
     private ValueOperations<String, User> valueOperations;
+    private DefaultRedisScript<String> batchInsertUser;
 
     @PostConstruct
     public void init() {
+        String batchInsertScript = "local key = KEYS[1]\n" +
+                "local user\n" +
+                "for index, value in ipairs(ARGV) do\n" +
+                "    user = cjson.decode(value)\n" +
+                "    user['@type'] = 'com.waibao.user.entity.User'\n" +
+                "    redis.call('SET', key .. user[\"id\"], cjson.encode(user))\n" +
+                "end";
         bloomFilter = redissonClient.getBloomFilter("userList");
         bloomFilter.tryInit(1000000L, 0.03);
         Long count = userMapper.selectCount(null);
-        atomicLong = new AtomicLong(count / 1000 + 1);
+        longAdder = new LongAdder();
+        longAdder.add(count / 1000 + 1);
         valueOperations = userRedisTemplate.opsForValue();
+        batchInsertUser = new DefaultRedisScript<>(batchInsertScript);
     }
 
     public User get(Long userNo) {
@@ -77,16 +90,19 @@ public class UserCacheService {
     @Scheduled(fixedDelay = 60 * 1000L)
     public void storeUser() {
         log.info("******UserCacheService：开始读取数据库放入缓存");
-        long l = atomicLong.get();
+        longAdder.longValue();
+        long l = longAdder.longValue();
         if (l > 0) {
             IPage<User> userPage = new Page<>(l, 1000);
             userPage = userMapper.selectPage(userPage, null);
-
-            userPage.getRecords()
-                    .parallelStream()
-                    .forEach(this::set);
-            atomicLong.getAndDecrement();
+            insertBatch(userPage.getRecords());
+            longAdder.decrement();
         }
         log.info("******UserCacheService：读取数据库放入缓存结束");
+    }
+
+    private void insertBatch(List<User> userList) {
+        userRedisTemplate.execute(batchInsertUser, Collections.singletonList(REDIS_USER_KEY_PREFIX),
+                userList.toArray());
     }
 }

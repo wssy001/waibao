@@ -46,7 +46,7 @@ public class MybatisGenerator {
         return builder -> builder
 //                添加表名
                 .addInclude(
-                        "log_order_retailer"
+                        "rule"
                 )
 
                 .entityBuilder()

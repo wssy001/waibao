@@ -1,7 +1,10 @@
 -- canalSyncScript PaymentCacheService
+local key = KEYS[1]
+local redisCommand
+local payment
 for index, value in ipairs(ARGV) do
-    local redisCommand = cjson.decode(value)
-    local payment = redisCommand['value']
+    redisCommand = cjson.decode(value)
+    payment = redisCommand['value']
     key = '"' .. string.gsub(key, '"', '') .. payment['payId'] .. '"'
     if redisCommand['command'] == 'SET' then
         payment['@type'] = 'com.waibao.payment.entity.Payment'

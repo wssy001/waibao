@@ -44,20 +44,20 @@ public class UserController implements UserService {
     private final UserCacheService userCacheService;
 
     @Override
-    @GetMapping(value = "/check/{userNo}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/check/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<String> checkUser(
-            @PathVariable("userNo") Long userNo
+            @PathVariable("userId") Long userId
     ) {
-        if (userCacheService.checkUser(userNo)) GlobalResult.success();
+        if (userCacheService.checkUser(userId)) GlobalResult.success();
         return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
     }
 
     @Override
-    @GetMapping(value = "/{userNo}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<UserVO> getUserInfo(
-            @PathVariable("userNo") Long userNo
+            @PathVariable("userId") Long userId
     ) {
-        User user = userCacheService.get(userNo);
+        User user = userCacheService.get(userId);
         if (user == null) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
 
         UserVO userVO = BeanUtil.copyProperties(user, UserVO.class, "password", "userSource");
@@ -135,7 +135,7 @@ public class UserController implements UserService {
     ) {
         String data = token.split("\\.")[1];
         JSONObject jsonObject = JSONObject.parseObject(Base64.decodeStr(data));
-        User user = userCacheService.get(jsonObject.getLong("userNo"));
+        User user = userCacheService.get(jsonObject.getLong("userId"));
         UserVO userVO = BeanUtil.copyProperties(user, UserVO.class);
         userVO.hideMobile();
         userVO.setPassword(null);

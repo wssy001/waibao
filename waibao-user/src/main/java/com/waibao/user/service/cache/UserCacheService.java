@@ -1,17 +1,15 @@
 package com.waibao.user.service.cache;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.waibao.user.entity.User;
 import com.waibao.user.mapper.UserMapper;
-import com.waibao.user.service.db.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
+import org.redisson.cache.LRUCacheMap;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -20,7 +18,6 @@ import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
@@ -36,73 +33,105 @@ public class UserCacheService {
     public static final String REDIS_USER_KEY_PREFIX = "user-";
 
     private final UserMapper userMapper;
-    private final UserService userService;
     private final RedissonClient redissonClient;
 
     @Resource
     private RedisTemplate<String, User> userRedisTemplate;
 
-    private RBloomFilter<Long> bloomFilter;
     private LongAdder longAdder;
-    private ValueOperations<String, User> valueOperations;
+    private RBloomFilter<Long> bloomFilter;
+    private DefaultRedisScript<User> getUser;
+    private LRUCacheMap<Long, User> lruCacheMap;
+    private DefaultRedisScript<String> insertUser;
     private DefaultRedisScript<String> batchInsertUser;
 
     @PostConstruct
     public void init() {
-        String batchInsertScript = "local key = KEYS[1]\n" +
+        String insertUserScript = "local key = KEYS[1]\n" +
+                "local user = cjson.decode(ARGV[1])\n" +
+                "redis.call('HSET', key .. user['id'], 'id', user['id'], 'userNo', user['userNo'], 'updateTime',\n" +
+                "        user['updateTime'], 'mobile', user['mobile'], 'eamil', user['eamil'], 'password',\n" +
+                "        user['password'], 'sex', user['sex'], 'age', user['age'], 'nickname', user['nickname'],\n" +
+                "        'createTime', user['createTime'], '@type', 'com.waibao.user.entity.User')";
+        String batchInsertUserScript = "local key = KEYS[1]\n" +
                 "local user\n" +
-                "for index, value in ipairs(ARGV) do\n" +
+                "for _, value in ipairs(ARGV) do\n" +
                 "    user = cjson.decode(value)\n" +
-                "    user['@type'] = 'com.waibao.user.entity.User'\n" +
-                "    redis.call('SET', key .. user[\"id\"], cjson.encode(user))\n" +
+                "    redis.call('HSET', key .. user['id'], 'id', user['id'], 'userId', user['userId'], 'updateTime',\n" +
+                "            user['updateTime'], 'mobile', user['mobile'], 'eamil', user['eamil'], 'password',\n" +
+                "            user['password'], 'sex', user['sex'], 'age', user['age'], 'nickname', user['nickname'],\n" +
+                "            'createTime', user['createTime'])\n" +
                 "end";
+        String getUserScript = "local user = {}\n" +
+                "local key = KEYS[1]\n" +
+                "local userId = ARGV[1]\n" +
+                "local userKeys = redis.call('HVALS', key .. userId)\n" +
+                "for _, value in ipairs(userKeys) do\n" +
+                "    user[value] = redis.call('HGET', key .. userId, value)\n" +
+                "end\n" +
+                "\n" +
+                "return cjson.encode(user)";
         bloomFilter = redissonClient.getBloomFilter("userList");
         bloomFilter.tryInit(1000000L, 0.03);
         Long count = userMapper.selectCount(null);
         longAdder = new LongAdder();
         longAdder.add(count / 1000 + 1);
-        valueOperations = userRedisTemplate.opsForValue();
-        batchInsertUser = new DefaultRedisScript<>(batchInsertScript);
+        batchInsertUser = new DefaultRedisScript<>(batchInsertUserScript);
+        getUser = new DefaultRedisScript<>(getUserScript);
+        insertUser = new DefaultRedisScript<>(insertUserScript);
+        lruCacheMap = new LRUCacheMap<>(300, 0, 0);
     }
 
-    public User get(Long userNo) {
-        User user = valueOperations.get(REDIS_USER_KEY_PREFIX + userNo);
-        if (user == null) {
-            user = userService.getOne(Wrappers.<User>lambdaQuery().eq(User::getUserNo, userNo));
-            if (user == null) user = new User();
-            valueOperations.set(REDIS_USER_KEY_PREFIX + userNo, user, 15 * 60, TimeUnit.SECONDS);
+    public User get(Long userId) {
+        User user = lruCacheMap.get(userId);
+        if (user != null) return user;
+
+        if (!bloomFilter.contains(userId)) return null;
+
+        user = userRedisTemplate.execute(getUser, Collections.singletonList(REDIS_USER_KEY_PREFIX), userId);
+        if (user != null) {
+            set(user, false);
+            return user;
         }
 
-        if (user.getUserNo() != null) bloomFilter.add(userNo);
+        user = userMapper.selectById(userId);
+        if (user != null) set(user);
+
         return user;
     }
 
     public void set(User user) {
-        valueOperations.set(REDIS_USER_KEY_PREFIX + user.getUserNo(), user);
-        if (user.getUserNo() != null) bloomFilter.add(user.getUserNo());
+        set(user, true);
     }
 
-    public boolean checkUser(Long userNo) {
-        if (!bloomFilter.contains(userNo)) return false;
-        return get(userNo).getUserNo() != null;
+    public void set(User user, boolean updateRedis) {
+        Long userId = user.getId();
+        lruCacheMap.put(userId, user);
+        bloomFilter.add(userId);
+        if (updateRedis)
+            userRedisTemplate.execute(insertUser, Collections.singletonList(REDIS_USER_KEY_PREFIX), user);
     }
 
-    @Scheduled(fixedDelay = 60 * 1000L)
+    public boolean checkUser(Long userId) {
+        return get(userId) != null;
+    }
+
+    public void insertBatch(List<User> userList) {
+        userRedisTemplate.execute(batchInsertUser, Collections.singletonList(REDIS_USER_KEY_PREFIX),
+                userList.toArray());
+    }
+
+    @Scheduled(fixedDelay = 2000L)
     public void storeUser() {
         log.info("******UserCacheService：开始读取数据库放入缓存");
         longAdder.longValue();
         long l = longAdder.longValue();
         if (l > 0) {
-            IPage<User> userPage = new Page<>(l, 1000);
+            IPage<User> userPage = new Page<>(l, 2000);
             userPage = userMapper.selectPage(userPage, null);
             insertBatch(userPage.getRecords());
             longAdder.decrement();
         }
         log.info("******UserCacheService：读取数据库放入缓存结束");
-    }
-
-    private void insertBatch(List<User> userList) {
-        userRedisTemplate.execute(batchInsertUser, Collections.singletonList(REDIS_USER_KEY_PREFIX),
-                userList.toArray());
     }
 }

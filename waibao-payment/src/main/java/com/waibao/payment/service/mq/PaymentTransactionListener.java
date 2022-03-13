@@ -12,6 +12,7 @@ import com.waibao.payment.service.db.PaymentService;
 import com.waibao.payment.service.db.UserCreditService;
 import com.waibao.util.async.AsyncService;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.LocalTransactionState;
@@ -168,10 +169,111 @@ public class PaymentTransactionListener implements TransactionListener {
      * LocalTransactionState.ROLLBACK_MESSAGE：检测到重复消息，回滚，同时取消原定于 处理成功后消息发送 的任务
      * LocalTransactionState.COMMIT_MESSAGE：处理正常
      **/
+    @SneakyThrows
     @Override
     public LocalTransactionState checkLocalTransaction(MessageExt msg) {
         //TODO 完成回查
+        Boolean absent = transactionRedisTemplate.opsForValue()
+                .setIfAbsent("payment-transaction-" + msg.getTransactionId(), msg.getKeys());
+        //            当前消息已被消费过
+        if (Boolean.FALSE.equals(absent)) {
+            msg.setTopic("payment");
+            msg.setTags("cancel");
+            msg.setKeys(IdUtil.objectId());
+            rollback(msg);
+            return LocalTransactionState.ROLLBACK_MESSAGE;
+        }
 
+        Future<List<Payment>> paymentsFuture = asyncService.basicTask(convert(msg, Payment.class));
+        Future<List<LogPayment>> logPaymentsFuture = asyncService.basicTask(convert(msg, LogPayment.class));
+        while (true) {
+            if (paymentsFuture.isDone() && logPaymentsFuture.isDone()) break;
+        }
+        List<LogPayment> logPayments = logPaymentsFuture.get();
+        //需要操作的所有payId
+        List<Long> collect = logPayments.parallelStream().map(LogPayment::getPayId).collect(Collectors.toList());
+        List<Payment> payments = paymentsFuture.get();
+        List<LogPayment> logPaymentList = logPaymentService.list(Wrappers.<LogPayment>lambdaQuery().in(LogPayment::getPayId, collect));
+        List<Payment> paymentList = paymentService.list(Wrappers.<Payment>lambdaQuery().in(Payment::getPayId, payments));
+        if(logPayments.size()!=logPaymentList.size()){
+            logPayments.removeAll(logPaymentList);
+            asyncService.basicTask(() -> logPaymentService.saveBatch(logPaymentsFuture.get()));
+        }
+        if(payments.size()!=paymentList.size()){
+            payments.removeAll(paymentList);
+            asyncService.basicTask(() -> paymentService.saveBatch(paymentList));
+        }
+        //操作过的userCredit
+        List<LogUserCredit> logUserCredits = logUserCreditService.list(Wrappers.<LogUserCredit>lambdaQuery().in(LogUserCredit::getPayId, collect));
+        if(logUserCredits.size()!=collect.size()){
+            //已经记录操作过的payId
+            Future<List<Long>> payIdListFuture = asyncService.basicTask(logUserCredits.stream()
+                    .map(LogUserCredit::getPayId)
+                    .collect(Collectors.toList()));
+            while (true) {
+                if (payIdListFuture.isDone()) break;
+            }
+            //已经记录操作过的payId
+            List<Long> payIdList = payIdListFuture.get();
+            //collect剩下的都是未操作的payId
+            collect.removeAll(payIdList);
+            List<Payment> subPayments = paymentService.list(Wrappers.<Payment>lambdaQuery().in(Payment::getPayId, collect));
+            List<LogUserCredit> subLogUserCreditList = logUserCreditService.list(Wrappers.<LogUserCredit>lambdaQuery().in(LogUserCredit::getPayId, collect));
+            //未操作的userId
+            Future<List<Long>> userIdMapFuture = asyncService.basicTask(subLogUserCreditList.stream()
+                    .map(LogUserCredit::getUserId)
+                    .collect(Collectors.toList()));
+            while (true){
+                if(userIdMapFuture.isDone())break;
+            }
+            //未操作的userId
+            List<Long> userIdList = userIdMapFuture.get();
+            //未操作的UserCredit
+            Map<Long, UserCredit> userCreditMap = new ConcurrentHashMap<>();
+            userCreditService.list(Wrappers.<UserCredit>lambdaQuery().in(UserCredit::getUserId, userIdList))
+                    .parallelStream()
+                    .forEach(userCredit -> userCreditMap.put(userCredit.getUserId(), userCredit));
+            //银行账号
+            final UserCredit bankCredit = userCreditService.getById(1);
+            //对未操作的完成操作
+            List<LogUserCredit> logUserCreditList = subPayments.parallelStream()
+                    .map(payment -> {
+                        Long userId = payment.getUserId();
+                        UserCredit userCredit = userCreditMap.get(userId);
+                        if (userCredit == null) return null;
+                        LogUserCredit logUserCredit = new LogUserCredit();
+                        logUserCredit.setPayId(payment.getPayId());
+//                        扣款前的钱
+                        BigDecimal oldMoney = userCredit.getMoney();
+                        logUserCredit.setOldMoney(oldMoney);
+                        userCredit = userCreditMap.computeIfPresent(userId, (k, v) -> v.setMoney(oldMoney.subtract(payment.getMoney())));
+//                        扣款后的钱
+                        BigDecimal money = userCredit.getMoney();
+                        //银行之前的钱
+                        BigDecimal oldBankMoney=bankCredit.getMoney();
+                        //加钱
+                        BigDecimal bankMoney=bankCredit.getMoney().add(payment.getMoney());
+                        bankCredit.setMoney(bankMoney);
+                        userCreditMap.put(bankCredit.getId(),bankCredit);
+
+                        logUserCredit.setMoney(money);
+                        logUserCredit.setOperation("INSERT");
+                        logUserCredit.setUserId(userId);
+                        return logUserCredit;
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            //银行账户流水记录
+            LogUserCredit logBankCredit=new LogUserCredit();
+            logBankCredit.setMoney(bankCredit.getMoney());
+            logBankCredit.setOperation("INSERT");
+            logBankCredit.setUserId(bankCredit.getUserId());
+            logUserCreditList.add(logBankCredit);
+
+            asyncService.basicTask(userCreditService.saveBatch(userCreditMap.values()));
+            asyncService.basicTask(logUserCreditService.saveBatch(logUserCreditList));
+        }
         return LocalTransactionState.COMMIT_MESSAGE;
     }
 

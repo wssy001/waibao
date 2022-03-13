@@ -68,18 +68,6 @@ public class PaymentCacheService {
         canalSync = new DefaultRedisScript<>(canalSyncScript);
     }
 
-    public GlobalResult<PaymentVO> add(PaymentVO paymentVO) {
-        //判断用户是否存在
-        GlobalResult<String> result = userService.checkUser(paymentVO.getUserId());
-        if (result.getCode() != 200) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
-        //TODO 判断商品是否存在、判断订单是否存在、判断账户信息是否存在
-        Payment record = BeanUtil.copyProperties(paymentVO, Payment.class);
-        record.setPayId(IdWorker.getId());
-        int insert = paymentMapper.insert(record);
-        if (insert == 0) return GlobalResult.error(ResultEnum.SYSTEM_SAVE_FAIL);
-        this.set(record);
-        return GlobalResult.success(paymentVO);
-    }
 
     public GlobalResult<PaymentVO> get(Long payId) {
         Payment payment = valueOperations.get(REDIS_USER_CREDIT_KEY_PREFIX + payId);
@@ -93,24 +81,7 @@ public class PaymentCacheService {
         return GlobalResult.success(record);
     }
 
-    public GlobalResult<PageVO<PaymentVO>> list(PageVO<PaymentVO> pageVO) {
-        IPage<Payment> paymentPage = new Page<>(pageVO.getIndex(), pageVO.getCount());
-        paymentPage = paymentMapper.selectPage(paymentPage, Wrappers.<Payment>lambdaQuery().orderByDesc(Payment::getUpdateTime));
-        List<Payment> records = paymentPage.getRecords();
-        if (records == null) {
-            records = new ArrayList<>();
-        }
-        List<PaymentVO> paymentVOList = records.parallelStream()
-                .map(payment -> cn.hutool.core.bean.BeanUtil.copyProperties(payment, PaymentVO.class))
-                .collect(Collectors.toList());
-        pageVO.setMaxIndex(paymentPage.getPages());
-        pageVO.setList(paymentVOList);
-        pageVO.setMaxSize(paymentPage.getTotal());
-
-        return GlobalResult.success(ResultEnum.SUCCESS, pageVO);
-    }
-
-    private void set(Payment payment) {
+    public void set(Payment payment) {
         valueOperations.set(REDIS_USER_CREDIT_KEY_PREFIX + payment.getPayId(), payment);
     }
 

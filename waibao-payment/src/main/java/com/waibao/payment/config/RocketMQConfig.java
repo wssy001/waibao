@@ -29,7 +29,6 @@ public class RocketMQConfig {
     private final RedisPaymentCanalConsumer redisPaymentCanalConsumer;
     private final PaymentTransactionListener paymentTransactionListener;
 
-    //TODO 完成paymentCheck
 
     @Bean
     @SneakyThrows

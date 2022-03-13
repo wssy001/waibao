@@ -72,6 +72,8 @@ public class RedisPaymentCanalConsumer implements MessageListenerConcurrently {
                     RedisCommand redisCommand = new RedisCommand();
                     switch (jsonObject.getString("type")) {
                         case "INSERT":
+                            redisCommand.setCommand("INSERT");
+                            break;
                         case "UPDATE":
                             redisCommand.setCommand("SET");
                             break;

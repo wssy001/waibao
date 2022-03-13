@@ -48,15 +48,6 @@ public class UserCreditCacheService {
         valueOperations = userCreditRedisTemplate.opsForValue();
     }
 
-    public GlobalResult<UserCreditVO> add(UserCreditVO userCreditVO) {
-        GlobalResult<String> result = userService.checkUser(userCreditVO.getUserId());
-        if (result.getCode() != 200) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
-        UserCredit record = BeanUtil.copyProperties(userCreditVO, UserCredit.class);
-        int insert = userCreditMapper.insert(record);
-        if (insert == 0) return GlobalResult.error(ResultEnum.SYSTEM_SAVE_FAIL);
-        this.set(record);
-        return GlobalResult.success(userCreditVO);
-    }
 
     public GlobalResult<UserCreditVO> get(Long userId) {
         UserCredit credit = valueOperations.get(REDIS_USER_CREDIT_KEY_PREFIX + userId);
@@ -70,34 +61,7 @@ public class UserCreditCacheService {
         return GlobalResult.success(record);
     }
 
-    public GlobalResult<PageVO<UserCreditVO>> list(PageVO<UserCreditVO> pageVO) {
-        IPage<UserCredit> creditPage = new Page<>(pageVO.getIndex(), pageVO.getCount());
-        creditPage = userCreditMapper.selectPage(creditPage, Wrappers.<UserCredit>lambdaQuery().orderByDesc(UserCredit::getUpdateTime));
-
-        List<UserCredit> records = creditPage.getRecords();
-        if (records == null) {
-            records = new ArrayList<>();
-        }
-        List<UserCreditVO> creditVOList = records.parallelStream()
-                .map(credit -> cn.hutool.core.bean.BeanUtil.copyProperties(credit, UserCreditVO.class))
-                .collect(Collectors.toList());
-        pageVO.setMaxIndex(creditPage.getPages());
-        pageVO.setList(creditVOList);
-        pageVO.setMaxSize(creditPage.getTotal());
-
-        return GlobalResult.success(ResultEnum.SUCCESS, pageVO);
-    }
-
-    public GlobalResult<UserCreditVO> update(UserCreditVO userCreditVO) {
-        GlobalResult<String> result = userService.checkUser(userCreditVO.getUserId());
-        if (result.getCode() != 200) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
-        UserCredit record = BeanUtil.copyProperties(userCreditVO, UserCredit.class);
-        int insert = userCreditMapper.updateByPrimaryKeySelective(record);
-        if (insert == 0) return GlobalResult.error(ResultEnum.SYSTEM_UPDATE_FAIL);
-        return GlobalResult.success(userCreditVO);
-    }
-
-    private void set(UserCredit userCredit) {
+    public void set(UserCredit userCredit) {
         valueOperations.set(REDIS_USER_CREDIT_KEY_PREFIX + userCredit.getUserId(), userCredit);
     }
 }

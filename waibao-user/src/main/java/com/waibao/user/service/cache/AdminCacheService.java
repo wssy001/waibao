@@ -1,24 +1,19 @@
 package com.waibao.user.service.cache;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.waibao.user.entity.Admin;
 import com.waibao.user.mapper.AdminMapper;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
 import org.redisson.cache.LRUCacheMap;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.atomic.LongAdder;
 
 /**
  * AdminService
@@ -26,7 +21,6 @@ import java.util.concurrent.atomic.LongAdder;
  * @author alexpetertyler
  * @since 2022-02-15
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdminCacheService {
@@ -38,7 +32,6 @@ public class AdminCacheService {
     @Resource
     private RedisTemplate<String, Admin> adminRedisTemplate;
 
-    private LongAdder longAdder;
     private RBloomFilter<Long> bloomFilter;
     private DefaultRedisScript<Admin> getAdmin;
     private LRUCacheMap<Long, Admin> lruCacheMap;
@@ -71,9 +64,6 @@ public class AdminCacheService {
                 "return cjson.encode(admin)";
         bloomFilter = redissonClient.getBloomFilter("adminList");
         bloomFilter.tryInit(1000000L, 0.03);
-        Long count = adminMapper.selectCount(null);
-        longAdder = new LongAdder();
-        longAdder.add(count / 1000 + 1);
         batchInsertAdmin = new DefaultRedisScript<>(batchInsertAdminScript);
         getAdmin = new DefaultRedisScript<>(getAdminScript);
         insertAdmin = new DefaultRedisScript<>(insertAdminScript);
@@ -119,16 +109,4 @@ public class AdminCacheService {
                 userList.toArray());
     }
 
-    @Scheduled(fixedDelay = 60 * 1000L)
-    public void storeAdmin() {
-        log.info("******AdminCacheService：开始读取数据库放入缓存");
-        long l = longAdder.longValue();
-        if (l > 0) {
-            IPage<Admin> adminPage = new Page<>(l, 1000);
-            adminPage = adminMapper.selectPage(adminPage, null);
-            insertBatch(adminPage.getRecords());
-            longAdder.decrement();
-        }
-        log.info("******AdminCacheService：读取数据库放入缓存结束");
-    }
 }

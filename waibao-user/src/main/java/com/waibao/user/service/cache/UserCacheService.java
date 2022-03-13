@@ -1,24 +1,19 @@
 package com.waibao.user.service.cache;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.waibao.user.entity.User;
 import com.waibao.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
 import org.redisson.cache.LRUCacheMap;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.atomic.LongAdder;
 
 /**
  * UserService
@@ -26,7 +21,6 @@ import java.util.concurrent.atomic.LongAdder;
  * @author alexpetertyler
  * @since 2022-02-15
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserCacheService {
@@ -38,7 +32,6 @@ public class UserCacheService {
     @Resource
     private RedisTemplate<String, User> userRedisTemplate;
 
-    private LongAdder longAdder;
     private RBloomFilter<Long> bloomFilter;
     private DefaultRedisScript<User> getUser;
     private LRUCacheMap<Long, User> lruCacheMap;
@@ -73,9 +66,6 @@ public class UserCacheService {
                 "return cjson.encode(user)";
         bloomFilter = redissonClient.getBloomFilter("userList");
         bloomFilter.tryInit(1000000L, 0.03);
-        Long count = userMapper.selectCount(null);
-        longAdder = new LongAdder();
-        longAdder.add(count / 1000 + 1);
         batchInsertUser = new DefaultRedisScript<>(batchInsertUserScript);
         getUser = new DefaultRedisScript<>(getUserScript);
         insertUser = new DefaultRedisScript<>(insertUserScript);
@@ -121,17 +111,4 @@ public class UserCacheService {
                 userList.toArray());
     }
 
-    @Scheduled(fixedDelay = 2000L)
-    public void storeUser() {
-        log.info("******UserCacheService：开始读取数据库放入缓存");
-        longAdder.longValue();
-        long l = longAdder.longValue();
-        if (l > 0) {
-            IPage<User> userPage = new Page<>(l, 2000);
-            userPage = userMapper.selectPage(userPage, null);
-            insertBatch(userPage.getRecords());
-            longAdder.decrement();
-        }
-        log.info("******UserCacheService：读取数据库放入缓存结束");
-    }
 }

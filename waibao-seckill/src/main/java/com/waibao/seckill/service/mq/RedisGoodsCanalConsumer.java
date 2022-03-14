@@ -1,12 +1,10 @@
 package com.waibao.seckill.service.mq;
 
-import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.service.cache.GoodsCacheService;
 import com.waibao.seckill.service.cache.GoodsRetailerCacheService;
-import com.waibao.seckill.service.cache.GoodsStorageCacheService;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +31,6 @@ import java.util.stream.Collectors;
 public class RedisGoodsCanalConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
     private final GoodsCacheService goodsCacheService;
-    private final GoodsStorageCacheService goodsStorageCacheService;
     private final GoodsRetailerCacheService goodsRetailerCacheService;
 
     @Override
@@ -51,7 +48,6 @@ public class RedisGoodsCanalConsumer implements MessageListenerConcurrently {
         if (redisCommandList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
         asyncService.basicTask(() -> goodsCacheService.canalSync(redisCommandList));
-        asyncService.basicTask(() -> goodsStorageCacheService.canalSync(redisCommandList));
         asyncService.basicTask(() -> goodsRetailerCacheService.canalSync(redisCommandList));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
@@ -64,15 +60,16 @@ public class RedisGoodsCanalConsumer implements MessageListenerConcurrently {
                     RedisCommand redisCommand = new RedisCommand();
                     switch (jsonObject.getString("type")) {
                         case "INSERT":
+                            redisCommand.setCommand("INSERT");
+                            break;
                         case "UPDATE":
-                            redisCommand.setCommand("SET");
+                            redisCommand.setCommand("UPDATE");
                             break;
                         case "DELETE":
-                            redisCommand.setCommand("DEL");
-                    }
-                    if (StrUtil.isBlank(redisCommand.getCommand())) {
-                        list.add(null);
-                        return;
+                            redisCommand.setCommand("DELETE");
+                            break;
+                        default:
+                            return;
                     }
                     redisCommand.setValue(((JSONObject) v).toJavaObject(SeckillGoods.class));
                     redisCommand.setTimestamp(timestamp);

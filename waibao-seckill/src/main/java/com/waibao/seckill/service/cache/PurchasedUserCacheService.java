@@ -5,7 +5,6 @@ import com.alibaba.fastjson.JSONArray;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
@@ -29,10 +28,9 @@ public class PurchasedUserCacheService {
     @Resource
     private RedisTemplate<String, Integer> userRedisTemplate;
 
-    private ValueOperations<String, Integer> valueOperations;
     private DefaultRedisScript<String> decrease;
-    private DefaultRedisScript<Boolean> increaseCount;
     private DefaultRedisScript<Boolean> reachLimit;
+    private DefaultRedisScript<Boolean> increaseCount;
 
     @PostConstruct
     public void init() {
@@ -55,21 +53,22 @@ public class PurchasedUserCacheService {
                 "return(currentCount >= limit)";
         String decreaseScript = "local key = KEYS[1]\n" +
                 "local orderVOList = {}\n" +
+                "local orderVO\n" +
+                "local count\n" +
                 "for index, value in ipairs(ARGV) do\n" +
-                "    local orderVO = cjson.decode(value)\n" +
+                "    orderVO = cjson.decode(value)\n" +
                 "    key = '\"' .. string.gsub(key, '\"', '') .. orderVO['userId'] .. '\"'\n" +
-                "    local count = tonumber(redis.call('DECR', key))\n" +
+                "    count = tonumber(redis.call('DECR', key))\n" +
                 "    if count < 0 then\n" +
                 "        redis.call('SET', key, 0)\n" +
                 "        table.insert(orderVOList, orderVO)\n" +
                 "    end\n" +
                 "end\n" +
-                "if table.maxn(orderVOList) == 0 then\n" +
+                "if not next(orderVOList) then\n" +
                 "    return nil\n" +
                 "else\n" +
                 "    return cjson.encode(orderVOList)\n" +
                 "end";
-        valueOperations = userRedisTemplate.opsForValue();
         increaseCount = new DefaultRedisScript<>(increaseCountScript, Boolean.class);
         reachLimit = new DefaultRedisScript<>(reachLimitScript, Boolean.class);
         decrease = new DefaultRedisScript<>(decreaseScript, String.class);

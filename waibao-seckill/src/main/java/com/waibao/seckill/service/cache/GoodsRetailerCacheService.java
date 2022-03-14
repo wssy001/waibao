@@ -2,12 +2,18 @@ package com.waibao.seckill.service.cache;
 
 import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSONArray;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.waibao.seckill.entity.SeckillGoods;
+import com.waibao.seckill.mapper.SeckillGoodsMapper;
 import com.waibao.util.base.RedisCommand;
+import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RBloomFilter;
+import org.redisson.api.RedissonClient;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +22,7 @@ import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * SeckillGoodsCacheService
@@ -29,65 +36,183 @@ import java.util.List;
 public class GoodsRetailerCacheService {
     public static final String REDIS_GOODS_RETAILER_KEY_PREFIX = "seckill-goods-retailer-";
 
-    @Resource
-    private RedisTemplate<String, SeckillGoods> goodsRetailerRedisTemplate;
+    private final RedissonClient redissonClient;
+    private final SeckillGoodsMapper seckillGoodsMapper;
 
-    private ValueOperations<String, SeckillGoods> valueOperations;
-    private DefaultRedisScript<String> batchInsertOrderGoods;
+    @Resource
+    private RedisTemplate<String, SeckillGoods> goodsRedisTemplate;
+
+    private RBloomFilter<Long> bloomFilter;
     private DefaultRedisScript<String> canalSync;
+    private DefaultRedisScript<String> setSeckillGoods;
+    private Cache<Long, SeckillGoods> seckillGoodsCache;
+    private DefaultRedisScript<Boolean> decreaseStorage;
+    private DefaultRedisScript<String> batchRollBackStorage;
+    private DefaultRedisScript<SeckillGoods> getSeckillGoods;
+    private DefaultRedisScript<String> batchInsertOrderGoods;
 
     @PostConstruct
     void init() {
-        String batchInsertScript = "local key = KEYS[1]\n" +
+        String insertGoodsRetailerScript = "local key = KEYS[1]\n" +
+                "local seckillGoods = cjson.decode(ARGV[1])\n" +
+                "redis.call('HSET', key .. seckillGoods['retailerId'] .. '-' .. seckillGoods['goodsId'], 'id', seckillGoods['id'], 'goodsId', goodsId, 'retailerId',\n" +
+                "        seckillGoods['retailerId'], 'price', seckillGoods['price'], 'seckillPrice',\n" +
+                "        seckillGoods['seckillPrice'], 'storage', seckillGoods['storage'], 'purchaseLimit',\n" +
+                "        seckillGoods['purchaseLimit'], 'seckillEndTime', seckillGoods['seckillEndTime'],\n" +
+                "        '@type', 'com.waibao.seckill.entity.SeckillGoods')";
+        String batchInsertGoodsRetailerScript = "local key = KEYS[1]\n" +
                 "local seckillGoodsList = {}\n" +
-                "for index, value in ipairs(ARGV) do\n" +
-                "    local seckillGoods = cjson.decode(value)\n" +
-                "    local count = tonumber(redis.call('SETNX', key .. seckillGoods['retailerId'], value))\n" +
-                "    if count == 0 then\n" +
+                "local retailerId\n" +
+                "local seckillGoods\n" +
+                "local goodsId\n" +
+                "for _, value in ipairs(ARGV) do\n" +
+                "    seckillGoods = cjson.decode(value)\n" +
+                "    goodsId = seckillGoods['goodsId']\n" +
+                "    retailerId = seckillGoods['retailerId']\n" +
+                "    if next(redis.call('HKEYS', key .. retailerId .. '-' .. goodsId)) then\n" +
                 "        table.insert(seckillGoodsList, seckillGoods)\n" +
+                "    else\n" +
+                "        redis.call('HSET', key .. retailerId .. '-' .. goodsId, 'id', seckillGoods['id'], 'goodsId', goodsId, 'retailerId',\n" +
+                "                seckillGoods['retailerId'], 'price', seckillGoods['price'], 'seckillPrice',\n" +
+                "                seckillGoods['seckillPrice'], 'storage', seckillGoods['storage'], 'purchaseLimit',\n" +
+                "                seckillGoods['purchaseLimit'], 'seckillEndTime', seckillGoods['seckillEndTime'],\n" +
+                "                '@type', 'com.waibao.seckill.entity.SeckillGoods')\n" +
                 "    end\n" +
                 "end\n" +
-                "if table.maxn(seckillGoodsList) == 0 then\n" +
+                "\n" +
+                "if not next(seckillGoodsList) then\n" +
                 "    return nil\n" +
                 "else\n" +
                 "    return cjson.encode(seckillGoodsList)\n" +
                 "end";
-        String canalSyncScript = "local key = KEYS[1]\n" +
-                "for index, value in ipairs(ARGV) do\n" +
-                "    local redisCommand = cjson.decode(value)\n" +
-                "    local seckillGoods = redisCommand['value']\n" +
-                "    key = '\"' .. string.gsub(key, '\"', '') .. seckillGoods['retailerId'] .. '\"'\n" +
+        String getGoodsRetailerScript = "local key = KEYS[1]\n" +
+                "local seckillGoods = {}\n" +
+                "local retailerId = ARGV[1]\n" +
+                "local goodsId = ARGV[2]\n" +
+                "local seckillGoodsKeys = redis.call('HVALS', key .. retailerId .. goodsId)\n" +
+                "for _, value in ipairs(seckillGoodsKeys) do\n" +
+                "    seckillGoods[value] = redis.call('HGET', key .. retailerId .. goodsId, value)\n" +
+                "end\n" +
+                "\n" +
+                "return cjson.encode(seckillGoods)";
+        String canalSyncGoodsRetailerScript = "local key = KEYS[1]\n" +
+                "local redisCommand\n" +
+                "local seckillGoods\n" +
+                "local goodsId\n" +
+                "for _, value in ipairs(ARGV) do\n" +
+                "    redisCommand = cjson.decode(value)\n" +
+                "    seckillGoods = redisCommand['value']\n" +
+                "    goodsId = seckillGoods['goodsId']\n" +
+                "    key = '\"' .. string.gsub(key, '\"', '')\n" +
                 "    if redisCommand['command'] == 'SET' then\n" +
-                "        seckillGoods['@type'] = 'com.waibao.seckill.entity.SeckillGoods'\n" +
-                "        redis.call('SET', key, cjson.encode(seckillGoods))\n" +
+                "        redis.call('HSET', key .. seckillGoods['retailerId'] .. goodsId, 'id', seckillGoods['id'], 'goodsId', goodsId,\n" +
+                "                'retailerId', seckillGoods['retailerId'], 'price', seckillGoods['price'], 'seckillPrice',\n" +
+                "                seckillGoods['seckillPrice'], 'storage', seckillGoods['storage'], 'purchaseLimit',\n" +
+                "                seckillGoods['purchaseLimit'], 'seckillEndTime', seckillGoods['seckillEndTime'],\n" +
+                "                '@type', 'com.waibao.seckill.entity.SeckillGoods')\n" +
                 "    else\n" +
                 "        redis.call('DEL', key)\n" +
                 "    end\n" +
                 "end";
-        valueOperations = goodsRetailerRedisTemplate.opsForValue();
-        batchInsertOrderGoods = new DefaultRedisScript<>(batchInsertScript, String.class);
-        canalSync = new DefaultRedisScript<>(canalSyncScript);
+        String decreaseStorageScript = "local key = KEYS[1]\n" +
+                "local retailerId = ARGV[2]\n" +
+                "local goodsId = ARGV[2]\n" +
+                "local count = ARGV[3]\n" +
+                "if tonumber(redis.call('HEGT', key .. retailerId .. goodsId, 'purchaseLimit')) < count then\n" +
+                "    return false\n" +
+                "end\n" +
+                "if tonumber(redis.call('HINCRBY', key .. retailerId .. goodsId, 'storage', -count)) < 0 then\n" +
+                "    redis.call('HINCRBY', key .. goodsId, 'storage', count)\n" +
+                "    return false\n" +
+                "else\n" +
+                "    return true\n" +
+                "end";
+        String batchRollBackStorageScript = "local key = KEYS[1]\n" +
+                "local orderVO\n" +
+                "local orderVOList = {}\n" +
+                "local goodsId\n" +
+                "local retailerId\n" +
+                "for _, value in ipairs(ARGV) do\n" +
+                "    orderVO = cjson.decode(value)\n" +
+                "    goodsId = orderVO['goodsId']\n" +
+                "    retailerId = orderVO['retailerId']\n" +
+                "    if next(redis.call('HKEYS', key .. retailerId .. goodsId)) then\n" +
+                "        orderVO['status'] = '库存回滚失败'\n" +
+                "        table.insert(orderVOList, orderVO)\n" +
+                "    else\n" +
+                "        redis.call('HINCRBY', key .. retailerId .. goodsId, 'storage', orderVO['count'])\n" +
+                "        orderVO['status'] = '库存回滚成功'\n" +
+                "    end\n" +
+                "end\n" +
+                "\n" +
+                "if not next(orderVOList) then\n" +
+                "    return nil\n" +
+                "else\n" +
+                "    return cjson.encode(orderVOList)\n" +
+                "end";
+        bloomFilter = redissonClient.getBloomFilter("orderGoodsList");
+        bloomFilter.tryInit(10000L, 0.01);
+        batchInsertOrderGoods = new DefaultRedisScript<>(batchInsertGoodsRetailerScript, String.class);
+        setSeckillGoods = new DefaultRedisScript<>(insertGoodsRetailerScript);
+        getSeckillGoods = new DefaultRedisScript<>(getGoodsRetailerScript, SeckillGoods.class);
+        decreaseStorage = new DefaultRedisScript<>(decreaseStorageScript, Boolean.class);
+        batchRollBackStorage = new DefaultRedisScript<>(batchRollBackStorageScript, String.class);
+        canalSync = new DefaultRedisScript<>(canalSyncGoodsRetailerScript);
+        seckillGoodsCache = Caffeine.newBuilder()
+                .expireAfterWrite(1, TimeUnit.MINUTES)
+                .maximumSize(300)
+                .build();
     }
 
-    public SeckillGoods get(Long retailerId) {
-        SeckillGoods seckillGoods = valueOperations.get(REDIS_GOODS_RETAILER_KEY_PREFIX + retailerId);
-        if (seckillGoods == null) return new SeckillGoods();
+    public SeckillGoods get(Long retailerId, Long goodsId) {
+        SeckillGoods seckillGoods = seckillGoodsCache.getIfPresent(goodsId);
+        if (seckillGoods != null) return seckillGoods;
+
+        if (!bloomFilter.contains(goodsId)) return null;
+
+        seckillGoods = goodsRedisTemplate.execute(getSeckillGoods, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX), retailerId, goodsId);
+        if (seckillGoods != null) {
+            set(seckillGoods, false);
+            return seckillGoods;
+        }
+
+        seckillGoods = seckillGoodsMapper.selectOne(Wrappers.<SeckillGoods>lambdaQuery().eq(SeckillGoods::getRetailerId, retailerId).eq(SeckillGoods::getGoodsId, goodsId));
+        if (seckillGoods != null) set(seckillGoods);
+
         return seckillGoods;
     }
 
-    public void insert(SeckillGoods seckillGoods) {
-        valueOperations.set(REDIS_GOODS_RETAILER_KEY_PREFIX + seckillGoods.getRetailerId(), seckillGoods);
+    public void set(SeckillGoods seckillGoods) {
+        set(seckillGoods, true);
+    }
+
+    public void set(SeckillGoods seckillGoods, boolean updateRedis) {
+        Long goodsId = seckillGoods.getGoodsId();
+        seckillGoodsCache.put(goodsId, seckillGoods);
+        bloomFilter.add(goodsId);
+        if (updateRedis)
+            goodsRedisTemplate.execute(setSeckillGoods, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX), seckillGoods);
     }
 
     public List<SeckillGoods> insertBatch(List<SeckillGoods> seckillGoods) {
-        String arrayString = goodsRetailerRedisTemplate.execute(batchInsertOrderGoods, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX),
+        String arrayString = goodsRedisTemplate.execute(batchInsertOrderGoods, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX),
                 seckillGoods.toArray());
         if (StrUtil.isBlank(arrayString)) return new ArrayList<>();
         return JSONArray.parseArray(arrayString, SeckillGoods.class);
     }
 
+    public List<OrderVO> batchRollBackStorage(List<OrderVO> orderVOList) {
+        String arrayString = goodsRedisTemplate.execute(batchRollBackStorage, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX), orderVOList.toArray());
+        if (StrUtil.isBlank(arrayString)) return new ArrayList<>();
+        return JSONArray.parseArray(arrayString, OrderVO.class);
+    }
+
+    public boolean decreaseStorage(Long retailerId, Long goodsId, int count) {
+        return Boolean.TRUE.equals(goodsRedisTemplate.execute(decreaseStorage, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX), retailerId, goodsId, count));
+    }
+
     public void canalSync(List<RedisCommand> redisCommandList) {
-        goodsRetailerRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX),
+        goodsRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX),
                 redisCommandList.toArray());
     }
 }

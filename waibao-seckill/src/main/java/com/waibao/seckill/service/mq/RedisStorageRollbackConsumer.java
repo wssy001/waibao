@@ -4,7 +4,8 @@ import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.seckill.entity.MqMsgCompensation;
 import com.waibao.seckill.mapper.MqMsgCompensationMapper;
-import com.waibao.seckill.service.cache.GoodsStorageCacheService;
+import com.waibao.seckill.service.cache.GoodsCacheService;
+import com.waibao.seckill.service.cache.LogSeckillGoodsCacheService;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.vo.order.OrderVO;
@@ -33,9 +34,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RedisStorageRollbackConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
+    private final GoodsCacheService goodsCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
-    private final GoodsStorageCacheService goodsStorageCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;
+    private final LogSeckillGoodsCacheService logSeckillGoodsCacheService;
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
@@ -43,7 +45,10 @@ public class RedisStorageRollbackConsumer implements MessageListenerConcurrently
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
         List<OrderVO> orderVOList = convert(messageExtMap.values());
-        asyncService.basicTask(() -> goodsStorageCacheService.increaseBatchStorage(orderVOList)
+        List<OrderVO> canceledList = logSeckillGoodsCacheService.batchCheckCancel(orderVOList);
+        orderVOList.removeAll(canceledList);
+
+        asyncService.basicTask(() -> goodsCacheService.batchRollBackStorage(orderVOList)
                 .forEach(orderVO -> goodsStorageCacheServiceLog(orderVO, orderVOList)));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()

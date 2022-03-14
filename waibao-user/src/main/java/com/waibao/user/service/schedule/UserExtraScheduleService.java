@@ -2,9 +2,9 @@ package com.waibao.user.service.schedule;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.waibao.user.entity.Admin;
-import com.waibao.user.mapper.AdminMapper;
-import com.waibao.user.service.cache.AdminCacheService;
+import com.waibao.user.entity.UserExtra;
+import com.waibao.user.mapper.UserExtraMapper;
+import com.waibao.user.service.cache.UserExtraCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -14,37 +14,37 @@ import javax.annotation.PostConstruct;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * AdminScheduleService
+ * UserExtraScheduleService
  *
  * @author alexpetertyler
- * @since 2022/3/13
+ * @since 2022/3/14
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AdminScheduleService {
-    private final AdminCacheService adminCacheService;
-    private final AdminMapper adminMapper;
+public class UserExtraScheduleService {
+    private final UserExtraMapper userExtraMapper;
+    private final UserExtraCacheService userExtraCacheService;
 
     private LongAdder longAdder;
 
     @PostConstruct
     public void init() {
-        Long count = adminMapper.selectCount(null);
+        Long count = userExtraMapper.selectCount(null);
         longAdder = new LongAdder();
         longAdder.add(count / 1000 + 1);
     }
 
     @Scheduled(fixedDelay = 60 * 1000L)
     public void storeAdmin() {
-        log.info("******AdminScheduleService：开始读取数据库放入缓存");
+        log.info("******UserExtraScheduleService：开始读取数据库放入缓存");
         long l = longAdder.longValue();
         if (l > 0) {
-            IPage<Admin> adminPage = new Page<>(l, 1000);
-            adminPage = adminMapper.selectPage(adminPage, null);
-            adminCacheService.insertBatch(adminPage.getRecords());
+            IPage<UserExtra> userExtraPage = new Page<>(l, 1000);
+            userExtraPage = userExtraMapper.selectPage(userExtraPage, null);
+            userExtraCacheService.insertBatch(userExtraPage.getRecords());
             longAdder.decrement();
         }
-        log.info("******AdminScheduleService：读取数据库放入缓存结束");
+        log.info("******UserExtraScheduleService：读取数据库放入缓存结束");
     }
 }

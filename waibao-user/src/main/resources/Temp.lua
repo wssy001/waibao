@@ -77,3 +77,62 @@ local admin = cjson.decode(ARGV[1])
 redis.call('HSET', key .. admin['id'], 'id', admin['id'], 'updateTime', admin['updateTime'], 'password',
         admin['password'], 'level', admin['level'], 'createTime', admin['createTime'],
         '@type', 'com.waibao.user.entity.Admin')
+
+
+-- getUserExtraScript UserExtraCacheService
+--private Long id;
+--private Long userId;
+--private Boolean defaulter;
+--private Integer age;
+--private String workStatus;
+--private Date createTime;
+--private Date updateTime;
+local key = KEYS[1]
+local userId = ARGV[1]
+local userExtra = {}
+local userExtraKeys = redis.call('HVALS', key .. userId)
+for _, value in ipairs(userExtraKeys) do
+    userExtra[value] = redis.call('HGET', key .. userId, value)
+end
+
+return cjson.encode(userExtra)
+
+
+-- batchInsertUserExtraScript UserExtraCacheService
+local key = KEYS[1]
+local userExtra
+for _, value in ipairs(ARGV) do
+    userExtra = cjson.decode(value)
+    redis.call('HSET', key .. userExtra['userId'], 'id', userExtra['id'], 'updateTime', userExtra['updateTime'],
+            'userId', userExtra['userId'], 'defaulter', userExtra['defaulter'], 'age', userExtra['age'],
+            'workStatus', userExtra['workStatus'], 'createTime', userExtra['createTime'],
+            '@type', 'com.waibao.user.entity.UserExtra')
+end
+
+
+-- getBatchUserExtraScript UserExtraCacheService
+local key = KEYS[1]
+local userExtraList = {}
+local userExtraKeys
+for _, userId in ipairs(ARGV) do
+    userExtraKeys = redis.call('HVALS', key .. userId)
+    local userExtra = {}
+    for _, value2 in ipairs(userExtraKeys) do
+        userExtra[value2] = redis.call('HGET', key .. userId, value2)
+    end
+
+    if userExtra['id'] ~= nil then
+        table.insert(userExtraList, userExtra)
+    end
+end
+
+return cjson.encode(userExtraList)
+
+
+--insertUserExtraScript UserExtraCacheService
+local key = KEYS[1]
+local userExtra = cjson.decode(value)
+redis.call('HSET', key .. userExtra['userId'], 'id', userExtra['id'], 'updateTime', userExtra['updateTime'],
+        'userId', userExtra['userId'], 'defaulter', userExtra['defaulter'], 'age', userExtra['age'],
+        'workStatus', userExtra['workStatus'], 'createTime', userExtra['createTime'],
+        '@type', 'com.waibao.user.entity.UserExtra')

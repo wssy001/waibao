@@ -37,7 +37,7 @@ public class UserScheduleService {
 
     @Scheduled(fixedDelay = 2000L)
     public void storeUser() {
-        log.info("******UserCacheService：开始读取数据库放入缓存");
+        log.info("******UserScheduleService：开始读取数据库放入缓存");
         longAdder.longValue();
         long l = longAdder.longValue();
         if (l > 0) {
@@ -46,6 +46,6 @@ public class UserScheduleService {
             userCacheService.insertBatch(userPage.getRecords());
             longAdder.decrement();
         }
-        log.info("******UserCacheService：读取数据库放入缓存结束");
+        log.info("******UserScheduleService：读取数据库放入缓存结束");
     }
 }

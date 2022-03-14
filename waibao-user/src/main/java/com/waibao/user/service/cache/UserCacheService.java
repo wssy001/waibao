@@ -1,11 +1,12 @@
 package com.waibao.user.service.cache;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.waibao.user.entity.User;
 import com.waibao.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
-import org.redisson.cache.LRUCacheMap;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * UserService
@@ -32,9 +34,9 @@ public class UserCacheService {
     @Resource
     private RedisTemplate<String, User> userRedisTemplate;
 
+    private Cache<Long, User> userCache;
     private RBloomFilter<Long> bloomFilter;
     private DefaultRedisScript<User> getUser;
-    private LRUCacheMap<Long, User> lruCacheMap;
     private DefaultRedisScript<String> insertUser;
     private DefaultRedisScript<String> batchInsertUser;
 
@@ -69,11 +71,15 @@ public class UserCacheService {
         batchInsertUser = new DefaultRedisScript<>(batchInsertUserScript);
         getUser = new DefaultRedisScript<>(getUserScript);
         insertUser = new DefaultRedisScript<>(insertUserScript);
-        lruCacheMap = new LRUCacheMap<>(300, 0, 0);
+
+        userCache = Caffeine.newBuilder()
+                .expireAfterWrite(1, TimeUnit.MINUTES)
+                .maximumSize(300)
+                .build();
     }
 
     public User get(Long userId) {
-        User user = lruCacheMap.get(userId);
+        User user = userCache.getIfPresent(userId);
         if (user != null) return user;
 
         if (!bloomFilter.contains(userId)) return null;
@@ -96,7 +102,7 @@ public class UserCacheService {
 
     public void set(User user, boolean updateRedis) {
         Long userId = user.getId();
-        lruCacheMap.put(userId, user);
+        userCache.put(userId, user);
         bloomFilter.add(userId);
         if (updateRedis)
             userRedisTemplate.execute(insertUser, Collections.singletonList(REDIS_USER_KEY_PREFIX), user);

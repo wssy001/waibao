@@ -1,11 +1,12 @@
 package com.waibao.user.service.cache;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.waibao.user.entity.Admin;
 import com.waibao.user.mapper.AdminMapper;
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
-import org.redisson.cache.LRUCacheMap;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * AdminService
@@ -32,9 +34,9 @@ public class AdminCacheService {
     @Resource
     private RedisTemplate<String, Admin> adminRedisTemplate;
 
+    private Cache<Long, Admin> adminCache;
     private RBloomFilter<Long> bloomFilter;
     private DefaultRedisScript<Admin> getAdmin;
-    private LRUCacheMap<Long, Admin> lruCacheMap;
     private DefaultRedisScript<String> insertAdmin;
     private DefaultRedisScript<String> batchInsertAdmin;
 
@@ -67,11 +69,15 @@ public class AdminCacheService {
         batchInsertAdmin = new DefaultRedisScript<>(batchInsertAdminScript);
         getAdmin = new DefaultRedisScript<>(getAdminScript);
         insertAdmin = new DefaultRedisScript<>(insertAdminScript);
-        lruCacheMap = new LRUCacheMap<>(300, 0, 0);
+
+        adminCache = Caffeine.newBuilder()
+                .expireAfterWrite(1, TimeUnit.MINUTES)
+                .maximumSize(300)
+                .build();
     }
 
     public Admin get(Long adminId) {
-        Admin admin = lruCacheMap.get(adminId);
+        Admin admin = adminCache.getIfPresent(adminId);
         if (admin != null) return admin;
 
         if (!bloomFilter.contains(adminId)) return null;
@@ -94,7 +100,7 @@ public class AdminCacheService {
 
     public void set(Admin user, boolean updateRedis) {
         Long userId = user.getId();
-        lruCacheMap.put(userId, user);
+        adminCache.put(userId, user);
         bloomFilter.add(userId);
         if (updateRedis)
             adminRedisTemplate.execute(insertAdmin, Collections.singletonList(REDIS_ADMIN_KEY_PREFIX), user);

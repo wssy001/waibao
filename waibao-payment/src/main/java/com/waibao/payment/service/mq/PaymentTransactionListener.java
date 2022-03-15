@@ -24,6 +24,7 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -115,7 +116,7 @@ public class PaymentTransactionListener implements TransactionListener {
             userCreditService.list(Wrappers.<UserCredit>lambdaQuery().in(UserCredit::getUserId, userIdList))
                     .parallelStream()
                     .forEach(userCredit -> userCreditMap.put(userCredit.getUserId(), userCredit));
-
+            List<LogUserCredit> logBankCreditList = new ArrayList<>();
             List<LogUserCredit> logUserCreditList = paymentList.parallelStream()
                     .map(payment -> {
                         Long userId = payment.getUserId();
@@ -136,6 +137,14 @@ public class PaymentTransactionListener implements TransactionListener {
                         BigDecimal bankMoney=bankCredit.getMoney().add(payment.getMoney());
                         bankCredit.setMoney(bankMoney);
                         userCreditMap.put(bankCredit.getId(),bankCredit);
+                        //银行账户流水记录
+                        LogUserCredit logBankCredit=new LogUserCredit();
+                        logUserCredit.setOldMoney(bankCredit.getMoney());
+                        logBankCredit.setPayId(payment.getPayId());
+                        logBankCredit.setMoney(bankCredit.getMoney());
+                        logBankCredit.setOperation("INSERT");
+                        logBankCredit.setUserId(bankCredit.getUserId());
+                        logBankCreditList.add(logBankCredit);
 
                         logUserCredit.setMoney(money);
                         logUserCredit.setOperation("INSERT");
@@ -144,14 +153,7 @@ public class PaymentTransactionListener implements TransactionListener {
                     })
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
-
-            //银行账户流水记录
-            LogUserCredit logBankCredit=new LogUserCredit();
-            logBankCredit.setMoney(bankCredit.getMoney());
-            logBankCredit.setOperation("INSERT");
-            logBankCredit.setUserId(bankCredit.getUserId());
-            logUserCreditList.add(logBankCredit);
-
+            logUserCreditList.addAll(logBankCreditList);
             asyncService.basicTask(userCreditService.saveBatch(userCreditMap.values()));
             asyncService.basicTask(logUserCreditService.saveBatch(logUserCreditList));
         } catch (Exception e) {
@@ -236,6 +238,7 @@ public class PaymentTransactionListener implements TransactionListener {
             //银行账号
             final UserCredit bankCredit = userCreditService.getById(1);
             //对未操作的完成操作
+            List<LogUserCredit> logBankCreditList = new ArrayList<>();
             List<LogUserCredit> logUserCreditList = subPayments.parallelStream()
                     .map(payment -> {
                         Long userId = payment.getUserId();
@@ -255,6 +258,14 @@ public class PaymentTransactionListener implements TransactionListener {
                         BigDecimal bankMoney=bankCredit.getMoney().add(payment.getMoney());
                         bankCredit.setMoney(bankMoney);
                         userCreditMap.put(bankCredit.getId(),bankCredit);
+                        //银行账户流水记录
+                        LogUserCredit logBankCredit=new LogUserCredit();
+                        logUserCredit.setOldMoney(bankCredit.getMoney());
+                        logBankCredit.setPayId(payment.getPayId());
+                        logBankCredit.setMoney(bankCredit.getMoney());
+                        logBankCredit.setOperation("INSERT");
+                        logBankCredit.setUserId(bankCredit.getUserId());
+                        logBankCreditList.add(logBankCredit);
 
                         logUserCredit.setMoney(money);
                         logUserCredit.setOperation("INSERT");
@@ -263,14 +274,7 @@ public class PaymentTransactionListener implements TransactionListener {
                     })
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
-
-            //银行账户流水记录
-            LogUserCredit logBankCredit=new LogUserCredit();
-            logBankCredit.setMoney(bankCredit.getMoney());
-            logBankCredit.setOperation("INSERT");
-            logBankCredit.setUserId(bankCredit.getUserId());
-            logUserCreditList.add(logBankCredit);
-
+            logUserCreditList.addAll(logBankCreditList);
             asyncService.basicTask(userCreditService.saveBatch(userCreditMap.values()));
             asyncService.basicTask(logUserCreditService.saveBatch(logUserCreditList));
         }

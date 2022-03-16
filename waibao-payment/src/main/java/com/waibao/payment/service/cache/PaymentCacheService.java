@@ -1,5 +1,6 @@
 package com.waibao.payment.service.cache;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -10,7 +11,6 @@ import com.waibao.payment.service.db.PaymentService;
 import com.waibao.util.base.RedisCommand;
 import com.waibao.util.enums.ResultEnum;
 import com.waibao.util.feign.UserService;
-import com.waibao.util.tools.BeanUtil;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.payment.PaymentVO;
 import com.waibao.util.vo.user.PageVO;

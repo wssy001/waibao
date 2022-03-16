@@ -34,3 +34,4 @@ build/
 /mvnw
 /mvnw.cmd
 /waibao-order/src/test/java/
+/waibao-user/src/test/

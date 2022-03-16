@@ -1,23 +1,22 @@
 package com.waibao.user.service.cache;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.waibao.user.entity.Admin;
 import com.waibao.user.mapper.AdminMapper;
-import com.waibao.user.service.db.AdminService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * AdminService
@@ -25,65 +24,74 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author alexpetertyler
  * @since 2022-02-15
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdminCacheService {
     public static final String REDIS_ADMIN_KEY_PREFIX = "admin-";
 
     private final AdminMapper adminMapper;
-    private final AdminService adminService;
     private final RedissonClient redissonClient;
 
     @Resource
     private RedisTemplate<String, Admin> adminRedisTemplate;
 
+    private Cache<Long, Admin> adminCache;
     private RBloomFilter<Long> bloomFilter;
-    private AtomicLong atomicLong;
-    private ValueOperations<String, Admin> valueOperations;
+    private RedisScript<Admin> getAdmin;
+    private RedisScript<String> insertAdmin;
+    private RedisScript<String> batchInsertAdmin;
 
     @PostConstruct
     public void init() {
         bloomFilter = redissonClient.getBloomFilter("adminList");
-        bloomFilter.tryInit(1000L, 0.03);
-        Long count = adminMapper.selectCount(null);
-        atomicLong = new AtomicLong(count / 1000 + 1);
-        valueOperations = adminRedisTemplate.opsForValue();
+        bloomFilter.tryInit(1000000L, 0.03);
+        getAdmin = RedisScript.of(new ClassPathResource("lua/getAdminScript.lua"), Admin.class);
+        insertAdmin = RedisScript.of(new ClassPathResource("lua/insertAdminScript.lua"), String.class);
+        batchInsertAdmin = RedisScript.of(new ClassPathResource("lua/batchInsertAdminScript.lua"), String.class);
+
+        adminCache = Caffeine.newBuilder()
+                .expireAfterWrite(1, TimeUnit.MINUTES)
+                .maximumSize(300)
+                .build();
     }
 
-    public Admin get(Long id) {
-        Admin admin = valueOperations.get(REDIS_ADMIN_KEY_PREFIX + id);
-        if (admin == null) {
-            admin = adminService.getById(id);
-            if (admin == null) admin = new Admin();
-            valueOperations.set(REDIS_ADMIN_KEY_PREFIX + id, admin, 15 * 60, TimeUnit.SECONDS);
+    public Admin get(Long adminId) {
+        Admin admin = adminCache.getIfPresent(adminId);
+        if (admin != null) return admin;
+
+        if (!bloomFilter.contains(adminId)) return null;
+
+        admin = adminRedisTemplate.execute(getAdmin, Collections.singletonList(REDIS_ADMIN_KEY_PREFIX), adminId);
+        if (admin != null) {
+            set(admin, false);
+            return admin;
         }
+
+        admin = adminMapper.selectById(adminId);
+        if (admin != null) set(admin);
 
         return admin;
     }
 
-    public void set(Admin admin) {
-        valueOperations.set(REDIS_ADMIN_KEY_PREFIX + admin.getId(), admin);
+    public void set(Admin user) {
+        set(user, true);
     }
 
-    public boolean checkAdmin(Long id) {
-        if (!bloomFilter.contains(id)) return false;
-        return get(id).getId() != null;
+    public void set(Admin user, boolean updateRedis) {
+        Long userId = user.getId();
+        adminCache.put(userId, user);
+        bloomFilter.add(userId);
+        if (updateRedis)
+            adminRedisTemplate.execute(insertAdmin, Collections.singletonList(REDIS_ADMIN_KEY_PREFIX), user);
     }
 
-    @Scheduled(fixedDelay = 60 * 1000L)
-    public void storeUser() {
-        log.info("******AdminCacheService：开始读取数据库放入缓存");
-        long l = atomicLong.get();
-        if (l > 0) {
-            IPage<Admin> adminPage = new Page<>(l, 1000);
-            adminPage = adminMapper.selectPage(adminPage, null);
-
-            adminPage.getRecords()
-                    .parallelStream()
-                    .forEach(this::set);
-            atomicLong.getAndDecrement();
-        }
-        log.info("******AdminCacheService：读取数据库放入缓存结束");
+    public boolean checkAdmin(Long userId) {
+        return get(userId) != null;
     }
+
+    public void insertBatch(List<Admin> userList) {
+        adminRedisTemplate.execute(batchInsertAdmin, Collections.singletonList(REDIS_ADMIN_KEY_PREFIX),
+                userList.toArray());
+    }
+
 }

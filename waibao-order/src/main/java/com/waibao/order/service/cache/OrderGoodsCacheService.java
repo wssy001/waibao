@@ -4,9 +4,10 @@ import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSONArray;
 import com.waibao.util.base.RedisCommand;
 import com.waibao.util.vo.order.OrderVO;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -28,75 +29,20 @@ public class OrderGoodsCacheService {
     @Resource
     private RedisTemplate<String, OrderVO> orderGoodsRedisTemplate;
 
-    private DefaultRedisScript<String> canalSync;
+    private RedisScript<String> canalSync;
     private ValueOperations<String, OrderVO> valueOperations;
-    private DefaultRedisScript<String> batchInsertOrderGoods;
-    private DefaultRedisScript<String> batchUpdateOrderGoods;
-    private DefaultRedisScript<String> batchDeleteOrderGoods;
+    private RedisScript<String> batchInsertOrderGoods;
+    private RedisScript<String> batchUpdateOrderGoods;
+    private RedisScript<String> batchDeleteOrderGoods;
 
     @PostConstruct
     void init() {
-        String batchInsertScript = "local key = KEYS[1]\n" +
-                "local orderGoodsList = {}\n" +
-                "for index, value in ipairs(ARGV) do\n" +
-                "    local orderGoods = cjson.decode(value)\n" +
-                "    local count = tonumber(redis.call('SETNX', key .. orderGoods['orderId'], value))\n" +
-                "    if count == 0 then\n" +
-                "        table.insert(orderGoodsList, orderGoods)\n" +
-                "    end\n" +
-                "end\n" +
-                "if table.maxn(orderGoodsList) == 0 then\n" +
-                "    return nil\n" +
-                "else\n" +
-                "    return cjson.encode(orderGoodsList)\n" +
-                "end";
-        String batchUpdateScript = "local key = KEYS[1]\n" +
-                "local orderGoodsList = {}\n" +
-                "for index, value in ipairs(ARGV) do\n" +
-                "    local orderGoods = cjson.decode(value)\n" +
-                "    local count = tonumber(redis.call('DEL', key .. orderGoods['orderId']))\n" +
-                "    if count == 0 then\n" +
-                "        table.insert(orderGoodsList, orderGoods)\n" +
-                "    else\n" +
-                "        redis.call('SET', key .. orderGoods['orderId'], value)\n" +
-                "    end\n" +
-                "end\n" +
-                "if table.maxn(orderGoodsList) == 0 then\n" +
-                "    return nil\n" +
-                "else\n" +
-                "    return cjson.encode(orderGoodsList)\n" +
-                "end";
-        String batchDeleteScript = "local key = KEYS[1]\n" +
-                "local orderGoodsList = {}\n" +
-                "for index, value in ipairs(ARGV) do\n" +
-                "    local orderGoods = cjson.decode(value)\n" +
-                "    local count = tonumber(redis.call('DEL', key .. orderGoods['orderId']))\n" +
-                "    if count == 0 then\n" +
-                "        table.insert(orderGoodsList, orderGoods)\n" +
-                "    end\n" +
-                "end\n" +
-                "if table.maxn(orderGoodsList) == 0 then\n" +
-                "    return nil\n" +
-                "else\n" +
-                "    return cjson.encode(orderGoodsList)\n" +
-                "end";
-        String canalSyncScript = "local key = KEYS[1]\n" +
-                "for index, value in ipairs(ARGV) do\n" +
-                "    local redisCommand = cjson.decode(value)\n" +
-                "    local orderVO = redisCommand['value']\n" +
-                "    key = '\"' .. string.gsub(key, '\"', '') .. orderVO['orderId'] .. '\"'\n" +
-                "    if redisCommand['command'] == 'SET' then\n" +
-                "        orderVO['@type'] = 'com.waibao.util.vo.order.OrderVO'\n" +
-                "        redis.call('SET', key, cjson.encode(orderVO))\n" +
-                "    else\n" +
-                "        redis.call('DEL', key)\n" +
-                "    end\n" +
-                "end";
+
         valueOperations = orderGoodsRedisTemplate.opsForValue();
-        batchInsertOrderGoods = new DefaultRedisScript<>(batchInsertScript, String.class);
-        batchUpdateOrderGoods = new DefaultRedisScript<>(batchUpdateScript, String.class);
-        batchDeleteOrderGoods = new DefaultRedisScript<>(batchDeleteScript, String.class);
-        canalSync = new DefaultRedisScript<>(canalSyncScript);
+        batchInsertOrderGoods = RedisScript.of(new ClassPathResource("lua/batchInsertOrderGoodsScript.lua"), String.class);
+        batchUpdateOrderGoods = RedisScript.of(new ClassPathResource("lua/batchUpdateOrderGoodsScript.lua"), String.class);
+        batchDeleteOrderGoods = RedisScript.of(new ClassPathResource("lua/batchDeleteOrderGoodsScript.lua"), String.class);
+        canalSync = RedisScript.of(new ClassPathResource("lua/canalSyncOrderGoodsScript.lua"), String.class);
     }
 
     public OrderVO get(String orderId) {

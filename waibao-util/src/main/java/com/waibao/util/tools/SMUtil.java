@@ -15,11 +15,11 @@ public class SMUtil {
     public static final String SM2_PUBLIC_KEY = "0469b15775203d4d2f86c2a93343902ca5aed24af648c4f6ecfdcce093ffdb5dd8d02934d332fd6fe5772ea3e74ddd7ed13e6686150625684e268fd6b757c033e8";
     public static final String SM4_KEY = "3481f0a9d68b200ba6feff1f1b84cb82";
 
-    private static String sm2Sign(String content) {
+    public static String sm2Sign(String content) {
         return Sm2.doSignature(content, SM2_PRIVATE_KEY);
     }
 
-    private static boolean sm2VerifySign(String clientPublicKey, String content, String sign) {
+    public static boolean sm2VerifySign(String clientPublicKey, String content, String sign) {
         return Sm2.doVerifySignature(content, sign, clientPublicKey);
     }
 

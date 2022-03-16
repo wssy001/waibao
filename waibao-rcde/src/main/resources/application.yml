@@ -1,0 +1,38 @@
+server:
+  port: 33382
+
+spring:
+  application:
+    name: waibao-rcde
+
+  datasource:
+    url: jdbc:mysql://10.60.64.66:33306/waibao?useUnicode=true&useSSL=false&autoReconnect=true&characterEncoding=utf-8&serverTimezone=GMT%2B8&rewriteBatchedStatements=true
+    username: root
+    password: wssy001
+    hikari:
+      max-lifetime: 43170000
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 43170000
+
+  redis:
+    host: 10.60.64.66
+    password: wssy001
+    timeout: 1000
+    lettuce:
+      pool:
+        min-idle: 5
+        max-idle: 10
+
+  task:
+    execution:
+      pool:
+        max-size: 4
+        keep-alive: 60s
+        core-size: 2
+        queue-capacity: 2000
+      thread-name-prefix: 异步任务-
+    scheduling:
+      pool:
+        size: 4
+      thread-name-prefix: 定时任务-

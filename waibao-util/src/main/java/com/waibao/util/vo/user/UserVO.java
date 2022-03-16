@@ -17,6 +17,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class UserVO implements Serializable {
     private static final long serialVersionUID = 1L;
+    private StringBuffer stringBuffer = new StringBuffer();
 
     private Long id;
     private Long userNo;
@@ -26,10 +27,13 @@ public class UserVO implements Serializable {
     private Integer sex;
     private Integer age;
     private String nickname;
+    private Boolean defaulter;
+    private String workStatus;
     private Long expireTime;
 
     public void hideMobile() {
-        StringBuffer stringBuffer = new StringBuffer(this.mobile);
+        stringBuffer.delete(0, stringBuffer.length());
+        stringBuffer.append(this.mobile);
         stringBuffer.replace(3, 7, "*");
         this.mobile = stringBuffer.toString();
     }

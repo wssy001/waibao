@@ -27,8 +27,10 @@ public enum RedisDBEnum {
     User(11, "用户"),
     Admin(12, "管理员"),
     Transaction(13, "事务"),
-    Storage(14, "商品库存表"),
-    District(15, "中国省份城市数据库");
+    Storage(14, "商品库存"),
+    Deposit(15, "还款记录"),
+    Rule(15, "规则"),
+    RiskUser(15, "风险用户");
 
     private int index;
     private String desc;

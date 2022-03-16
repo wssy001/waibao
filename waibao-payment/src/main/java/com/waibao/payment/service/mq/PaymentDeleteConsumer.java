@@ -46,7 +46,7 @@ public class PaymentDeleteConsumer implements MessageListenerConcurrently {
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        //TODO 完成 订单删除(完成？)
+
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));

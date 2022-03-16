@@ -109,7 +109,7 @@ public class PaymentTransactionListener implements TransactionListener {
             List<Long> userIdList = userIdMapFuture.get();
 
 //            这里获取的都是用户金额
-//            TODO 获取银行账户（完成？），银行内部账户放账户信息表第一个
+//
             final UserCredit bankCredit = userCreditService.getById(1);
 
             Map<Long, UserCredit> userCreditMap = new ConcurrentHashMap<>();
@@ -130,7 +130,7 @@ public class PaymentTransactionListener implements TransactionListener {
                         userCredit = userCreditMap.computeIfPresent(userId, (k, v) -> v.setMoney(oldMoney.subtract(payment.getMoney())));
 //                        扣款后的钱
                         BigDecimal money = userCredit.getMoney();
-//                        TODO 给银行内部账号加钱(完成？)
+//
                         //银行之前的钱
                         BigDecimal oldBankMoney=bankCredit.getMoney();
                         //加钱
@@ -174,7 +174,7 @@ public class PaymentTransactionListener implements TransactionListener {
     @SneakyThrows
     @Override
     public LocalTransactionState checkLocalTransaction(MessageExt msg) {
-        //TODO 完成回查
+
         Boolean absent = transactionRedisTemplate.opsForValue()
                 .setIfAbsent("payment-transaction-" + msg.getTransactionId(), msg.getKeys());
         //            当前消息已被消费过

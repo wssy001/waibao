@@ -1,11 +1,10 @@
-package com.waibao.seckill.service.mq;
+package com.waibao.rcde.service.mq;
 
+import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.waibao.seckill.entity.SeckillGoods;
-import com.waibao.seckill.service.cache.GoodsCacheService;
-import com.waibao.seckill.service.cache.GoodsRetailerCacheService;
-import com.waibao.util.async.AsyncService;
+import com.waibao.rcde.entity.Rule;
+import com.waibao.rcde.service.cache.RuleCacheService;
 import com.waibao.util.base.RedisCommand;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,18 +19,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * GoodsCanalConsumer
+ * RuleCanalConsumer
  *
  * @author alexpetertyler
- * @since 2022/3/4
+ * @since 2022/3/16
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class RedisGoodsCanalConsumer implements MessageListenerConcurrently {
-    private final AsyncService asyncService;
-    private final GoodsCacheService goodsCacheService;
-    private final GoodsRetailerCacheService goodsRetailerCacheService;
+public class RuleCanalConsumer implements MessageListenerConcurrently {
+    private final RuleCacheService ruleCacheService;
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
@@ -47,8 +44,7 @@ public class RedisGoodsCanalConsumer implements MessageListenerConcurrently {
                 .collect(Collectors.toList());
         if (redisCommandList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
-        asyncService.basicTask(() -> goodsCacheService.canalSync(redisCommandList));
-        asyncService.basicTask(() -> goodsRetailerCacheService.canalSync(redisCommandList));
+        ruleCacheService.canalSync(redisCommandList);
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
@@ -64,15 +60,16 @@ public class RedisGoodsCanalConsumer implements MessageListenerConcurrently {
                             break;
                         case "UPDATE":
                             redisCommand.setCommand("UPDATE");
-                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(SeckillGoods.class));
+                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(Rule.class));
                             break;
                         case "DELETE":
                             redisCommand.setCommand("DELETE");
-                            break;
-                        default:
-                            return;
                     }
-                    redisCommand.setValue(((JSONObject) v).toJavaObject(SeckillGoods.class));
+                    if (StrUtil.isBlank(redisCommand.getCommand())) {
+                        list.add(null);
+                        return;
+                    }
+                    redisCommand.setValue(((JSONObject) v).toJavaObject(Rule.class));
                     redisCommand.setTimestamp(timestamp);
                     list.add(redisCommand);
                 });

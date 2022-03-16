@@ -60,6 +60,7 @@ public class LogGoodsCanalConsumer implements MessageListenerConcurrently {
                             break;
                         case "UPDATE":
                             redisCommand.setCommand("UPDATE");
+                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(LogSeckillGoods.class));
                             break;
                         case "DELETE":
                             redisCommand.setCommand("DELETE");

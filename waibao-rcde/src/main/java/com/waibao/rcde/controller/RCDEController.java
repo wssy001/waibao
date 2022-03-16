@@ -37,7 +37,7 @@ public class RCDEController {
     private final Executor dbThreadPoolExecutor;
     private final RiskUserCacheService riskUserCacheService;
 
-    @PostMapping("/store/rule")
+    @PostMapping("/add/rule")
     public Mono<GlobalResult<RuleVO>> storeRCDERule(
             @RequestBody JSONObject jsonObject
     ) {

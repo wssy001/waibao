@@ -27,6 +27,26 @@ public class RedisConfig {
     }
 
     @Bean
+    public ReactiveRedisTemplate<String, Object> userReactiveRedisTemplate() {
+        return getReactiveRedisTemplate(RedisDBEnum.User);
+    }
+
+    @Bean
+    public ReactiveRedisTemplate<String, Object> userExtraReactiveRedisTemplate() {
+        return getReactiveRedisTemplate(RedisDBEnum.User);
+    }
+
+    @Bean
+    public ReactiveRedisTemplate<String, Object> depositReactiveRedisTemplate() {
+        return getReactiveRedisTemplate(RedisDBEnum.Deposit);
+    }
+
+    @Bean
+    public ReactiveRedisTemplate<String, Object> ruleReactiveRedisTemplate() {
+        return getReactiveRedisTemplate(RedisDBEnum.Rule);
+    }
+
+    @Bean
     public ReactiveRedisTemplate<String, Object> riskUserReactiveRedisTemplate() {
         return getReactiveRedisTemplate(RedisDBEnum.RiskUser);
     }

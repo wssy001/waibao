@@ -7,8 +7,9 @@ import com.waibao.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -36,41 +37,17 @@ public class UserCacheService {
 
     private Cache<Long, User> userCache;
     private RBloomFilter<Long> bloomFilter;
-    private DefaultRedisScript<User> getUser;
-    private DefaultRedisScript<String> insertUser;
-    private DefaultRedisScript<String> batchInsertUser;
+    private RedisScript<User> getUser;
+    private RedisScript<String> insertUser;
+    private RedisScript<String> batchInsertUser;
 
     @PostConstruct
     public void init() {
-        String insertUserScript = "local key = KEYS[1]\n" +
-                "local user = cjson.decode(ARGV[1])\n" +
-                "redis.call('HSET', key .. user['id'], 'id', user['id'], 'userNo', user['userNo'], 'updateTime',\n" +
-                "        user['updateTime'], 'mobile', user['mobile'], 'eamil', user['eamil'], 'password',\n" +
-                "        user['password'], 'sex', user['sex'], 'age', user['age'], 'nickname', user['nickname'],\n" +
-                "        'createTime', user['createTime'], '@type', 'com.waibao.user.entity.User')";
-        String batchInsertUserScript = "local key = KEYS[1]\n" +
-                "local user\n" +
-                "for _, value in ipairs(ARGV) do\n" +
-                "    user = cjson.decode(value)\n" +
-                "    redis.call('HSET', key .. user['id'], 'id', user['id'], 'userId', user['userId'], 'updateTime',\n" +
-                "            user['updateTime'], 'mobile', user['mobile'], 'eamil', user['eamil'], 'password',\n" +
-                "            user['password'], 'sex', user['sex'], 'age', user['age'], 'nickname', user['nickname'],\n" +
-                "            'createTime', user['createTime'])\n" +
-                "end";
-        String getUserScript = "local user = {}\n" +
-                "local key = KEYS[1]\n" +
-                "local userId = ARGV[1]\n" +
-                "local userKeys = redis.call('HVALS', key .. userId)\n" +
-                "for _, value in ipairs(userKeys) do\n" +
-                "    user[value] = redis.call('HGET', key .. userId, value)\n" +
-                "end\n" +
-                "\n" +
-                "return cjson.encode(user)";
         bloomFilter = redissonClient.getBloomFilter("userList");
         bloomFilter.tryInit(1000000L, 0.03);
-        batchInsertUser = new DefaultRedisScript<>(batchInsertUserScript);
-        getUser = new DefaultRedisScript<>(getUserScript);
-        insertUser = new DefaultRedisScript<>(insertUserScript);
+        getUser = RedisScript.of(new ClassPathResource("lua/getUserScript.lua"), User.class);
+        insertUser = RedisScript.of(new ClassPathResource("lua/insertUserScript.lua"), String.class);
+        batchInsertUser = RedisScript.of(new ClassPathResource("lua/batchInsertUserScript.lua"), String.class);
 
         userCache = Caffeine.newBuilder()
                 .expireAfterWrite(1, TimeUnit.MINUTES)

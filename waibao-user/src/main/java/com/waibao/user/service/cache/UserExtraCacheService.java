@@ -9,8 +9,9 @@ import com.waibao.user.mapper.UserExtraMapper;
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -40,60 +41,19 @@ public class UserExtraCacheService {
 
     private RBloomFilter<Long> bloomFilter;
     private Cache<Long, UserExtra> userExtraCache;
-    private DefaultRedisScript<UserExtra> getUserExtra;
-    private DefaultRedisScript<String> insertUserExtra;
-    private DefaultRedisScript<String> batchGetUserExtra;
-    private DefaultRedisScript<String> batchInsertUserExtra;
+    private RedisScript<UserExtra> getUserExtra;
+    private RedisScript<String> insertUserExtra;
+    private RedisScript<String> batchGetUserExtra;
+    private RedisScript<String> batchInsertUserExtra;
 
     @PostConstruct
     public void init() {
-        String getUserExtraScript = "local key = KEYS[1]\n" +
-                "local userId = ARGV[1]\n" +
-                "local userExtra = {}\n" +
-                "local userExtraKeys = redis.call('HVALS', key .. userId)\n" +
-                "for _, value in ipairs(userExtraKeys) do\n" +
-                "    userExtra[value] = redis.call('HGET', key .. userId, value)\n" +
-                "end\n" +
-                "\n" +
-                "return cjson.encode(userExtra)";
-        String getBatchUserExtraScript = "local key = KEYS[1]\n" +
-                "local userExtraList = {}\n" +
-                "local userExtraKeys\n" +
-                "for _, userId in ipairs(ARGV) do\n" +
-                "    userExtraKeys = redis.call('HVALS', key .. userId)\n" +
-                "    local userExtra = {}\n" +
-                "    for _, value2 in ipairs(userExtraKeys) do\n" +
-                "        userExtra[value2] = redis.call('HGET', key .. userId, value2)\n" +
-                "    end\n" +
-                "\n" +
-                "    if userExtra['id'] ~= nil then\n" +
-                "        table.insert(userExtraList, userExtra)\n" +
-                "    end\n" +
-                "end\n" +
-                "\n" +
-                "return cjson.encode(userExtraList)";
-        String batchInsertUserExtraScript = "local key = KEYS[1]\n" +
-                "local userExtra\n" +
-                "for _, value in ipairs(ARGV) do\n" +
-                "    userExtra = cjson.decode(value)\n" +
-                "    redis.call('HSET', key .. userExtra['userId'], 'id', userExtra['id'], 'updateTime', userExtra['updateTime'],\n" +
-                "            'userId', userExtra['userId'],'defaulter', userExtra['defaulter'],'age', userExtra['age'],\n" +
-                "            'workStatus', userExtra['workStatus'], 'createTime', userExtra['createTime'],\n" +
-                "            '@type', 'com.waibao.user.entity.UserExtra')\n" +
-                "end";
-        String insertUserExtraScript = "local key = KEYS[1]\n" +
-                "local userExtra = cjson.decode(value)\n" +
-                "redis.call('HSET', key .. userExtra['userId'], 'id', userExtra['id'], 'updateTime', userExtra['updateTime'],\n" +
-                "        'userId', userExtra['userId'], 'defaulter', userExtra['defaulter'], 'age', userExtra['age'],\n" +
-                "        'workStatus', userExtra['workStatus'], 'createTime', userExtra['createTime'],\n" +
-                "        '@type', 'com.waibao.user.entity.UserExtra')";
-        bloomFilter = redissonClient.getBloomFilter("userList");
+        bloomFilter = redissonClient.getBloomFilter("userExtraList");
         bloomFilter.tryInit(100000L, 0.01);
-        batchGetUserExtra = new DefaultRedisScript<>(getBatchUserExtraScript);
-        batchInsertUserExtra = new DefaultRedisScript<>(batchInsertUserExtraScript);
-        getUserExtra = new DefaultRedisScript<>(getUserExtraScript, UserExtra.class);
-        batchGetUserExtra = new DefaultRedisScript<>(getBatchUserExtraScript, String.class);
-        insertUserExtra = new DefaultRedisScript<>(insertUserExtraScript);
+        getUserExtra = RedisScript.of(new ClassPathResource("lua/getUserExtraScript.lua"), UserExtra.class);
+        insertUserExtra = RedisScript.of(new ClassPathResource("lua/insertUserExtraScript.lua"), String.class);
+        batchGetUserExtra = RedisScript.of(new ClassPathResource("lua/batchGetUserExtraScript.lua"), String.class);
+        batchInsertUserExtra = RedisScript.of(new ClassPathResource("lua/batchInsertUserExtraScript.lua"), String.class);
 
         userExtraCache = Caffeine.newBuilder()
                 .expireAfterWrite(1, TimeUnit.MINUTES)

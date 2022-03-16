@@ -7,8 +7,9 @@ import com.waibao.user.mapper.AdminMapper;
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -36,39 +37,17 @@ public class AdminCacheService {
 
     private Cache<Long, Admin> adminCache;
     private RBloomFilter<Long> bloomFilter;
-    private DefaultRedisScript<Admin> getAdmin;
-    private DefaultRedisScript<String> insertAdmin;
-    private DefaultRedisScript<String> batchInsertAdmin;
+    private RedisScript<Admin> getAdmin;
+    private RedisScript<String> insertAdmin;
+    private RedisScript<String> batchInsertAdmin;
 
     @PostConstruct
     public void init() {
-        String insertAdminScript = "local key = KEYS[1]\n" +
-                "local admin = cjson.decode(ARGV[1])\n" +
-                "redis.call('HSET', key .. admin['id'], 'id', admin['id'], 'updateTime', admin['updateTime'], 'password',\n" +
-                "        admin['password'], 'level', admin['level'], 'createTime', admin['createTime'],\n" +
-                "        '@type', 'com.waibao.user.entity.Admin')";
-        String batchInsertAdminScript = "local admin\n" +
-                "local key = KEYS[1]\n" +
-                "for _, value in ipairs(ARGV) do\n" +
-                "    admin = cjson.decode(value)\n" +
-                "    redis.call('HSET', key .. admin['id'], 'id', admin['id'], 'updateTime', admin['updateTime'], 'password',\n" +
-                "            admin['password'], 'level', admin['level'], 'createTime', admin['createTime'],\n" +
-                "            '@type', 'com.waibao.user.entity.Admin')\n" +
-                "end";
-        String getAdminScript = "local admin={}\n" +
-                "local key = KEYS[1]\n" +
-                "local adminId = ARGV[1]\n" +
-                "local adminKeys = redis.call('HVALS', key .. adminId)\n" +
-                "for _, value in ipairs(adminKeys) do\n" +
-                "    admin[value] = redis.call('HGET', key .. adminId, value)\n" +
-                "end\n" +
-                "\n" +
-                "return cjson.encode(admin)";
         bloomFilter = redissonClient.getBloomFilter("adminList");
         bloomFilter.tryInit(1000000L, 0.03);
-        batchInsertAdmin = new DefaultRedisScript<>(batchInsertAdminScript);
-        getAdmin = new DefaultRedisScript<>(getAdminScript);
-        insertAdmin = new DefaultRedisScript<>(insertAdminScript);
+        getAdmin = RedisScript.of(new ClassPathResource("lua/getAdminScript.lua"), Admin.class);
+        insertAdmin = RedisScript.of(new ClassPathResource("lua/insertAdminScript.lua"), String.class);
+        batchInsertAdmin = RedisScript.of(new ClassPathResource("lua/batchInsertAdminScript.lua"), String.class);
 
         adminCache = Caffeine.newBuilder()
                 .expireAfterWrite(1, TimeUnit.MINUTES)

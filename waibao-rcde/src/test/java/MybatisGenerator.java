@@ -33,7 +33,7 @@ public class MybatisGenerator {
     }
 
     private static DataSourceConfig.Builder getDataSourceConfig() {
-        String url = "jdbc:mysql://10.60.64.66:33306/waibao_order_retailer?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true";
+        String url = "jdbc:mysql://10.606.4.66:33306/waibao?useSSL=false&autoReconnect=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true";
         String username = "root";
         String password = "wssy001";
         return new DataSourceConfig
@@ -46,7 +46,7 @@ public class MybatisGenerator {
         return builder -> builder
 //                添加表名
                 .addInclude(
-                        "rule"
+                        "user_extra"
                 )
 
                 .entityBuilder()

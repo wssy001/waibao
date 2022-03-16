@@ -36,14 +36,14 @@ public class LogSeckillGoods extends Model<LogSeckillGoods> {
     /**
      * 秒杀商品ID
      */
-    @TableField("seckill_goods_id")
-    private Long seckillGoodsId;
-
-    /**
-     * 商品ID
-     */
     @TableField("goods_id")
     private Long goodsId;
+
+    /**
+     * 订单ID
+     */
+    @TableField("order_id")
+    private String orderId;
 
     /**
      * 卖家ID

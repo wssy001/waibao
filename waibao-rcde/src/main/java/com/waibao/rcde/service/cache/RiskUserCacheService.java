@@ -6,9 +6,9 @@ import com.waibao.util.vo.rcde.RiskUserVO;
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ReactiveSetOperations;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -44,41 +44,11 @@ public class RiskUserCacheService {
 
     @PostConstruct
     public void init() {
-        String batchCheckUserScript = "local key = KEYS[1]\n" +
-                "local riskUserVOList = {}\n" +
-                "local riskUserVO\n" +
-                "for index, value in ipairs(ARGV) do\n" +
-                "    riskUserVO = cjson.decode(value)\n" +
-                "    local count = tonumber(redis.call('SISMEMBER', key .. riskUserVO[\"goodsId\"], riskUserVO[\"userId\"]))\n" +
-                "    if count == 1 then\n" +
-                "        table.insert(riskUserVOList, riskUserVO)\n" +
-                "    end\n" +
-                "end\n" +
-                "if table.maxn(riskUserVOList) == 0 then\n" +
-                "    return nil\n" +
-                "else\n" +
-                "    return cjson.encode(riskUserVOList)\n" +
-                "end";
-        String batchInsertUserScript = "local key = KEYS[1]\n" +
-                "local riskUserVOList = {}\n" +
-                "local riskUserVO\n" +
-                "for index, value in ipairs(ARGV) do\n" +
-                "    riskUserVO = cjson.decode(value)\n" +
-                "    local count = tonumber(redis.call('SADD', key .. riskUserVO[\"goodsId\"], riskUserVO[\"userId\"]))\n" +
-                "    if count == 0 then\n" +
-                "        table.insert(riskUserVOList, riskUserVO)\n" +
-                "    end\n" +
-                "end\n" +
-                "if table.maxn(riskUserVOList) == 0 then\n" +
-                "    return nil\n" +
-                "else\n" +
-                "    return cjson.encode(riskUserVOList)\n" +
-                "end";
         bloomFilter = redissonClient.getBloomFilter("riskUserList");
         bloomFilter.tryInit(100000L, 0.01);
         setOperations = riskUserReactiveRedisTemplate.opsForSet();
-        batchCheckUser = new DefaultRedisScript<>(batchCheckUserScript, String.class);
-        batchInsertUser = new DefaultRedisScript<>(batchInsertUserScript, String.class);
+        batchCheckUser = RedisScript.of(new ClassPathResource("lua/batchCheckUserScript.lua"), String.class);
+        batchInsertUser = RedisScript.of(new ClassPathResource("lua/batchInsertRiskUserScript.lua"), String.class);
     }
 
     public Mono<Boolean> checkRiskUser(Long userId, Long goodsId) {

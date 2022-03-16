@@ -4,14 +4,11 @@ import cn.hutool.core.date.DateField;
 import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
 import com.alibaba.fastjson.JSON;
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.rcde.entity.Deposit;
 import com.waibao.rcde.entity.Rule;
-import com.waibao.rcde.entity.UserExtra;
-import com.waibao.rcde.mapper.DepositMapper;
-import com.waibao.rcde.mapper.UserExtraMapper;
-import com.waibao.rcde.service.cache.RedisRuleCacheService;
+import com.waibao.rcde.service.cache.DepositCacheService;
 import com.waibao.rcde.service.cache.RiskUserCacheService;
+import com.waibao.rcde.service.cache.RuleCacheService;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.vo.rcde.RiskUserVO;
 import lombok.RequiredArgsConstructor;
@@ -21,11 +18,16 @@ import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.common.message.MessageExt;
+import org.springframework.data.redis.core.ReactiveHashOperations;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.Resource;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 /**
@@ -39,15 +41,23 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CheckRiskUserConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
-    private final DepositMapper depositMapper;
-    private final UserExtraMapper userExtraMapper;
+    private final RuleCacheService ruleCacheService;
+    private final DepositCacheService depositCacheService;
     private final RiskUserCacheService riskUserCacheService;
-    private final RedisRuleCacheService redisRuleCacheService;
+
+    @Resource
+    private ReactiveRedisTemplate<String, String> userExtraReactiveRedisTemplate;
+
+    private ReactiveHashOperations<String, String, String> reactiveHashOperations;
+
+    @PostConstruct
+    public void init() {
+        reactiveHashOperations = userExtraReactiveRedisTemplate.opsForHash();
+    }
 
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        //TODO 优化
         List<RiskUserVO> riskUserVOList = msgs.parallelStream()
                 .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), RiskUserVO.class))
                 .collect(Collectors.toList());
@@ -55,56 +65,117 @@ public class CheckRiskUserConsumer implements MessageListenerConcurrently {
 
         if (riskUserVOList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
-        Map<Long, List<Long>> collect = riskUserVOList.parallelStream()
-                .collect(Collectors.groupingBy(RiskUserVO::getGoodsId, Collectors.mapping(RiskUserVO::getUserId, Collectors.toList())));
+        Future<List<Rule>> ruleFuture = asyncService.basicTask(ruleCacheService.get(
+                riskUserVOList.stream()
+                        .map(RiskUserVO::getGoodsId)
+                        .collect(Collectors.toList()))
+        );
+        Future<List<Deposit>> depositFuture = asyncService.basicTask(depositCacheService.get(
+                riskUserVOList.stream()
+                        .map(RiskUserVO::getGoodsId)
+                        .collect(Collectors.toList()))
+                .collectList()
+                .share()
+                .block());
+        while (true) {
+            if (ruleFuture.isDone() && depositFuture.isDone()) break;
+        }
+        List<Rule> rules = ruleFuture.get();
+        List<Deposit> depositList = depositFuture.get();
 
-        collect.forEach((k, v) -> {
-            Rule rule = redisRuleCacheService.get(k).block();
-            if (rule == null) return;
-            List<RiskUserVO> riskUserVOS = v.stream()
-                    .filter(userId -> isRiskUser(rule, userId))
-                    .map(userId -> new RiskUserVO().setGoodsId(k).setUserId(userId))
-                    .collect(Collectors.toList());
-            if (riskUserVOS.isEmpty()) return;
-            riskUserCacheService.batchInsert(riskUserVOS);
-        });
+        riskUserVOList = riskUserVOList.parallelStream()
+                .map(riskUserVO -> checkRiskUser(riskUserVO, rules, depositList))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        if (riskUserVOList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
+        riskUserCacheService.batchInsert(riskUserVOList);
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
-    private boolean isRiskUser(Rule rule, Long userId) {
+    @SneakyThrows
+    private RiskUserVO checkRiskUser(RiskUserVO riskUserVO, List<Rule> ruleList, List<Deposit> depositList) {
+        Future<Rule> ruleFuture = asyncService.basicTask(ruleList.stream()
+                .filter(rule -> rule.getGoodsId().equals(riskUserVO.getGoodsId()))
+                .findFirst()
+                .get()
+        );
+        Long userId = riskUserVO.getUserId();
+        Future<List<Deposit>> listFuture = asyncService.basicTask(depositList.stream()
+                .filter(deposit -> deposit.getUserId().equals(userId))
+                .collect(Collectors.toList())
+        );
+        while (true) {
+            if (ruleFuture.isDone() && listFuture.isDone()) break;
+        }
+
+        Future<Boolean> ageFuture = asyncService.basicTask(checkAge(ruleFuture.get(), userId));
+        Future<Boolean> defaulterFuture = asyncService.basicTask(checkDefaulter(ruleFuture.get(), userId));
+        Future<Boolean> workStatusFuture = asyncService.basicTask(checkWorkStatus(ruleFuture.get(), userId));
+        Future<Boolean> overdueFuture = asyncService.basicTask(checkOverdue(ruleFuture.get(), listFuture.get()));
+        while (true) {
+            if (ageFuture.isDone() && defaulterFuture.isDone() && workStatusFuture.isDone() && overdueFuture.isDone())
+                break;
+        }
+
+        if (ageFuture.get().equals(true)) return riskUserVO;
+        if (defaulterFuture.get().equals(true)) return riskUserVO;
+        if (workStatusFuture.get().equals(true)) return riskUserVO;
+        if (overdueFuture.get().equals(true)) return riskUserVO;
+
+        return null;
+    }
+
+    private boolean checkAge(Rule rule, Long userId) {
         Integer ruleCode = rule.getRuleCode();
-        UserExtra userExtra = userExtraMapper.selectById(userId);
+        if ((ruleCode & 1) == 0) return false;
+        Integer age = reactiveHashOperations.get("user-extra-" + userId, "age")
+                .map(Integer::parseInt)
+                .share()
+                .block();
 
-        if ((ruleCode & 1) == 1) {
-            if (userExtra.getAge() <= rule.getDenyAgeBelow()) return true;
-            ruleCode = ruleCode >> 1;
-        }
+        return rule.getDenyAgeBelow() < age;
+    }
 
-        if ((ruleCode & 1) == 1) {
-            if (userExtra.getDefaulter() && rule.getDenyDefaulter()) return true;
-            ruleCode = ruleCode >> 1;
-        }
+    private boolean checkDefaulter(Rule rule, Long userId) {
+        Integer ruleCode = rule.getRuleCode();
+        if (((ruleCode >> 1) & 1) == 0) return false;
+        String defaulter = reactiveHashOperations.get("user-extra-" + userId, "defaulter")
+                .share()
+                .block();
 
-        if ((ruleCode & 1) == 1) {
-            if (userExtra.getWorkStatus().equals(rule.getDenyWorkStatus())) return true;
-            ruleCode = ruleCode >> 1;
-        }
+        return "true".equals(defaulter);
+    }
 
-        if ((ruleCode & 1) == 1) {
-            DateTime dueDate = DateUtil.offset(new Date(), DateField.DAY_OF_YEAR, -rule.getCollectYears());
-            DateTime depositDate = DateUtil.offsetDay(dueDate, rule.getAllowOverdueDelayedDays());
+    private boolean checkWorkStatus(Rule rule, Long userId) {
+        Integer ruleCode = rule.getRuleCode();
+        if (((ruleCode >> 2) & 1) == 0) return false;
+        String workStatus = reactiveHashOperations.get("user-extra-" + userId, "workStatus")
+                .share()
+                .block();
 
-            long count = depositMapper.selectCount(Wrappers.<Deposit>lambdaQuery()
-                    .eq(Deposit::getUserId, userId)
-                    .ge(Deposit::getDueDate, dueDate)
-                    .ge(Deposit::getDepositDate, depositDate)
-                    .ge(Deposit::getDebtAmount, rule.getIgnoreOverdueAmount())
-            );
+        return rule.getDenyWorkStatus().equals(workStatus);
+    }
 
-            return count >= rule.getDenyOverdueTimes();
-        }
+    private boolean checkOverdue(Rule rule, List<Deposit> depositList) {
+        Integer ruleCode = rule.getRuleCode();
+        if (((ruleCode >> 3) & 1) == 0) return false;
+        DateTime time = DateUtil.offset(new Date(), DateField.DAY_OF_YEAR, -rule.getCollectYears());
 
-        return false;
+        depositList = depositList.stream()
+                .filter(deposit -> deposit.getDueDate().after(time))
+                .filter(deposit -> {
+                    int flag = deposit.getDebtAmount().compareTo(rule.getIgnoreOverdueAmount());
+                    return flag == 0 || flag > 0;
+                })
+                .filter(deposit -> {
+                    Integer allowOverdueDelayedDays = rule.getAllowOverdueDelayedDays();
+                    DateTime endDate = DateUtil.offsetDay(deposit.getDueDate(), allowOverdueDelayedDays);
+                    return endDate.isBefore(deposit.getDepositDate());
+                })
+                .collect(Collectors.toList());
+
+        if (depositList.isEmpty()) return false;
+        return rule.getDenyOverdueTimes() <= depositList.size();
     }
 }

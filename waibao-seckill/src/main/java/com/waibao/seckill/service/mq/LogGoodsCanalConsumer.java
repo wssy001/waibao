@@ -1,11 +1,10 @@
 package com.waibao.seckill.service.mq;
 
-import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.waibao.seckill.entity.LogSeckillGoods;
-import com.waibao.seckill.service.db.LogSeckillGoodsService;
+import com.waibao.seckill.service.cache.LogSeckillGoodsCacheService;
 import com.waibao.util.base.RedisCommand;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,28 +28,23 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class LogGoodsCanalConsumer implements MessageListenerConcurrently {
-    private final LogSeckillGoodsService logSeckillGoodsService;
+    private final LogSeckillGoodsCacheService logSeckillGoodsCacheService;
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
-        List<LogSeckillGoods> logSeckillGoodsList = messageExtMap.values()
+        List<RedisCommand> redisCommandList = messageExtMap.values()
                 .parallelStream()
                 .map(messageExt -> (JSONObject) JSON.parse(messageExt.getBody()))
                 .flatMap(jsonObject -> convert(jsonObject).stream())
                 .filter(Objects::nonNull)
                 .sorted(Comparator.comparingLong(RedisCommand::getTimestamp))
-                .map(redisCommand -> {
-                    LogSeckillGoods logSeckillGoods = BeanUtil.copyProperties(redisCommand.getValue(), LogSeckillGoods.class);
-                    logSeckillGoods.setSeckillGoodsId(logSeckillGoods.getId());
-                    logSeckillGoods.setOperation(redisCommand.getCommand());
-                    return logSeckillGoods;
-                })
                 .collect(Collectors.toList());
+        if (redisCommandList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
-        logSeckillGoodsService.saveBatch(logSeckillGoodsList);
+        logSeckillGoodsCacheService.canalSync(redisCommandList);
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
@@ -66,6 +60,7 @@ public class LogGoodsCanalConsumer implements MessageListenerConcurrently {
                             break;
                         case "UPDATE":
                             redisCommand.setCommand("UPDATE");
+                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(LogSeckillGoods.class));
                             break;
                         case "DELETE":
                             redisCommand.setCommand("DELETE");

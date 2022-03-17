@@ -2,7 +2,7 @@
 local key = KEYS[1]
 local redisCommand
 local payment
-for index, value in ipairs(ARGV) do
+for index, value in pairs(ARGV) do
     redisCommand = cjson.decode(value)
     payment = redisCommand['value']
     key = '"' .. string.gsub(key, '"', '') .. payment['payId'] .. '"'

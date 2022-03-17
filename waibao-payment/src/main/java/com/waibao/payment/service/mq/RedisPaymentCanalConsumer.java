@@ -60,7 +60,6 @@ public class RedisPaymentCanalConsumer implements MessageListenerConcurrently {
         if (redisCommandList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
         asyncService.basicTask(() -> paymentCacheService.canalSync(redisCommandList));
-
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 

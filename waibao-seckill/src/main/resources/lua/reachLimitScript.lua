@@ -5,9 +5,10 @@
 ---
 -- reachLimitScript PurchasedUserCacheService
 local key = KEYS[1]
-local limit = tonumber(ARGV[1])
-local currentCount = tonumber(redis.call('GET' , key))
-if (currentCount == nil) then
+local userId = tonumber(ARGV[1])
+local limit = tonumber(ARGV[2])
+if tonumber(redis.call('HEXISTS' , key , userId)) == 0 then
     return false
+else
+    return tonumber(redis.call('HGET' , key , userId)) >= limit
 end
-return (currentCount >= limit)

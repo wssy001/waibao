@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -125,12 +126,12 @@ public class GoodsCacheService {
     public List<SeckillGoods> insertBatch(List<SeckillGoods> seckillGoods) {
         String arrayString = goodsRedisTemplate.execute(batchInsertGoods, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX),
                 seckillGoods.toArray());
-        return JSONArray.parseArray(arrayString, SeckillGoods.class);
+        return arrayString.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(arrayString, SeckillGoods.class);
     }
 
     public List<OrderVO> batchRollBackStorage(List<OrderVO> orderVOList) {
         String arrayString = goodsRedisTemplate.execute(batchRollBackStorage, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX), orderVOList.toArray());
-        return JSONArray.parseArray(arrayString, OrderVO.class);
+        return arrayString.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(arrayString, OrderVO.class);
     }
 
     public boolean decreaseStorage(Long goodsId, int count) {

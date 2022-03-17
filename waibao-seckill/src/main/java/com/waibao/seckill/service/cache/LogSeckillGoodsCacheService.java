@@ -1,6 +1,5 @@
 package com.waibao.seckill.service.cache;
 
-import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSONArray;
 import com.waibao.seckill.entity.LogSeckillGoods;
 import com.waibao.util.base.RedisCommand;
@@ -52,8 +51,7 @@ public class LogSeckillGoodsCacheService {
     public List<OrderVO> batchCheckCancel(List<OrderVO> orderVOList) {
         String arrayString = goodsRedisTemplate.execute(batchCheckCancel, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX),
                 orderVOList.toArray());
-        if (StrUtil.isBlank(arrayString)) return new ArrayList<>();
-        return JSONArray.parseArray(arrayString, OrderVO.class);
+        return arrayString.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(arrayString, OrderVO.class);
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {

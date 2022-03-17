@@ -41,8 +41,8 @@ public class SeckillController {
     private final AsyncService asyncService;
     private final CaptchaService captchaService;
     private final AsyncMQMessage asyncMQMessage;
-    private final DefaultMQProducer orderCreateMQProducer;
     private final GoodsCacheService goodsCacheService;
+    private final DefaultMQProducer orderCreateMQProducer;
     private final SeckillPathCacheService seckillPathCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;
 
@@ -84,7 +84,7 @@ public class SeckillController {
             return GlobalResult.error("秒杀已结束");
         }
 
-        if (purchasedUserCacheService.reachLimit(userId, seckillGoods.getPurchaseLimit()))
+        if (purchasedUserCacheService.reachLimit(goodsId, userId, seckillGoods.getPurchaseLimit()))
             GlobalResult.error("您已达到最大秒杀次数");
 
         JSONObject jsonObject = new JSONObject();
@@ -110,7 +110,7 @@ public class SeckillController {
 
         try {
             Future<Boolean> decreaseStorage = asyncService.basicTask(goodsCacheService.decreaseStorage(goodsId, count));
-            Future<Boolean> increase = asyncService.basicTask(purchasedUserCacheService.increase(userId, count, purchaseLimit));
+            Future<Boolean> increase = asyncService.basicTask(purchasedUserCacheService.increase(goodsId, userId, count, purchaseLimit));
             while (true) {
                 if (decreaseStorage.isDone() && increase.isDone()) break;
             }
@@ -155,7 +155,7 @@ public class SeckillController {
 
         try {
             Future<Boolean> decreaseStorage = asyncService.basicTask(goodsCacheService.decreaseStorage(goodsId, count));
-            Future<Boolean> increase = asyncService.basicTask(purchasedUserCacheService.increase(userId, count, purchaseLimit));
+            Future<Boolean> increase = asyncService.basicTask(purchasedUserCacheService.increase(goodsId, userId, count, purchaseLimit));
             while (true) {
                 if (decreaseStorage.isDone() && increase.isDone()) break;
             }

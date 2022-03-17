@@ -1,6 +1,5 @@
 package com.waibao.seckill.service.cache;
 
-import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSONArray;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -101,14 +100,12 @@ public class GoodsRetailerCacheService {
     public List<SeckillGoods> insertBatch(List<SeckillGoods> seckillGoods) {
         String arrayString = goodsRedisTemplate.execute(batchInsertGoodsRetailer, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX),
                 seckillGoods.toArray());
-        if (StrUtil.isBlank(arrayString)) return new ArrayList<>();
-        return JSONArray.parseArray(arrayString, SeckillGoods.class);
+        return arrayString.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(arrayString, SeckillGoods.class);
     }
 
     public List<OrderVO> batchRollBackStorage(List<OrderVO> orderVOList) {
         String arrayString = goodsRedisTemplate.execute(batchRollBackGoodsRetailerStorage, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX), orderVOList.toArray());
-        if (StrUtil.isBlank(arrayString)) return new ArrayList<>();
-        return JSONArray.parseArray(arrayString, OrderVO.class);
+        return arrayString.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(arrayString, OrderVO.class);
     }
 
     public boolean decreaseStorage(Long retailerId, Long goodsId, int count) {

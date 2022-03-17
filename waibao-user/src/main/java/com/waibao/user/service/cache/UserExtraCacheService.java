@@ -85,7 +85,7 @@ public class UserExtraCacheService {
         if (userIdList.isEmpty()) return new ArrayList<>(allPresent.values());
 
         String jsonArray = userExtraRedisTemplate.execute(batchGetUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), userIdList);
-        return JSONArray.parseArray(jsonArray, UserExtra.class);
+        return jsonArray.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(jsonArray, UserExtra.class);
     }
 
     public void set(UserExtra userExtra) {

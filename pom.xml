@@ -17,6 +17,7 @@
         <module>waibao-seckill</module>
         <module>waibao-order</module>
         <module>waibao-rcde</module>
+        <module>waibao-storage</module>
     </modules>
 
     <properties>

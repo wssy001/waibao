@@ -48,7 +48,6 @@ public class OrderCreateConsumer implements MessageListenerConcurrently {
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        //        去重
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
@@ -76,7 +75,6 @@ public class OrderCreateConsumer implements MessageListenerConcurrently {
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, messageExtMap.keySet())
                         .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
-
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 

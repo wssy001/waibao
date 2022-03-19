@@ -29,19 +29,18 @@ public class OrderGoodsCacheService {
     private RedisTemplate<String, OrderVO> orderGoodsRedisTemplate;
 
     private RedisScript<String> canalSync;
-    private ValueOperations<String, OrderVO> valueOperations;
     private RedisScript<String> batchInsertOrderGoods;
     private RedisScript<String> batchUpdateOrderGoods;
     private RedisScript<String> batchDeleteOrderGoods;
+    private ValueOperations<String, OrderVO> valueOperations;
 
     @PostConstruct
     void init() {
-
         valueOperations = orderGoodsRedisTemplate.opsForValue();
+        canalSync = RedisScript.of(new ClassPathResource("lua/canalSyncOrderGoodsScript.lua"), String.class);
         batchInsertOrderGoods = RedisScript.of(new ClassPathResource("lua/batchInsertOrderGoodsScript.lua"), String.class);
         batchUpdateOrderGoods = RedisScript.of(new ClassPathResource("lua/batchUpdateOrderGoodsScript.lua"), String.class);
         batchDeleteOrderGoods = RedisScript.of(new ClassPathResource("lua/batchDeleteOrderGoodsScript.lua"), String.class);
-        canalSync = RedisScript.of(new ClassPathResource("lua/canalSyncOrderGoodsScript.lua"), String.class);
     }
 
     public OrderVO get(String orderId) {

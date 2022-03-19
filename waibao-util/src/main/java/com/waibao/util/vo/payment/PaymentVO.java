@@ -19,6 +19,8 @@ public class PaymentVO implements Serializable {
 
     private Long id;
 
+    private String payId;
+
     private Long userId;
 
     private String orderId;
@@ -26,4 +28,6 @@ public class PaymentVO implements Serializable {
     private Long goodsId;
 
     private BigDecimal money;
+
+    private String status;
 }

@@ -37,9 +37,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PaymentDeleteConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
-    private final AsyncMQMessage asyncMQMessage;
-    private final LogPaymentService logPaymentService;
     private final PaymentService paymentService;
+    private final LogPaymentService logPaymentService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
     private final LogPaymentCacheService logPaymentCacheService;
 
@@ -52,7 +51,6 @@ public class PaymentDeleteConsumer implements MessageListenerConcurrently {
                 .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
         convert(messageExtMap.values(), Payment.class)
                 .parallelStream()
-                //
                 .filter(payment -> logPaymentCacheService.hasConsumeTags(payment.getUserId(),payment.getPayId(),"delete"))
                 .map(Payment::getUserId)
                 .forEach(messageExtMap::remove);

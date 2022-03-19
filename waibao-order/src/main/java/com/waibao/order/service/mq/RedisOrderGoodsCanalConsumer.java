@@ -15,7 +15,7 @@ import org.apache.rocketmq.common.message.MessageExt;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -33,9 +33,8 @@ public class RedisOrderGoodsCanalConsumer implements MessageListenerConcurrently
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
-        msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
+        Map<String, MessageExt> messageExtMap = msgs.parallelStream()
+                .collect(Collectors.toMap(MessageExt::getMsgId, Function.identity()));
 
         List<RedisCommand> redisCommandList = messageExtMap.values()
                 .parallelStream()
@@ -59,11 +58,14 @@ public class RedisOrderGoodsCanalConsumer implements MessageListenerConcurrently
                     RedisCommand redisCommand = new RedisCommand();
                     switch (jsonObject.getString("type")) {
                         case "INSERT":
+                            redisCommand.setCommand("INSERT");
+                            break;
                         case "UPDATE":
-                            redisCommand.setCommand("SET");
+                            redisCommand.setCommand("UPDATE");
+                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(OrderUser.class));
                             break;
                         case "DELETE":
-                            redisCommand.setCommand("DEL");
+                            redisCommand.setCommand("DELETE");
                             break;
                         default:
                             return;

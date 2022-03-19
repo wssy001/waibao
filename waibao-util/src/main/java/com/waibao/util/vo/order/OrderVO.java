@@ -20,6 +20,8 @@ import java.util.Objects;
 public class OrderVO {
     private String orderId;
 
+    private String payId;
+
     private Long goodsId;
 
     private Long userId;

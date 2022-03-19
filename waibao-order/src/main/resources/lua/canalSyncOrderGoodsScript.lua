@@ -5,14 +5,16 @@
 ---
 -- canalSyncOrderGoodsScript OrderGoodsCacheService
 local key = KEYS[1]
+local redisCommand
+local orderUser
 for _ , value in pairs(ARGV) do
-    local redisCommand = cjson.decode(value)
-    local orderVO = redisCommand['value']
-    key = '"' .. string.gsub(key, '"', '') .. orderVO['orderId'] .. '"'
-    if redisCommand['command'] == 'SET' then
-        orderVO['@type'] = 'com.waibao.util.vo.order.OrderVO'
-        redis.call('SET', key, cjson.encode(orderVO))
+    redisCommand = cjson.decode(value)
+    orderUser = redisCommand['value']
+    key = '"' .. string.gsub(key , '"' , '') .. orderUser['orderId'] .. '"'
+    if (redisCommand['command'] == 'INSERT' or redisCommand['command'] == 'UPDATE') then
+        orderUser['@type'] = 'com.waibao.order.entity.OrderUser'
+        redis.call('SET' , key , cjson.encode(orderUser))
     else
-        redis.call('DEL', key)
+        redis.call('DEL' , key)
     end
 end

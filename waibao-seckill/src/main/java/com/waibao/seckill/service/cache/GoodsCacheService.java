@@ -4,14 +4,15 @@ import com.alibaba.fastjson.JSONArray;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.hash.BloomFilter;
+import com.google.common.hash.Funnels;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
+import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.redisson.api.RBloomFilter;
-import org.redisson.api.RedissonClient;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -36,14 +37,14 @@ import java.util.concurrent.TimeUnit;
 public class GoodsCacheService {
     public static final String REDIS_SECKILL_GOODS_KEY_PREFIX = "seckill-goods-";
 
-    private final RedissonClient redissonClient;
+    private final AsyncService asyncService;
     private final SeckillGoodsMapper seckillGoodsMapper;
 
     @Resource
     private RedisTemplate<String, SeckillGoods> goodsRedisTemplate;
 
     private RedisScript<String> canalSync;
-    private RBloomFilter<Long> bloomFilter;
+    private BloomFilter<Long> bloomFilter;
     private RedisScript<String> batchInsertGoods;
     private RedisScript<String> insertSeckillGoods;
     private Cache<Long, Boolean> seckillFinishCache;
@@ -54,8 +55,7 @@ public class GoodsCacheService {
 
     @PostConstruct
     void init() {
-        bloomFilter = redissonClient.getBloomFilter("orderGoodsList");
-        bloomFilter.tryInit(10000L, 0.01);
+        bloomFilter = BloomFilter.create(Funnels.longFunnel(), 10000L, 0.001);
         batchInsertGoods = RedisScript.of(new ClassPathResource("lua/batchInsertGoodsScript.lua"), String.class);
         insertSeckillGoods = RedisScript.of(new ClassPathResource("lua/insertGoodsScript.lua"), String.class);
         getSeckillGoods = RedisScript.of(new ClassPathResource("lua/getGoodsScript.lua"), SeckillGoods.class);
@@ -94,10 +94,10 @@ public class GoodsCacheService {
     }
 
     public SeckillGoods get(Long goodsId) {
+        if (!bloomFilter.mightContain(goodsId)) return null;
+
         SeckillGoods seckillGoods = seckillGoodsCache.getIfPresent(goodsId);
         if (seckillGoods != null) return seckillGoods;
-
-        if (!bloomFilter.contains(goodsId)) return null;
 
         seckillGoods = goodsRedisTemplate.execute(getSeckillGoods, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX), goodsId);
         if (seckillGoods != null) {
@@ -118,15 +118,15 @@ public class GoodsCacheService {
     public void set(SeckillGoods seckillGoods, boolean updateRedis) {
         Long goodsId = seckillGoods.getGoodsId();
         seckillGoodsCache.put(goodsId, seckillGoods);
-        bloomFilter.add(goodsId);
+        bloomFilter.put(goodsId);
         if (updateRedis)
             goodsRedisTemplate.execute(insertSeckillGoods, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX), seckillGoods);
     }
 
-    public List<SeckillGoods> insertBatch(List<SeckillGoods> seckillGoods) {
-        String arrayString = goodsRedisTemplate.execute(batchInsertGoods, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX),
-                seckillGoods.toArray());
-        return arrayString.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(arrayString, SeckillGoods.class);
+    public void insertBatch(List<SeckillGoods> seckillGoodsList) {
+        asyncService.basicTask(() -> seckillGoodsList.parallelStream().forEach(seckillGoods -> seckillGoodsCache.put(seckillGoods.getGoodsId(), seckillGoods)));
+        asyncService.basicTask(() -> seckillGoodsList.parallelStream().forEach(seckillGoods -> bloomFilter.put(seckillGoods.getGoodsId())));
+        asyncService.basicTask(() -> goodsRedisTemplate.execute(batchInsertGoods, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX), seckillGoodsList.toArray()));
     }
 
     public List<OrderVO> batchRollBackStorage(List<OrderVO> orderVOList) {
@@ -139,7 +139,6 @@ public class GoodsCacheService {
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        goodsRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX),
-                redisCommandList.toArray());
+        asyncService.basicTask(() -> goodsRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX), redisCommandList.toArray()));
     }
 }

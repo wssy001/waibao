@@ -6,13 +6,15 @@
 -- batchUpdateOrderGoodsScript OrderGoodsCacheService
 local key = KEYS[1]
 local orderGoodsList = {}
+local orderGoods
 for _ , value in pairs(ARGV) do
-    local orderGoods = cjson.decode(value)
+    orderGoods = cjson.decode(value)
     local count = tonumber(redis.call('DEL' , key .. orderGoods["orderId"]))
     if count == 0 then
         table.insert(orderGoodsList , orderGoods)
     else
-        redis.call('SET' , key .. orderGoods["orderId"] , value)
+        orderGoods['@type'] = 'com.waibao.order.entity.OrderUser'
+        redis.call('SET' , key .. orderGoods["orderId"] , cjson.encode(orderGoods))
     end
 end
 

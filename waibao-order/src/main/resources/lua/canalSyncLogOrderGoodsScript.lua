@@ -4,21 +4,22 @@
 --- DateTime: 2022/3/16 18:13
 ---
 -- canalSyncLogOrderUserScript LogOrderUserCacheService
-local key = KEYS[1]
+local key
+local redisCommand
+local logOrderUser
 for _ , value in pairs(ARGV) do
-    local redisCommand = cjson.decode(value)
-    local logOrderUser = redisCommand['value']
-    key = '"' .. string.gsub(key, '"', '') .. logOrderUser['userId'] .. '"'
-    local command = redisCommand['command']
-    if command == 'INSERT' then
-        redis.call('LPUSH', key, logOrderUser['orderId'] .. '-' .. logOrderUser['operation'])
-    elseif command == 'UPDATE' then
+    redisCommand = cjson.decode(value)
+    logOrderUser = redisCommand['value']
+    key = '"' .. string.gsub(KEYS[1] , '"' , '') .. logOrderUser['userId'] .. '"'
+    if redisCommand['command'] == 'INSERT' then
+        redis.call('LPUSH' , key , logOrderUser['orderId'] .. '-' .. logOrderUser['operation'])
+    elseif redisCommand['command'] == 'UPDATE' then
         local oldLogOrderUser = redisCommand['oldValue']
         if oldLogOrderUser['operation'] ~= nil then
-            redis.call('LPUSH', key, logOrderUser['orderId'] .. '-' .. logOrderUser['operation'])
-            redis.call('LREM', key, 0, logOrderUser['orderId'] .. '-' .. oldLogOrderUser['operation'])
+            redis.call('LPUSH' , key , logOrderUser['orderId'] .. '-' .. logOrderUser['operation'])
+            redis.call('LREM' , key , 0 , logOrderUser['orderId'] .. '-' .. oldLogOrderUser['operation'])
         end
     else
-        redis.call('LREM', key, 0, logOrderUser['orderId'] .. '-' .. logOrderUser['operation'])
+        redis.call('LREM' , key , 0 , logOrderUser['orderId'] .. '-' .. logOrderUser['operation'])
     end
 end

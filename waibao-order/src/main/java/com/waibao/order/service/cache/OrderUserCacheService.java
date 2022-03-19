@@ -33,9 +33,9 @@ public class OrderUserCacheService {
     private RedisTemplate<String, OrderUser> orderUserRedisTemplate;
 
     private RedisScript<String> canalSync;
-    private SetOperations<String, OrderUser> setOperations;
     private RedisScript<String> batchInsertOrderUser;
     private RedisScript<String> batchDeleteOrderUser;
+    private SetOperations<String, OrderUser> setOperations;
 
     @PostConstruct
     void init() {

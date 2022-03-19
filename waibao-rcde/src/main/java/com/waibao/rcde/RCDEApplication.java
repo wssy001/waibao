@@ -8,6 +8,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Import;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * RCDEApplication
@@ -16,6 +17,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
  * @since 2022/3/8
  */
 @EnableAsync
+@EnableScheduling
 @SpringBootApplication
 @MapperScan("com.waibao.rcde.mapper")
 @Import({AsyncService.class, MQThreadPoolExecutorConfig.class, DBThreadPoolExecutorConfig.class})

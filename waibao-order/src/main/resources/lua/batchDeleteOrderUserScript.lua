@@ -6,8 +6,9 @@
 -- batchDeleteOrderUserScript OrderUserCacheService
 local key = KEYS[1]
 local orderUserList = {}
+local orderUser
 for _ , value in pairs(ARGV) do
-    local orderUser = cjson.decode(value)
+    orderUser = cjson.decode(value)
     local count = tonumber(redis.call('SREM' , key .. orderUser["userId"] , orderUser["orderId"]))
     if count == 0 then
         table.insert(orderUserList , orderUser)

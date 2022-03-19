@@ -1,23 +1,21 @@
 package com.waibao.payment.controller;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.waibao.payment.entity.UserCredit;
 import com.waibao.payment.mapper.UserCreditMapper;
 import com.waibao.payment.service.cache.UserCreditCacheService;
-import com.waibao.payment.service.db.UserCreditService;
 import com.waibao.util.enums.ResultEnum;
 import com.waibao.util.feign.UserService;
-import com.waibao.util.tools.BeanUtil;
 import com.waibao.util.vo.GlobalResult;
-import com.waibao.util.vo.user.PageVO;
 import com.waibao.util.vo.payment.UserCreditVO;
+import com.waibao.util.vo.user.PageVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
-import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,15 +29,11 @@ import java.util.stream.Collectors;
 @RequestMapping("/user/credit")
 public class UserCreditController {
     private final UserService userService;
-    private final UserCreditService userCreditService;
     private final UserCreditMapper userCreditMapper;
-
     private final UserCreditCacheService userCreditCacheService;
 
-
-
     @PostMapping(value = "/add", produces = MediaType.APPLICATION_JSON_VALUE)
-    public GlobalResult<UserCreditVO> addUserCreditInfo(@RequestBody UserCreditVO userCreditVO){
+    public GlobalResult<UserCreditVO> addUserCreditInfo(@RequestBody UserCreditVO userCreditVO) {
         GlobalResult<String> result = userService.checkUser(userCreditVO.getUserId());
         if (result.getCode() != 200) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
         UserCredit record = BeanUtil.copyProperties(userCreditVO, UserCredit.class);
@@ -50,8 +44,12 @@ public class UserCreditController {
     }
 
     @GetMapping(value = "/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public GlobalResult<UserCreditVO> getUserCreditInfo(@PathVariable("userId") Long userId){
-        return userCreditCacheService.get(userId);
+    public GlobalResult<UserCreditVO> getUserCreditInfo(
+            @PathVariable("userId") Long userId
+    ) {
+        UserCredit userCredit = userCreditCacheService.get(userId);
+        if (userCredit == null) return GlobalResult.error("账户不存在");
+        return GlobalResult.success(BeanUtil.copyProperties(userCredit, UserCreditVO.class));
     }
 
     @PostMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)

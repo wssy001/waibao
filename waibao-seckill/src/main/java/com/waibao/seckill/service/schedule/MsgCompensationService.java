@@ -1,4 +1,4 @@
-package com.waibao.seckill.service.mq;
+package com.waibao.seckill.service.schedule;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.seckill.entity.MqMsgCompensation;

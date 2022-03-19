@@ -1,10 +1,10 @@
-package com.waibao.seckill.service.mq;
+package com.waibao.payment.service.mq;
 
-import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.waibao.seckill.entity.LogSeckillGoods;
-import com.waibao.seckill.service.cache.LogSeckillGoodsCacheService;
+import com.waibao.payment.entity.LogPayment;
+import com.waibao.payment.service.cache.LogPaymentCacheService;
+import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,22 +19,24 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * GoodsCanalConsumer
+ * RedisLogPaymentCanalConsumer
  *
  * @author alexpetertyler
- * @since 2022/3/4
+ * @since 2022/3/6
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class LogGoodsCanalConsumer implements MessageListenerConcurrently {
-    private final LogSeckillGoodsCacheService logSeckillGoodsCacheService;
+public class RedisLogPaymentCanalConsumer implements MessageListenerConcurrently {
+    private final AsyncService asyncService;
+    private final LogPaymentCacheService logPaymentCacheService;
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
+
         List<RedisCommand> redisCommandList = messageExtMap.values()
                 .parallelStream()
                 .map(messageExt -> (JSONObject) JSON.parse(messageExt.getBody()))
@@ -44,7 +46,7 @@ public class LogGoodsCanalConsumer implements MessageListenerConcurrently {
                 .collect(Collectors.toList());
         if (redisCommandList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
-        logSeckillGoodsCacheService.canalSync(redisCommandList);
+        asyncService.basicTask(() -> logPaymentCacheService.canalSync(redisCommandList));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
@@ -57,19 +59,20 @@ public class LogGoodsCanalConsumer implements MessageListenerConcurrently {
                     switch (jsonObject.getString("type")) {
                         case "INSERT":
                             redisCommand.setCommand("INSERT");
+                            logPaymentCacheService.putToBloomFilter(((JSONObject) v).getString("payId"), ((JSONObject) v).getString("operation"));
                             break;
                         case "UPDATE":
                             redisCommand.setCommand("UPDATE");
-                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(LogSeckillGoods.class));
+                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(LogPayment.class));
+                            logPaymentCacheService.putToBloomFilter(((JSONObject) v).getString("payId"), ((JSONObject) v).getString("operation"));
                             break;
                         case "DELETE":
                             redisCommand.setCommand("DELETE");
+                            break;
+                        default:
+                            return;
                     }
-                    if (StrUtil.isBlank(redisCommand.getCommand())) {
-                        list.add(null);
-                        return;
-                    }
-                    redisCommand.setValue(((JSONObject) v).toJavaObject(LogSeckillGoods.class));
+                    redisCommand.setValue(((JSONObject) v).toJavaObject(LogPayment.class));
                     redisCommand.setTimestamp(timestamp);
                     list.add(redisCommand);
                 });

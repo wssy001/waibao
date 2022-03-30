@@ -85,7 +85,7 @@ public class RuleCacheService {
         if (goodsIdList.isEmpty()) return new ArrayList<>(allPresent.values());
 
         String jsonArray = ruleRedisTemplate.execute(batchGetRule, Collections.singletonList(REDIS_RULE_KEY_PREFIX), goodsIdList);
-        return JSONArray.parseArray(jsonArray, Rule.class);
+        return jsonArray.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(jsonArray, Rule.class);
     }
 
     public void set(Rule rule) {

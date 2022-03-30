@@ -35,7 +35,7 @@ public class AdminScheduleService {
         longAdder.add(count / 1000 + 1);
     }
 
-    @Scheduled(fixedDelay = 60 * 1000L)
+    @Scheduled(fixedDelay = 2000L)
     public void storeAdmin() {
         log.info("******AdminScheduleService：开始读取数据库放入缓存");
         long l = longAdder.longValue();

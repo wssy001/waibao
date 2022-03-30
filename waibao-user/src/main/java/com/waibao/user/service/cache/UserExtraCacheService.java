@@ -4,11 +4,12 @@ import com.alibaba.fastjson.JSONArray;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.hash.BloomFilter;
+import com.google.common.hash.Funnels;
 import com.waibao.user.entity.UserExtra;
 import com.waibao.user.mapper.UserExtraMapper;
+import com.waibao.util.async.AsyncService;
 import lombok.RequiredArgsConstructor;
-import org.redisson.api.RBloomFilter;
-import org.redisson.api.RedissonClient;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -33,13 +34,13 @@ import java.util.concurrent.TimeUnit;
 public class UserExtraCacheService {
     public static final String REDIS_USER_EXTRA_KEY_PREFIX = "user-extra-";
 
-    private final RedissonClient redissonClient;
+    private final AsyncService asyncService;
     private final UserExtraMapper userExtraMapper;
 
     @Resource
     private RedisTemplate<String, UserExtra> userExtraRedisTemplate;
 
-    private RBloomFilter<Long> bloomFilter;
+    private BloomFilter<Long> bloomFilter;
     private Cache<Long, UserExtra> userExtraCache;
     private RedisScript<UserExtra> getUserExtra;
     private RedisScript<String> insertUserExtra;
@@ -48,8 +49,7 @@ public class UserExtraCacheService {
 
     @PostConstruct
     public void init() {
-        bloomFilter = redissonClient.getBloomFilter("userExtraList");
-        bloomFilter.tryInit(100000L, 0.01);
+        bloomFilter = BloomFilter.create(Funnels.longFunnel(), 100000L, 0.001);
         getUserExtra = RedisScript.of(new ClassPathResource("lua/getUserExtraScript.lua"), UserExtra.class);
         insertUserExtra = RedisScript.of(new ClassPathResource("lua/insertUserExtraScript.lua"), String.class);
         batchGetUserExtra = RedisScript.of(new ClassPathResource("lua/batchGetUserExtraScript.lua"), String.class);
@@ -62,10 +62,10 @@ public class UserExtraCacheService {
     }
 
     public UserExtra get(Long userId) {
+        if (!bloomFilter.mightContain(userId)) return null;
+
         UserExtra userExtra = userExtraCache.getIfPresent(userId);
         if (userExtra != null) return userExtra;
-
-        if (!bloomFilter.contains(userId)) return null;
 
         userExtra = userExtraRedisTemplate.execute(getUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), userId);
         if (userExtra != null) {
@@ -85,7 +85,7 @@ public class UserExtraCacheService {
         if (userIdList.isEmpty()) return new ArrayList<>(allPresent.values());
 
         String jsonArray = userExtraRedisTemplate.execute(batchGetUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), userIdList);
-        return JSONArray.parseArray(jsonArray, UserExtra.class);
+        return jsonArray.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(jsonArray, UserExtra.class);
     }
 
     public void set(UserExtra userExtra) {
@@ -95,12 +95,14 @@ public class UserExtraCacheService {
     public void set(UserExtra userExtra, boolean updateRedis) {
         Long userId = userExtra.getUserId();
         userExtraCache.put(userId, userExtra);
-        bloomFilter.add(userId);
+        bloomFilter.put(userId);
         if (updateRedis)
             userExtraRedisTemplate.execute(insertUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), userExtra);
     }
 
     public void insertBatch(List<UserExtra> userExtraList) {
-        userExtraRedisTemplate.execute(batchInsertUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), userExtraList.toArray());
+        asyncService.basicTask(() -> userExtraList.parallelStream().forEach(userExtra -> userExtraCache.put(userExtra.getId(), userExtra)));
+        asyncService.basicTask(() -> userExtraList.parallelStream().forEach(userExtra -> bloomFilter.put(userExtra.getId())));
+        asyncService.basicTask(() -> userExtraRedisTemplate.execute(batchInsertUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), userExtraList.toArray()));
     }
 }

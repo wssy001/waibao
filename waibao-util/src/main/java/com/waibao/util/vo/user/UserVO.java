@@ -17,7 +17,6 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class UserVO implements Serializable {
     private static final long serialVersionUID = 1L;
-    private StringBuffer stringBuffer = new StringBuffer();
 
     private Long id;
     private Long userNo;
@@ -32,6 +31,7 @@ public class UserVO implements Serializable {
     private Long expireTime;
 
     public void hideMobile() {
+        StringBuffer stringBuffer = new StringBuffer();
         stringBuffer.delete(0, stringBuffer.length());
         stringBuffer.append(this.mobile);
         stringBuffer.replace(3, 7, "*");

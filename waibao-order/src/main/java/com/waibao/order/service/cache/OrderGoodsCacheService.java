@@ -1,6 +1,5 @@
 package com.waibao.order.service.cache;
 
-import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSONArray;
 import com.waibao.util.base.RedisCommand;
 import com.waibao.util.vo.order.OrderVO;
@@ -30,19 +29,18 @@ public class OrderGoodsCacheService {
     private RedisTemplate<String, OrderVO> orderGoodsRedisTemplate;
 
     private RedisScript<String> canalSync;
-    private ValueOperations<String, OrderVO> valueOperations;
     private RedisScript<String> batchInsertOrderGoods;
     private RedisScript<String> batchUpdateOrderGoods;
     private RedisScript<String> batchDeleteOrderGoods;
+    private ValueOperations<String, OrderVO> valueOperations;
 
     @PostConstruct
     void init() {
-
         valueOperations = orderGoodsRedisTemplate.opsForValue();
+        canalSync = RedisScript.of(new ClassPathResource("lua/canalSyncOrderGoodsScript.lua"), String.class);
         batchInsertOrderGoods = RedisScript.of(new ClassPathResource("lua/batchInsertOrderGoodsScript.lua"), String.class);
         batchUpdateOrderGoods = RedisScript.of(new ClassPathResource("lua/batchUpdateOrderGoodsScript.lua"), String.class);
         batchDeleteOrderGoods = RedisScript.of(new ClassPathResource("lua/batchDeleteOrderGoodsScript.lua"), String.class);
-        canalSync = RedisScript.of(new ClassPathResource("lua/canalSyncOrderGoodsScript.lua"), String.class);
     }
 
     public OrderVO get(String orderId) {
@@ -53,24 +51,21 @@ public class OrderGoodsCacheService {
     public List<OrderVO> insertBatch(List<OrderVO> orderVOList) {
         String arrayString = orderGoodsRedisTemplate.execute(batchInsertOrderGoods, Collections.singletonList(REDIS_ORDER_GOODS_KEY_PREFIX),
                 orderVOList.toArray());
-        if (StrUtil.isBlank(arrayString)) return new ArrayList<>();
-        return JSONArray.parseArray(arrayString, OrderVO.class);
+        return arrayString.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(arrayString, OrderVO.class);
     }
 
     //    返回不存在的订单列表
     public List<OrderVO> updateBatch(List<OrderVO> orderVOList) {
         String arrayString = orderGoodsRedisTemplate.execute(batchUpdateOrderGoods, Collections.singletonList(REDIS_ORDER_GOODS_KEY_PREFIX),
                 orderVOList.toArray());
-        if (StrUtil.isBlank(arrayString)) return new ArrayList<>();
-        return JSONArray.parseArray(arrayString, OrderVO.class);
+        return arrayString.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(arrayString, OrderVO.class);
     }
 
     //    返回不存在的订单列表
     public List<OrderVO> deleteBatch(List<OrderVO> orderVOList) {
         String arrayString = orderGoodsRedisTemplate.execute(batchDeleteOrderGoods, Collections.singletonList(REDIS_ORDER_GOODS_KEY_PREFIX),
                 orderVOList.toArray());
-        if (StrUtil.isBlank(arrayString)) return new ArrayList<>();
-        return JSONArray.parseArray(arrayString, OrderVO.class);
+        return arrayString.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(arrayString, OrderVO.class);
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {

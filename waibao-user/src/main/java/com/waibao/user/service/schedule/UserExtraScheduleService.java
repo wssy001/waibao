@@ -32,15 +32,15 @@ public class UserExtraScheduleService {
     public void init() {
         Long count = userExtraMapper.selectCount(null);
         longAdder = new LongAdder();
-        longAdder.add(count / 1000 + 1);
+        longAdder.add(count / 2000 + 1);
     }
 
-    @Scheduled(fixedDelay = 60 * 1000L)
+    @Scheduled(fixedDelay = 2000L)
     public void storeAdmin() {
         log.info("******UserExtraScheduleService：开始读取数据库放入缓存");
         long l = longAdder.longValue();
         if (l > 0) {
-            IPage<UserExtra> userExtraPage = new Page<>(l, 1000);
+            IPage<UserExtra> userExtraPage = new Page<>(l, 2000);
             userExtraPage = userExtraMapper.selectPage(userExtraPage, null);
             userExtraCacheService.insertBatch(userExtraPage.getRecords());
             longAdder.decrement();

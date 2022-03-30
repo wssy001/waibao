@@ -23,7 +23,7 @@ public class Payment extends Model<Payment> {
     private Long id;
 
     @TableField("`pay_id`")
-    private Long payId;
+    private String payId;
 
     @TableField("`user_id`")
     private Long userId;

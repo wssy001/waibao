@@ -1,6 +1,5 @@
 package com.waibao.order.service.cache;
 
-import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSONArray;
 import com.waibao.order.entity.OrderRetailer;
 import com.waibao.util.base.RedisCommand;
@@ -56,15 +55,13 @@ public class OrderRetailerCacheService {
     //    返回未添加成功的元素
     public List<OrderRetailer> insertBatch(List<OrderRetailer> orderRetailerList) {
         String arrayString = orderRetailerRedisTemplate.execute(batchInsertOrderRetailer, Collections.singletonList(REDIS_ORDER_RETAILER_KEY_PREFIX), orderRetailerList.toArray());
-        if (StrUtil.isBlank(arrayString)) return new ArrayList<>();
-        return JSONArray.parseArray(arrayString, OrderRetailer.class);
+        return arrayString.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(arrayString, OrderRetailer.class);
     }
 
     //    返回不存在的元素
     public List<OrderRetailer> deleteBatch(List<OrderRetailer> orderRetailerList) {
         String arrayString = orderRetailerRedisTemplate.execute(batchDeleteOrderRetailer, Collections.singletonList(REDIS_ORDER_RETAILER_KEY_PREFIX), orderRetailerList.toArray());
-        if (StrUtil.isBlank(arrayString)) return new ArrayList<>();
-        return JSONArray.parseArray(arrayString, OrderRetailer.class);
+        return arrayString.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(arrayString, OrderRetailer.class);
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {

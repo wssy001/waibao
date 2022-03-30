@@ -37,10 +37,10 @@
         <lambok.version>1.18.16</lambok.version>
         <dynamic-datasource.version>3.5.0</dynamic-datasource.version>
         <sm.version>0.3.2</sm.version>
-        <redisson.version>3.16.8</redisson.version>
         <rocketMQ.version>2.2.1</rocketMQ.version>
         <aj-captcha.version>1.3.0</aj-captcha.version>
         <shardingsphere.version>4.1.1</shardingsphere.version>
+        <guava.version>31.0-jre</guava.version>
     </properties>
 
     <dependencyManagement>
@@ -115,11 +115,11 @@
                 <version>${lambok.version}</version>
                 <scope>compile</scope>
             </dependency>
-            <!--Redisson-->
+            <!-- Guava  -->
             <dependency>
-                <groupId>org.redisson</groupId>
-                <artifactId>redisson</artifactId>
-                <version>${redisson.version}</version>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.version}</version>
             </dependency>
             <!--RocketMQ            -->
             <dependency>

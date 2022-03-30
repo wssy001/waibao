@@ -32,7 +32,7 @@ public class UserScheduleService {
     public void init() {
         Long count = userMapper.selectCount(null);
         longAdder = new LongAdder();
-        longAdder.add(count / 1000 + 1);
+        longAdder.add(count / 2000 + 1);
     }
 
     @Scheduled(fixedDelay = 2000L)

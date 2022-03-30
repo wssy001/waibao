@@ -3,7 +3,7 @@ package com.waibao.seckill.service.mq;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.waibao.seckill.entity.SeckillGoods;
-import com.waibao.seckill.service.cache.GoodsCacheService;
+import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.cache.GoodsRetailerCacheService;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RedisGoodsCanalConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
-    private final GoodsCacheService goodsCacheService;
+    private final SeckillGoodsCacheService goodsCacheService;
     private final GoodsRetailerCacheService goodsRetailerCacheService;
 
     @Override

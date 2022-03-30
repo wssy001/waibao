@@ -1,13 +1,19 @@
 package com.waibao.payment.service.cache;
 
+import com.google.common.hash.BloomFilter;
+import com.google.common.hash.Funnels;
+import com.waibao.util.base.RedisCommand;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * @Author: wwj
@@ -21,22 +27,27 @@ public class LogPaymentCacheService {
     @Resource
     private RedisTemplate<String, String> logPaymentRedisTemplate;
 
-    private DefaultRedisScript<Boolean> checkPaymentOperation;
+    private RedisScript<String> canalSync;
+    private BloomFilter<String> bloomFilter;
+    private RedisScript<Boolean> checkPaymentOperation;
 
     @PostConstruct
     void init() {
-        String checkOperationScript = "local key = KEYS[1]\n" +
-                "local count = tonumber(redis.call('LREM', key, 0, ARGV[1] .. '-' .. ARGV[2]))\n" +
-                "if count > 0 then\n" +
-                "    redis.call('LPUSH', key, ARGV[1] .. '-' .. ARGV[2])\n" +
-                "    return true\n" +
-                "else\n" +
-                "    return false\n" +
-                "end";
-        checkPaymentOperation = new DefaultRedisScript<>(checkOperationScript, Boolean.class);
+        canalSync = RedisScript.of(new ClassPathResource("lua/canalSyncLogPaymentScript.lua"), String.class);
+        bloomFilter = BloomFilter.create(Funnels.stringFunnel(StandardCharsets.UTF_8), 40000L, 0.001);
+        checkPaymentOperation = RedisScript.of(new ClassPathResource("lua/checkLogPaymentOperationScript.lua"), Boolean.class);
     }
 
-    public boolean hasConsumeTags(Long userId,Long payId,String operation){
-        return Boolean.TRUE.equals( logPaymentRedisTemplate.execute(checkPaymentOperation, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX+payId),userId,operation));
+    public void putToBloomFilter(String payId, String operation) {
+        bloomFilter.put(payId + operation);
+    }
+
+    public boolean hasConsumeTags(Long userId, String payId, String operation) {
+        if (!bloomFilter.mightContain(payId + operation)) return false;
+        return Boolean.TRUE.equals(logPaymentRedisTemplate.execute(checkPaymentOperation, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX + payId), userId, operation));
+    }
+
+    public void canalSync(List<RedisCommand> redisCommandList) {
+        logPaymentRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX), redisCommandList.toArray());
     }
 }

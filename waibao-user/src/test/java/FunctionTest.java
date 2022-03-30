@@ -24,4 +24,9 @@ public class FunctionTest {
         Map<String, String> stringStringMap = HttpUtil.decodeParamMap(uri.getRawQuery(), StandardCharsets.UTF_8);
         log.info("******FunctionTest：");
     }
+
+    @Test
+    void test3(){
+
+    }
 }

@@ -6,9 +6,11 @@
 -- batchInsertOrderRetailerScript OrderRetailerCacheService
 local key = KEYS[1]
 local orderRetailerList = {}
+local orderRetailer
 for _ , value in pairs(ARGV) do
-    local orderRetailer = cjson.decode(value)
-    local count = tonumber(redis.call('SETNX' , key .. orderRetailer["retailerId"] , orderRetailer["orderId"]))
+    orderRetailer = cjson.decode(value)
+    orderRetailer['@type'] = 'com.waibao.order.entity.OrderRetailer'
+    local count = tonumber(redis.call('SETNX' , key .. orderRetailer["retailerId"] , cjson.encode(orderRetailer)))
     if count == 0 then
         table.insert(orderRetailerList , orderRetailer)
     end

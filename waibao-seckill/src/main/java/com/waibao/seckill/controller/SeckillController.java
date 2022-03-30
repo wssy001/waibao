@@ -8,7 +8,7 @@ import com.anji.captcha.model.common.ResponseModel;
 import com.anji.captcha.model.vo.CaptchaVO;
 import com.anji.captcha.service.CaptchaService;
 import com.waibao.seckill.entity.SeckillGoods;
-import com.waibao.seckill.service.cache.GoodsCacheService;
+import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
 import com.waibao.seckill.service.cache.SeckillPathCacheService;
 import com.waibao.seckill.service.mq.AsyncMQMessage;
@@ -41,8 +41,8 @@ public class SeckillController {
     private final AsyncService asyncService;
     private final CaptchaService captchaService;
     private final AsyncMQMessage asyncMQMessage;
+    private final SeckillGoodsCacheService goodsCacheService;
     private final DefaultMQProducer orderCreateMQProducer;
-    private final GoodsCacheService goodsCacheService;
     private final SeckillPathCacheService seckillPathCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;
 
@@ -84,7 +84,7 @@ public class SeckillController {
             return GlobalResult.error("秒杀已结束");
         }
 
-        if (purchasedUserCacheService.reachLimit(userId, seckillGoods.getPurchaseLimit()))
+        if (purchasedUserCacheService.reachLimit(goodsId, userId, seckillGoods.getPurchaseLimit()))
             GlobalResult.error("您已达到最大秒杀次数");
 
         JSONObject jsonObject = new JSONObject();
@@ -110,7 +110,7 @@ public class SeckillController {
 
         try {
             Future<Boolean> decreaseStorage = asyncService.basicTask(goodsCacheService.decreaseStorage(goodsId, count));
-            Future<Boolean> increase = asyncService.basicTask(purchasedUserCacheService.increase(userId, count, purchaseLimit));
+            Future<Boolean> increase = asyncService.basicTask(purchasedUserCacheService.increase(goodsId, userId, count, purchaseLimit));
             while (true) {
                 if (decreaseStorage.isDone() && increase.isDone()) break;
             }
@@ -155,7 +155,7 @@ public class SeckillController {
 
         try {
             Future<Boolean> decreaseStorage = asyncService.basicTask(goodsCacheService.decreaseStorage(goodsId, count));
-            Future<Boolean> increase = asyncService.basicTask(purchasedUserCacheService.increase(userId, count, purchaseLimit));
+            Future<Boolean> increase = asyncService.basicTask(purchasedUserCacheService.increase(goodsId, userId, count, purchaseLimit));
             while (true) {
                 if (decreaseStorage.isDone() && increase.isDone()) break;
             }

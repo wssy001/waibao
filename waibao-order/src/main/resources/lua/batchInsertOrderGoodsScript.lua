@@ -6,9 +6,11 @@
 -- batchInsertOrderGoodsScript OrderGoodsCacheService
 local key = KEYS[1]
 local orderGoodsList = {}
+local orderGoods
 for _ , value in pairs(ARGV) do
-    local orderGoods = cjson.decode(value)
-    local count = tonumber(redis.call('SETNX' , key .. orderGoods["orderId"] , value))
+    orderGoods = cjson.decode(value)
+    orderGoods['@type'] = 'com.waibao.order.entity.OrderUser'
+    local count = tonumber(redis.call('SETNX' , key .. orderGoods["orderId"] , cjson.encode(orderGoods)))
     if count == 0 then
         table.insert(orderGoodsList , orderGoods)
     end

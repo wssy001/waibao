@@ -31,19 +31,6 @@ public class RedisPaymentCanalConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
     private final PaymentCacheService paymentCacheService;
 
-    /**
-     * RedisPaymentCanalConsumer监听Canal，接收到的信息是payment（Binlog）
-     * <p>
-     * MessageExt messageExt = new MessageExt();
-     * 消息ID
-     * messageExt.getKeys();
-     * 消息内容，byte[] ，new String(byte [])可以得到JSON字符串
-     * messageExt.getBody();
-     * 消息主题
-     * messageExt.getTopic();
-     * 消息标签
-     * messageExt.getTags();
-     **/
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
@@ -60,7 +47,6 @@ public class RedisPaymentCanalConsumer implements MessageListenerConcurrently {
         if (redisCommandList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
         asyncService.basicTask(() -> paymentCacheService.canalSync(redisCommandList));
-
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
@@ -75,10 +61,11 @@ public class RedisPaymentCanalConsumer implements MessageListenerConcurrently {
                             redisCommand.setCommand("INSERT");
                             break;
                         case "UPDATE":
-                            redisCommand.setCommand("SET");
+                            redisCommand.setCommand("UPDATE");
+                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(Payment.class));
                             break;
                         case "DELETE":
-                            redisCommand.setCommand("DEL");
+                            redisCommand.setCommand("DELETE");
                             break;
                         default:
                             return;

@@ -5,7 +5,6 @@
 ---
 -- batchInsertGoodsRetailerScript GoodsRetailerCacheService
 local key = KEYS[1]
-local seckillGoodsList = {}
 local retailerId
 local seckillGoods
 local goodsId
@@ -13,18 +12,8 @@ for _ , seckillGoodsData in pairs(ARGV) do
     seckillGoods = cjson.decode(seckillGoodsData)
     goodsId = seckillGoods['goodsId']
     retailerId = seckillGoods['retailerId']
-    if next(redis.call('HKEYS' , key .. retailerId .. '-' .. goodsId)) then
-        table.insert(seckillGoodsList , seckillGoods)
-    else
-        redis.call('HSET' , key .. retailerId .. '-' .. goodsId , '@type' , 'com.waibao.seckill.entity.SeckillGoods')
-        for index , value in pairs(seckillGoods) do
-            redis.call('HSET' , key .. retailerId .. '-' .. goodsId , index , value)
-        end
+    redis.call('HSET' , key .. retailerId .. '-' .. goodsId , '@type' , 'com.waibao.seckill.entity.SeckillGoods')
+    for index , value in pairs(seckillGoods) do
+        redis.call('HSET' , key .. retailerId .. '-' .. goodsId , index , value)
     end
-end
-
-if not next(seckillGoodsList) then
-    return nil
-else
-    return cjson.encode(seckillGoodsList)
 end

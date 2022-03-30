@@ -41,8 +41,17 @@ public class RocketMQConfig {
 
     @Bean
     @SneakyThrows
-    public DefaultMQProducer paymentCreateMQProducer() {
-        TransactionMQProducer transactionMQProducer = new TransactionMQProducer("paymentCreateTransaction");
+    public DefaultMQProducer paymentRequestPayMQProducer() {
+        TransactionMQProducer transactionMQProducer = new TransactionMQProducer("paymentRequestPay");
+        transactionMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
+        transactionMQProducer.start();
+        return transactionMQProducer;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQProducer paymentPayMQProducer() {
+        TransactionMQProducer transactionMQProducer = new TransactionMQProducer("paymentPayTransaction");
         transactionMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
         transactionMQProducer.setTransactionListener(paymentTransactionListener);
         transactionMQProducer.start();

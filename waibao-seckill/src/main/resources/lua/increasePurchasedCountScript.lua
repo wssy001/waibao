@@ -3,13 +3,15 @@
 --- Created by alexpetertyler.
 --- DateTime: 2022/3/16 10:46
 ---
+-- increasePurchasedCountScript PurchasedUserCacheService
 local key = KEYS[1]
-local count = tonumber(ARGV[1])
-local limit = tonumber(ARGV[2])
-redis.call('INCRBY' , key , count)
-local currentCount = tonumber(redis.call('GET' , key))
+local userId = tonumber(ARGV[2])
+local count = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+
+local currentCount = tonumber(redis.call('HINCRBY' , key , userId , count))
 if (currentCount > limit) then
-    redis.call('DECRBY' , key , count)
+    redis.call('HINCRBY' , key , userId , -count)
     return false
 else
     return true

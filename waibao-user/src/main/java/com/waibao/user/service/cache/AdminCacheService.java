@@ -2,11 +2,12 @@ package com.waibao.user.service.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.hash.BloomFilter;
+import com.google.common.hash.Funnels;
 import com.waibao.user.entity.Admin;
 import com.waibao.user.mapper.AdminMapper;
+import com.waibao.util.async.AsyncService;
 import lombok.RequiredArgsConstructor;
-import org.redisson.api.RBloomFilter;
-import org.redisson.api.RedissonClient;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -30,22 +31,21 @@ public class AdminCacheService {
     public static final String REDIS_ADMIN_KEY_PREFIX = "admin-";
 
     private final AdminMapper adminMapper;
-    private final RedissonClient redissonClient;
+    private final AsyncService asyncService;
 
     @Resource
     private RedisTemplate<String, Admin> adminRedisTemplate;
 
     private Cache<Long, Admin> adminCache;
-    private RBloomFilter<Long> bloomFilter;
+    private BloomFilter<Long> bloomFilter;
     private RedisScript<Admin> getAdmin;
     private RedisScript<String> insertAdmin;
     private RedisScript<String> batchInsertAdmin;
 
     @PostConstruct
     public void init() {
-        bloomFilter = redissonClient.getBloomFilter("adminList");
-        bloomFilter.tryInit(1000000L, 0.03);
         getAdmin = RedisScript.of(new ClassPathResource("lua/getAdminScript.lua"), Admin.class);
+        bloomFilter = BloomFilter.create(Funnels.longFunnel(), 100, 0.01);
         insertAdmin = RedisScript.of(new ClassPathResource("lua/insertAdminScript.lua"), String.class);
         batchInsertAdmin = RedisScript.of(new ClassPathResource("lua/batchInsertAdminScript.lua"), String.class);
 
@@ -56,10 +56,10 @@ public class AdminCacheService {
     }
 
     public Admin get(Long adminId) {
+        if (!bloomFilter.mightContain(adminId)) return null;
+
         Admin admin = adminCache.getIfPresent(adminId);
         if (admin != null) return admin;
-
-        if (!bloomFilter.contains(adminId)) return null;
 
         admin = adminRedisTemplate.execute(getAdmin, Collections.singletonList(REDIS_ADMIN_KEY_PREFIX), adminId);
         if (admin != null) {
@@ -80,7 +80,7 @@ public class AdminCacheService {
     public void set(Admin user, boolean updateRedis) {
         Long userId = user.getId();
         adminCache.put(userId, user);
-        bloomFilter.add(userId);
+        bloomFilter.put(userId);
         if (updateRedis)
             adminRedisTemplate.execute(insertAdmin, Collections.singletonList(REDIS_ADMIN_KEY_PREFIX), user);
     }
@@ -89,9 +89,10 @@ public class AdminCacheService {
         return get(userId) != null;
     }
 
-    public void insertBatch(List<Admin> userList) {
-        adminRedisTemplate.execute(batchInsertAdmin, Collections.singletonList(REDIS_ADMIN_KEY_PREFIX),
-                userList.toArray());
+    public void insertBatch(List<Admin> adminList) {
+        asyncService.basicTask(() -> adminList.parallelStream().forEach(admin -> adminCache.put(admin.getId(), admin)));
+        asyncService.basicTask(() -> adminList.parallelStream().forEach(admin -> bloomFilter.put(admin.getId())));
+        asyncService.basicTask(() -> adminRedisTemplate.execute(batchInsertAdmin, Collections.singletonList(REDIS_ADMIN_KEY_PREFIX), adminList.toArray()));
     }
 
 }

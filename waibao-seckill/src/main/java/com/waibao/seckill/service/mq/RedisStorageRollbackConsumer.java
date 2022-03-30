@@ -4,8 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.seckill.entity.MqMsgCompensation;
 import com.waibao.seckill.mapper.MqMsgCompensationMapper;
-import com.waibao.seckill.service.cache.GoodsCacheService;
-import com.waibao.seckill.service.cache.LogSeckillGoodsCacheService;
+import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.vo.order.OrderVO;
@@ -34,19 +33,19 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RedisStorageRollbackConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
-    private final GoodsCacheService goodsCacheService;
+    private final SeckillGoodsCacheService goodsCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
     private final PurchasedUserCacheService purchasedUserCacheService;
-    private final LogSeckillGoodsCacheService logSeckillGoodsCacheService;
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
-        List<OrderVO> orderVOList = convert(messageExtMap.values());
-        List<OrderVO> canceledList = logSeckillGoodsCacheService.batchCheckCancel(orderVOList);
-        orderVOList.removeAll(canceledList);
+        List<OrderVO> orderVOList = convert(messageExtMap.values()).parallelStream()
+//                .filter(orderVO -> !logSeckillGoodsCacheService.checkOperation(orderVO.getGoodsId(), orderVO.getOrderId(), "rollback"))
+                .collect(Collectors.toList());
+        if (orderVOList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
         asyncService.basicTask(() -> goodsCacheService.batchRollBackStorage(orderVOList)
                 .forEach(orderVO -> goodsStorageCacheServiceLog(orderVO, orderVOList)));

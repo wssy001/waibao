@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
-import com.waibao.seckill.service.cache.GoodsCacheService;
+import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.cache.GoodsRetailerCacheService;
 import com.waibao.util.async.AsyncService;
 import lombok.RequiredArgsConstructor;
@@ -25,9 +25,9 @@ import java.util.concurrent.atomic.LongAdder;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class GoodsScheduleService {
+public class SeckillGoodsScheduleService {
     private final AsyncService asyncService;
-    private final GoodsCacheService goodsCacheService;
+    private final SeckillGoodsCacheService goodsCacheService;
     private final SeckillGoodsMapper seckillGoodsMapper;
     private final GoodsRetailerCacheService goodsRetailerCacheService;
 

@@ -4,7 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.seckill.entity.MqMsgCompensation;
 import com.waibao.seckill.mapper.MqMsgCompensationMapper;
-import com.waibao.seckill.service.cache.GoodsCacheService;
+import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.vo.order.OrderVO;
@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RedisStorageRollbackConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
-    private final GoodsCacheService goodsCacheService;
+    private final SeckillGoodsCacheService goodsCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
     private final PurchasedUserCacheService purchasedUserCacheService;
 

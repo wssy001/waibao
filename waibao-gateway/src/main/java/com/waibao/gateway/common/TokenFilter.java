@@ -1,5 +1,6 @@
 package com.waibao.gateway.common;
 
+import cn.hutool.core.util.StrUtil;
 import com.waibao.util.base.BaseException;
 import com.waibao.util.enums.ResultEnum;
 import com.waibao.util.tools.JWTUtil;
@@ -11,7 +12,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -34,7 +34,7 @@ public class TokenFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
         String token = headers.getFirst(HttpHeaders.AUTHORIZATION);
-        if (StringUtils.isEmpty(token)) {
+        if (StrUtil.isBlank(token)) {
             throw new BaseException("token不存在，请重新登录");
         }
         // 校验token

@@ -4,7 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
-import com.waibao.seckill.service.cache.GoodsCacheService;
+import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class StorageDecreaseConsumer implements MessageListenerConcurrently {
     private final AsyncMQMessage asyncMQMessage;
-    private final GoodsCacheService goodsCacheService;
+    private final SeckillGoodsCacheService goodsCacheService;
     private final SeckillGoodsMapper seckillGoodsMapper;
     private final DefaultMQProducer orderUpdateMQProducer;
     private final DefaultMQProducer orderCancelMQProducer;

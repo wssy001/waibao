@@ -8,7 +8,7 @@ import com.anji.captcha.model.common.ResponseModel;
 import com.anji.captcha.model.vo.CaptchaVO;
 import com.anji.captcha.service.CaptchaService;
 import com.waibao.seckill.entity.SeckillGoods;
-import com.waibao.seckill.service.cache.GoodsCacheService;
+import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
 import com.waibao.seckill.service.cache.SeckillPathCacheService;
 import com.waibao.seckill.service.mq.AsyncMQMessage;
@@ -41,7 +41,7 @@ public class SeckillController {
     private final AsyncService asyncService;
     private final CaptchaService captchaService;
     private final AsyncMQMessage asyncMQMessage;
-    private final GoodsCacheService goodsCacheService;
+    private final SeckillGoodsCacheService goodsCacheService;
     private final DefaultMQProducer orderCreateMQProducer;
     private final SeckillPathCacheService seckillPathCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;

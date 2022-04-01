@@ -5,9 +5,11 @@
 ---
 --insertUserExtraScript UserExtraCacheService
 local key = KEYS[1]
-local userExtra = cjson.decode(value)
-local userId = userExtra['userId']
-redis.call('HSET' , key .. userId , '@type' , 'com.waibao.user.entity.UserExtra')
+if not (string.find(ARGV[1] , '"userId"') == nil) then
+    ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%d+)' , '%1"%2"')
+end
+local userExtra = cjson.decode(ARGV[1])
+local userId = userExtra['userId'] .. ''
 for index , value in pairs(userExtra) do
-    redis.call('HSET' , key .. userId , index , value)
+    redis.call('HSET' , key .. userId , index , tostring(value))
 end

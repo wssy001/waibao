@@ -7,9 +7,9 @@
 local user = {}
 local key = KEYS[1]
 local userId = ARGV[1]
-local userKeys = redis.call('HVALS', key .. userId)
-for _, value in pairs(userKeys) do
-    user[value] = redis.call('HGET', key .. userId, value)
+local userKeys = redis.call('HKEYS' , key .. userId)
+for _ , value in pairs(userKeys) do
+    user[value] = redis.call('HGET' , key .. userId , value)
 end
 
 return cjson.encode(user)

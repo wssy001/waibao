@@ -37,15 +37,15 @@ public class UserScheduleService {
 
     @Scheduled(fixedDelay = 2000L)
     public void storeUser() {
-        log.info("******UserScheduleService：开始读取数据库放入缓存");
         longAdder.longValue();
         long l = longAdder.longValue();
         if (l > 0) {
+            log.info("******UserScheduleService：开始读取数据库放入缓存");
             IPage<User> userPage = new Page<>(l, 2000);
             userPage = userMapper.selectPage(userPage, null);
             userCacheService.insertBatch(userPage.getRecords());
             longAdder.decrement();
+            log.info("******UserScheduleService：读取数据库放入缓存结束");
         }
-        log.info("******UserScheduleService：读取数据库放入缓存结束");
     }
 }

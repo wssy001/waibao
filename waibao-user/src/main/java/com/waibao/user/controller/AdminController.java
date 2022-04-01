@@ -11,11 +11,10 @@ import com.waibao.util.enums.ResultEnum;
 import com.waibao.util.feign.AdminService;
 import com.waibao.util.tools.JWTUtil;
 import com.waibao.util.tools.SMUtil;
+import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.user.AdminLoginVO;
 import com.waibao.util.vo.user.AdminVO;
-import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.user.PageVO;
-import com.waibao.util.vo.user.UserVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -42,22 +41,27 @@ public class AdminController implements AdminService {
     private final AdminCacheService adminCacheService;
 
     @Override
-    @GetMapping(value = "/check/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public GlobalResult<String> checkAdmin(
-            @PathVariable("id") Long adminId
+    @GetMapping(value = "/check", produces = MediaType.APPLICATION_JSON_VALUE)
+    public GlobalResult<AdminVO> checkAdmin(
+            @RequestParam("adminId") Long adminId
     ) {
-        if (adminCacheService.checkAdmin(adminId)) GlobalResult.success();
-        return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
+        if (!adminCacheService.checkAdmin(adminId))
+            return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
+        Admin admin = adminCacheService.get(adminId);
+        admin.setPassword(null);
+        return GlobalResult.success(BeanUtil.copyProperties(admin, AdminVO.class));
     }
 
     @Override
-    @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/info", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<AdminVO> getAdminInfo(
-            @PathVariable("id") Long adminId
+            @RequestParam("adminId") Long adminId
     ) {
+        if (!adminCacheService.checkAdmin(adminId))
+            return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
         Admin admin = adminCacheService.get(adminId);
-        if (admin == null) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
-        return GlobalResult.success(ResultEnum.SUCCESS, BeanUtil.copyProperties(admin, AdminVO.class, "password"));
+        admin.setPassword(null);
+        return GlobalResult.success(BeanUtil.copyProperties(admin, AdminVO.class));
     }
 
     @Override
@@ -86,7 +90,6 @@ public class AdminController implements AdminService {
     public GlobalResult<AdminVO> addAdminInfo(
             @RequestBody AdminVO adminVO
     ) {
-
         String password = adminVO.getPassword();
         adminVO.setPassword(SMUtil.sm3Encode(password));
         Admin admin = BeanUtil.copyProperties(adminVO, Admin.class);
@@ -98,22 +101,21 @@ public class AdminController implements AdminService {
         adminVO.setPassword(null);
         adminVO.setId(admin.getId());
         return GlobalResult.success(ResultEnum.SUCCESS, adminVO);
-
     }
 
     @Override
     @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<AdminLoginVO> login(
-            @RequestParam String name,
-            @RequestParam String password
+            @RequestBody AdminVO adminVO
     ) {
-        password= SMUtil.sm3Encode(password);
-        Admin admin = adminMapper.selectOne(Wrappers.<Admin>lambdaQuery().eq(Admin::getPassword, password).eq(Admin::getName, name));
+        String password = SMUtil.sm3Encode(adminVO.getPassword());
+        Admin admin = adminMapper.selectOne(Wrappers.<Admin>lambdaQuery().eq(Admin::getPassword, password).eq(Admin::getName, adminVO.getName()));
         if (admin == null) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
-        UserVO userVO=BeanUtil.copyProperties(admin, UserVO.class);
+
+        admin.setPassword(null);
         AdminLoginVO loginVO = BeanUtil.copyProperties(admin, AdminLoginVO.class);
-        loginVO.setPassword(null);
-        loginVO.setToken(JWTUtil.create(userVO));
+        adminVO = BeanUtil.copyProperties(admin, AdminVO.class);
+        loginVO.setToken(JWTUtil.create(adminVO));
         return GlobalResult.success(loginVO);
     }
 }

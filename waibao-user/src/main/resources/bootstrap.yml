@@ -1,0 +1,18 @@
+server:
+  port: 8001
+
+spring:
+  application:
+    name: waibao-user
+
+  cloud:
+    nacos:
+      server-addr: 10.61.20.211:38848
+      discovery:
+        namespace: waibao
+      username: nacos
+      password: nacos
+
+      config:
+        namespace: waibao
+        extension-configs: application.yml,${spring.application.name}.yml

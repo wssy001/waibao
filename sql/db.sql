@@ -258,12 +258,10 @@ create table if not exists waibao_v2.user_0
 (
 	id bigint(12) unsigned not null comment '自增ID'
 		primary key,
-	user_no bigint(12) unsigned default 0 not null comment '用户编号',
 	mobile varchar(11) not null comment '手机号',
-	eamil varchar(255) null comment '邮箱地址',
+	email varchar(255) null comment '邮箱地址',
 	password varchar(255) not null comment '密码',
 	sex tinyint(2) unsigned default 3 null comment '性别',
-	age tinyint unsigned null comment '年龄',
 	nickname varchar(50) null comment '用户昵称',
 	create_time datetime not null comment '创建时间',
 	update_time datetime not null comment '更新时间'
@@ -274,12 +272,10 @@ create table if not exists waibao_v2.user_1
 (
 	id bigint(12) unsigned not null comment '自增ID'
 		primary key,
-	user_no bigint(12) unsigned default 0 not null comment '用户编号',
 	mobile varchar(11) not null comment '手机号',
-	eamil varchar(255) null comment '邮箱地址',
+	email varchar(255) null comment '邮箱地址',
 	password varchar(255) not null comment '密码',
 	sex tinyint(2) unsigned default 3 null comment '性别',
-	age tinyint unsigned null comment '年龄',
 	nickname varchar(50) null comment '用户昵称',
 	create_time datetime not null comment '创建时间',
 	update_time datetime not null comment '更新时间'
@@ -310,13 +306,11 @@ comment '账户信息表' charset=utf8mb4;
 
 create table if not exists waibao_v2.user_extra
 (
-	id bigint(12) unsigned auto_increment comment '自增ID'
+	user_id bigint(12) unsigned not null comment '用户ID'
 		primary key,
-	user_id bigint(12) unsigned not null comment '用户ID',
 	defaulter tinyint(1) unsigned not null comment '是否为失信人',
 	age tinyint unsigned not null comment '年龄',
 	work_status varchar(255) default '无业/失业' not null comment '工作状态',
 	create_time datetime not null comment '创建时间',
 	update_time datetime not null comment '更新时间'
 );
-

@@ -37,14 +37,14 @@ public class AdminScheduleService {
 
     @Scheduled(fixedDelay = 2000L)
     public void storeAdmin() {
-        log.info("******AdminScheduleService：开始读取数据库放入缓存");
         long l = longAdder.longValue();
         if (l > 0) {
+            log.info("******AdminScheduleService：开始读取数据库放入缓存");
             IPage<Admin> adminPage = new Page<>(l, 1000);
             adminPage = adminMapper.selectPage(adminPage, null);
             adminCacheService.insertBatch(adminPage.getRecords());
             longAdder.decrement();
+            log.info("******AdminScheduleService：读取数据库放入缓存结束");
         }
-        log.info("******AdminScheduleService：读取数据库放入缓存结束");
     }
 }

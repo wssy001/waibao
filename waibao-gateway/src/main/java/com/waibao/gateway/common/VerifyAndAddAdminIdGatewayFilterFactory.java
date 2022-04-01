@@ -4,7 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpUtil;
 import com.waibao.util.base.BaseException;
 import com.waibao.util.tools.JWTUtil;
-import com.waibao.util.vo.user.UserVO;
+import com.waibao.util.vo.user.AdminVO;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractNameValueGatewayFilterFactory;
 import org.springframework.http.HttpHeaders;
@@ -18,13 +18,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * VerifyAndAddUserIdGatewayFilterFactory
+ * VerifyAndAddAdminIdGatewayFilterFactory
  *
  * @author alexpetertyler
- * @since 2022-02-18
+ * @since 2022-04-01
  */
 @Component
-public class VerifyAndAddUserIdGatewayFilterFactory extends AbstractNameValueGatewayFilterFactory {
+public class VerifyAndAddAdminIdGatewayFilterFactory extends AbstractNameValueGatewayFilterFactory {
     @Override
     public GatewayFilter apply(NameValueConfig config) {
         return (exchange, chain) -> {
@@ -33,12 +33,12 @@ public class VerifyAndAddUserIdGatewayFilterFactory extends AbstractNameValueGat
             if (StrUtil.isBlank(token)) throw new BaseException("token不存在，请重新登录");
             if (!JWTUtil.verify(token)) throw new BaseException("token非法");
 
-            UserVO userVO = JWTUtil.getUserVO(token);
+            AdminVO adminVO = JWTUtil.getAdminVO(token);
             URI uri = request.getURI();
             String rawQuery = uri.getQuery();
             Map<String, String> paramMap = new HashMap<>();
             if (StrUtil.isBlank(rawQuery)) {
-                paramMap.put("userId", userVO.getId() + "");
+                paramMap.put("userId", adminVO.getId() + "");
             } else {
                 paramMap.putAll(HttpUtil.decodeParamMap(rawQuery, StandardCharsets.UTF_8));
             }

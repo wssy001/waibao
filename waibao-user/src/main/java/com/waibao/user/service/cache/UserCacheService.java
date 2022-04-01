@@ -1,5 +1,7 @@
 package com.waibao.user.service.cache;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.hash.BloomFilter;
@@ -38,13 +40,13 @@ public class UserCacheService {
 
     private Cache<Long, User> userCache;
     private BloomFilter<Long> bloomFilter;
-    private RedisScript<User> getUser;
+    private RedisScript<String> getUser;
     private RedisScript<String> insertUser;
     private RedisScript<String> batchInsertUser;
 
     @PostConstruct
     public void init() {
-        getUser = RedisScript.of(new ClassPathResource("lua/getUserScript.lua"), User.class);
+        getUser = RedisScript.of(new ClassPathResource("lua/getUserScript.lua"), String.class);
         bloomFilter = BloomFilter.create(Funnels.longFunnel(), 100000L, 0.001);
         insertUser = RedisScript.of(new ClassPathResource("lua/insertUserScript.lua"), String.class);
         batchInsertUser = RedisScript.of(new ClassPathResource("lua/batchInsertUserScript.lua"), String.class);
@@ -56,16 +58,17 @@ public class UserCacheService {
     }
 
     public User get(Long userId) {
-        if (!bloomFilter.mightContain(userId)) return null;
-
         User user = userCache.getIfPresent(userId);
         if (user != null) return user;
 
-        user = userRedisTemplate.execute(getUser, Collections.singletonList(REDIS_USER_KEY_PREFIX), userId);
+        String execute = userRedisTemplate.execute(getUser, Collections.singletonList(REDIS_USER_KEY_PREFIX), userId + "");
+        user = JSON.parseObject(execute, User.class);
         if (user != null) {
             set(user, false);
             return user;
         }
+
+        if (!bloomFilter.mightContain(userId)) return null;
 
         user = userMapper.selectById(userId);
         if (user != null) set(user);
@@ -82,7 +85,7 @@ public class UserCacheService {
         userCache.put(userId, user);
         bloomFilter.put(userId);
         if (updateRedis)
-            userRedisTemplate.execute(insertUser, Collections.singletonList(REDIS_USER_KEY_PREFIX), user);
+            userRedisTemplate.execute(insertUser, Collections.singletonList(REDIS_USER_KEY_PREFIX), JSON.toJSONString(user));
     }
 
     public boolean checkUser(Long userId) {
@@ -92,7 +95,7 @@ public class UserCacheService {
     public void insertBatch(List<User> userList) {
         asyncService.basicTask(() -> userList.parallelStream().forEach(user -> userCache.put(user.getId(), user)));
         asyncService.basicTask(() -> userList.parallelStream().forEach(user -> bloomFilter.put(user.getId())));
-        asyncService.basicTask(() -> userRedisTemplate.execute(batchInsertUser, Collections.singletonList(REDIS_USER_KEY_PREFIX), userList.toArray()));
+        asyncService.basicTask(() -> userRedisTemplate.execute(batchInsertUser, Collections.singletonList(REDIS_USER_KEY_PREFIX), JSONArray.toJSONString(userList)));
     }
 
 }

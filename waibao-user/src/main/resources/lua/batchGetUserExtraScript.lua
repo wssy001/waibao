@@ -7,15 +7,15 @@
 local key = KEYS[1]
 local userExtraList = {}
 local userExtraKeys
-for _, userId in pairs(ARGV) do
-    userExtraKeys = redis.call('HVALS', key .. userId)
+for _ , userId in pairs(cjson.decode(ARGV[1])) do
+    userExtraKeys = redis.call('HKEYS' , key .. userId)
     local userExtra = {}
-    for _, value2 in pairs(userExtraKeys) do
-        userExtra[value2] = redis.call('HGET', key .. userId, value2)
+    for _ , value2 in pairs(userExtraKeys) do
+        userExtra[value2] = redis.call('HGET' , key .. userId , '"' .. value2)
     end
 
     if userExtra['id'] ~= nil then
-        table.insert(userExtraList, userExtra)
+        table.insert(userExtraList , userExtra)
     end
 end
 

@@ -1,21 +1,22 @@
-/**
- * Copyright 2015-现在 广州市领课网络科技有限公司
- */
 package com.waibao.util.tools;
 
 import cn.hutool.core.codec.Base64;
 import com.alibaba.fastjson.JSON;
+import com.waibao.util.vo.user.AdminVO;
 import com.waibao.util.vo.user.UserVO;
 
-/**
- * @author wujing
- */
 public final class JWTUtil {
     private static final String HEADER = "{\"alg\":\"SM3\",\"typ\":\"JWT\"}";
 
     public static String create(UserVO userVO) {
         String header = Base64.encode(HEADER);
         String payload = Base64.encode(JSON.toJSONString(userVO));
+        return header + "." + payload + "." + SMUtil.sm3Encode(header + "." + payload);
+    }
+
+    public static String create(AdminVO adminVO) {
+        String header = Base64.encode(HEADER);
+        String payload = Base64.encode(JSON.toJSONString(adminVO));
         return header + "." + payload + "." + SMUtil.sm3Encode(header + "." + payload);
     }
 
@@ -30,8 +31,13 @@ public final class JWTUtil {
         return SMUtil.sm3Encode(headerBase64 + "." + payloadBase64).equals(sign);
     }
 
-    public static UserVO getUserVo(String jwt) {
+    public static UserVO getUserVO(String jwt) {
         String[] split = jwt.split("\\.");
-        return JSON.parseObject(split[1], UserVO.class);
+        return JSON.parseObject(Base64.decode(split[1]), UserVO.class);
+    }
+
+    public static AdminVO getAdminVO(String jwt) {
+        String[] split = jwt.split("\\.");
+        return JSON.parseObject(Base64.decode(split[1]), AdminVO.class);
     }
 }

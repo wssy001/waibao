@@ -5,13 +5,13 @@
 ---
 -- batchInsertUserScript UserCacheService
 local key = KEYS[1]
-local user
 local userId
-for _ , userdata in ipairs(ARGV) do
-    user = cjson.decode(userdata)
+if not (string.find(ARGV[1] , '"id"') == nil) then
+    ARGV[1] = string.gsub(ARGV[1] , '("id":)(%d+)' , '%1"%2"')
+end
+for _ , user in ipairs(cjson.decode(ARGV[1])) do
     userId = user['id']
-    redis.call('HSET' , key .. userId , '@type' , 'com.waibao.user.entity.User')
     for index , value in pairs(user) do
-        redis.call('HSET' , key .. userId , index , value)
+        redis.call('HSET' , key .. userId , index , tostring(value))
     end
 end

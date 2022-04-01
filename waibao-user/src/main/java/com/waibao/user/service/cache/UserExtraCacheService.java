@@ -1,5 +1,6 @@
 package com.waibao.user.service.cache;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -22,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * UserExtraCacheService
@@ -42,7 +44,7 @@ public class UserExtraCacheService {
 
     private BloomFilter<Long> bloomFilter;
     private Cache<Long, UserExtra> userExtraCache;
-    private RedisScript<UserExtra> getUserExtra;
+    private RedisScript<String> getUserExtra;
     private RedisScript<String> insertUserExtra;
     private RedisScript<String> batchGetUserExtra;
     private RedisScript<String> batchInsertUserExtra;
@@ -50,7 +52,7 @@ public class UserExtraCacheService {
     @PostConstruct
     public void init() {
         bloomFilter = BloomFilter.create(Funnels.longFunnel(), 100000L, 0.001);
-        getUserExtra = RedisScript.of(new ClassPathResource("lua/getUserExtraScript.lua"), UserExtra.class);
+        getUserExtra = RedisScript.of(new ClassPathResource("lua/getUserExtraScript.lua"), String.class);
         insertUserExtra = RedisScript.of(new ClassPathResource("lua/insertUserExtraScript.lua"), String.class);
         batchGetUserExtra = RedisScript.of(new ClassPathResource("lua/batchGetUserExtraScript.lua"), String.class);
         batchInsertUserExtra = RedisScript.of(new ClassPathResource("lua/batchInsertUserExtraScript.lua"), String.class);
@@ -62,16 +64,17 @@ public class UserExtraCacheService {
     }
 
     public UserExtra get(Long userId) {
-        if (!bloomFilter.mightContain(userId)) return null;
-
         UserExtra userExtra = userExtraCache.getIfPresent(userId);
         if (userExtra != null) return userExtra;
 
-        userExtra = userExtraRedisTemplate.execute(getUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), userId);
+        String execute = userExtraRedisTemplate.execute(getUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), userId + "");
+        userExtra = JSON.parseObject(execute, UserExtra.class);
         if (userExtra != null) {
             set(userExtra, false);
             return userExtra;
         }
+
+        if (!bloomFilter.mightContain(userId)) return null;
 
         userExtra = userExtraMapper.selectOne(Wrappers.<UserExtra>lambdaQuery().eq(UserExtra::getUserId, userId));
         if (userExtra != null) set(userExtra);
@@ -84,8 +87,11 @@ public class UserExtraCacheService {
         userIdList.removeAll(allPresent.keySet());
         if (userIdList.isEmpty()) return new ArrayList<>(allPresent.values());
 
-        String jsonArray = userExtraRedisTemplate.execute(batchGetUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), userIdList);
-        return jsonArray.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(jsonArray, UserExtra.class);
+        List<String> collect = userIdList.parallelStream()
+                .map(userId -> userId + "")
+                .collect(Collectors.toList());
+        String jsonArray = userExtraRedisTemplate.execute(batchGetUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), JSONArray.toJSONString(collect));
+        return "{}".equals(jsonArray) ? new ArrayList<>() : JSONArray.parseArray(jsonArray, UserExtra.class);
     }
 
     public void set(UserExtra userExtra) {
@@ -97,12 +103,12 @@ public class UserExtraCacheService {
         userExtraCache.put(userId, userExtra);
         bloomFilter.put(userId);
         if (updateRedis)
-            userExtraRedisTemplate.execute(insertUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), userExtra);
+            userExtraRedisTemplate.execute(insertUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), JSON.toJSONString(userExtra));
     }
 
     public void insertBatch(List<UserExtra> userExtraList) {
-        asyncService.basicTask(() -> userExtraList.parallelStream().forEach(userExtra -> userExtraCache.put(userExtra.getId(), userExtra)));
-        asyncService.basicTask(() -> userExtraList.parallelStream().forEach(userExtra -> bloomFilter.put(userExtra.getId())));
-        asyncService.basicTask(() -> userExtraRedisTemplate.execute(batchInsertUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), userExtraList.toArray()));
+        asyncService.basicTask(() -> userExtraList.parallelStream().forEach(userExtra -> userExtraCache.put(userExtra.getUserId(), userExtra)));
+        asyncService.basicTask(() -> userExtraList.parallelStream().forEach(userExtra -> bloomFilter.put(userExtra.getUserId())));
+        asyncService.basicTask(() -> userExtraRedisTemplate.execute(batchInsertUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), JSONArray.toJSONString(userExtraList)));
     }
 }

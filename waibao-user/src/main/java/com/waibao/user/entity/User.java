@@ -29,12 +29,6 @@ public class User extends Model<User> {
     private Long id;
 
     /**
-     * 用户编号
-     */
-    @TableField("user_no")
-    private Long userNo;
-
-    /**
      * 手机号
      */
     @TableField("mobile")
@@ -43,8 +37,8 @@ public class User extends Model<User> {
     /**
      * 邮箱地址
      */
-    @TableField("eamil")
-    private String eamil;
+    @TableField("email")
+    private String email;
 
     /**
      * 密码
@@ -57,12 +51,6 @@ public class User extends Model<User> {
      */
     @TableField("sex")
     private Integer sex;
-
-    /**
-     * 年龄
-     */
-    @TableField("age")
-    private Integer age;
 
     /**
      * 用户昵称

@@ -5,13 +5,13 @@
 ---
 -- batchInsertUserExtraScript UserExtraCacheService
 local key = KEYS[1]
-local userExtra
 local userId
-for _ , userExtraData in pairs(ARGV) do
-    userExtra = cjson.decode(userExtraData)
+if not (string.find(ARGV[1] , '"userId"') == nil) then
+    ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%d+)' , '%1"%2"')
+end
+for _ , userExtra in pairs(cjson.decode(ARGV[1])) do
     userId = userExtra['userId']
-    redis.call('HSET' , key .. userId , '@type' , 'com.waibao.user.entity.UserExtra')
     for index , value in pairs(userExtra) do
-        redis.call('HSET' , key .. userId , index , value)
+        redis.call('HSET' , key .. userId , index , tostring(value))
     end
 end

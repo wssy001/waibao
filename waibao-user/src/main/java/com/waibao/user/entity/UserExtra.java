@@ -24,15 +24,9 @@ import java.util.Date;
 public class UserExtra extends Model<UserExtra> {
 
     /**
-     * 自增ID
-     */
-    @TableId(value = "id", type = IdType.AUTO)
-    private Long id;
-
-    /**
      * 用户ID
      */
-    @TableField("user_id")
+    @TableId(value = "user_id", type = IdType.AUTO)
     private Long userId;
 
     /**
@@ -68,7 +62,7 @@ public class UserExtra extends Model<UserExtra> {
 
     @Override
     public Serializable pkVal() {
-        return this.id;
+        return this.userId;
     }
 
 }

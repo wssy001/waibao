@@ -4,20 +4,11 @@
 --- DateTime: 2022/3/16 09:10
 ---
 -- batchInsertAdminScript AdminCacheService
---private Long id;
---private String name;
---private String password;
---private Integer level;
---private Date createTime;
---private Date updateTime;
-local admin
 local key = KEYS[1]
 local adminId
-for _ , adminData in ipairs(ARGV) do
-    admin = cjson.decode(adminData)
+for _ , admin in ipairs(cjson.decode(ARGV[1])) do
     adminId = admin['id']
-    redis.call('HSET' , key .. adminId , '@type' , 'com.waibao.user.entity.Admin')
     for index , value in pairs(admin) do
-        redis.call('HSET' , key .. adminId , index , value)
+        redis.call('HSET' , key .. adminId , index , tostring(value))
     end
 end

@@ -37,14 +37,14 @@ public class UserExtraScheduleService {
 
     @Scheduled(fixedDelay = 2000L)
     public void storeAdmin() {
-        log.info("******UserExtraScheduleService：开始读取数据库放入缓存");
         long l = longAdder.longValue();
         if (l > 0) {
+            log.info("******UserExtraScheduleService：开始读取数据库放入缓存");
             IPage<UserExtra> userExtraPage = new Page<>(l, 2000);
             userExtraPage = userExtraMapper.selectPage(userExtraPage, null);
             userExtraCacheService.insertBatch(userExtraPage.getRecords());
             longAdder.decrement();
+            log.info("******UserExtraScheduleService：读取数据库放入缓存结束");
         }
-        log.info("******UserExtraScheduleService：读取数据库放入缓存结束");
     }
 }

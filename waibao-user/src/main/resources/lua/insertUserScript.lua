@@ -5,9 +5,11 @@
 ---
 -- insertUserScript UserCacheService
 local key = KEYS[1]
+if not (string.find(ARGV[1] , '"id"') == nil) then
+    ARGV[1] = string.gsub(ARGV[1] , '("id":)(%d+)' , '%1"%2"')
+end
 local user = cjson.decode(ARGV[1])
 local userId = user['id']
-redis.call('HSET' , key .. userId , '@type' , 'com.waibao.user.entity.User')
 for index , value in pairs(user) do
-    redis.call('HSET' , key .. userId , index , value)
+    redis.call('HSET' , key .. userId , index , tostring(value))
 end

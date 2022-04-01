@@ -19,11 +19,11 @@ import org.springframework.web.bind.annotation.*;
 @FeignClient(name = "waibao-user")
 public interface UserService {
 
-    @GetMapping(value = "/check/{userNo}", produces = MediaType.APPLICATION_JSON_VALUE)
-    GlobalResult<String> checkUser(@PathVariable("userNo") Long userNo);
+    @GetMapping(value = "/check", produces = MediaType.APPLICATION_JSON_VALUE)
+    GlobalResult<UserVO> checkUser(@RequestParam Long userId);
 
-    @GetMapping(value = "/{userNo}", produces = MediaType.APPLICATION_JSON_VALUE)
-    GlobalResult<UserVO> getUserInfo(@PathVariable("userNo") Long userNo);
+    @GetMapping(value = "/info", produces = MediaType.APPLICATION_JSON_VALUE)
+    GlobalResult<UserVO> getUserInfo(@RequestParam Long userId);
 
     @PostMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     GlobalResult<PageVO<UserVO>> getUserPage(@RequestBody PageVO<UserVO> pageVO);

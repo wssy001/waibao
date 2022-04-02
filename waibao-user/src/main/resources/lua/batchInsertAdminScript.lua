@@ -6,7 +6,7 @@
 -- batchInsertAdminScript AdminCacheService
 local key = KEYS[1]
 local adminId
-for _ , admin in ipairs(cjson.decode(ARGV[1])) do
+for _ , admin in pairs(cjson.decode(ARGV[1])) do
     adminId = admin['id']
     for index , value in pairs(admin) do
         redis.call('HSET' , key .. adminId , index , tostring(value))

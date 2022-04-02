@@ -62,7 +62,7 @@ public class AdminCacheService {
         if (admin != null) return admin;
 
         String execute = adminRedisTemplate.execute(getAdmin, Collections.singletonList(REDIS_ADMIN_KEY_PREFIX), adminId + "");
-        admin = JSON.parseObject(execute, Admin.class);
+        if (!"{}".equals(execute)) admin = JSON.parseObject(execute, Admin.class);
         if (admin != null) {
             set(admin, false);
             return admin;

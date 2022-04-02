@@ -9,7 +9,7 @@ local userId = ARGV[1]
 local userExtra = {}
 local userExtraKeys = redis.call('HKEYS' , key .. userId)
 for _ , value in pairs(userExtraKeys) do
-    userExtra[value] = redis.call('HGET' , key .. userId , value)
+    userExtra[value] = redis.call('HGET' , key .. userId , tostring(value))
 end
 
 return cjson.encode(userExtra)

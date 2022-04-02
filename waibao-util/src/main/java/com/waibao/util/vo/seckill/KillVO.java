@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class KillVO {
-    private String randomStr;
+    private String seckillPath;
     private Long goodsId;
     private Long userId;
     private Integer count;

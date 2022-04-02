@@ -62,7 +62,7 @@ public class UserCacheService {
         if (user != null) return user;
 
         String execute = userRedisTemplate.execute(getUser, Collections.singletonList(REDIS_USER_KEY_PREFIX), userId + "");
-        user = JSON.parseObject(execute, User.class);
+        if (!"{}".equals(execute)) user = JSON.parseObject(execute, User.class);
         if (user != null) {
             set(user, false);
             return user;

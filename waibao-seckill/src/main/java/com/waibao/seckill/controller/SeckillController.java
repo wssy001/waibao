@@ -4,28 +4,37 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.anji.captcha.model.common.ResponseModel;
 import com.anji.captcha.model.vo.CaptchaVO;
 import com.anji.captcha.service.CaptchaService;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.waibao.util.async.AsyncService;
 import com.waibao.seckill.entity.SeckillGoods;
-import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
+import com.waibao.seckill.mapper.SeckillGoodsMapper;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
+import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.cache.SeckillPathCacheService;
 import com.waibao.seckill.service.mq.AsyncMQMessage;
-import com.waibao.util.async.AsyncService;
+import com.waibao.util.enums.ResultEnum;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.order.OrderVO;
 import com.waibao.util.vo.seckill.KillVO;
 import com.waibao.util.vo.seckill.SeckillGoodsVO;
+import com.waibao.util.vo.user.PageVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.common.message.Message;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 /**
  * SeckillController
@@ -36,80 +45,104 @@ import java.util.concurrent.Future;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/seckill")
+@RequestMapping("/seckill/goods")
 public class SeckillController {
     private final AsyncService asyncService;
     private final CaptchaService captchaService;
     private final AsyncMQMessage asyncMQMessage;
-    private final SeckillGoodsCacheService goodsCacheService;
+    private final SeckillGoodsMapper seckillGoodsMapper;
     private final DefaultMQProducer orderCreateMQProducer;
     private final SeckillPathCacheService seckillPathCacheService;
+    private final SeckillGoodsCacheService seckillGoodsCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;
 
-    @GetMapping("/goods/{goodsId}")
+
+    @PostMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
+    public GlobalResult<PageVO<SeckillGoodsVO>> getUserPage(
+            @RequestBody PageVO<SeckillGoodsVO> pageVO
+    ) {
+        IPage<SeckillGoods> seckillGoodsPage = new Page<>(pageVO.getIndex(), pageVO.getCount());
+        seckillGoodsPage = seckillGoodsMapper.selectPage(seckillGoodsPage, Wrappers.<SeckillGoods>lambdaQuery().orderByAsc(SeckillGoods::getSeckillStartTime));
+
+        List<SeckillGoods> records = seckillGoodsPage.getRecords();
+        if (records == null) records = new ArrayList<>();
+
+        List<SeckillGoodsVO> goodsVOList = records.parallelStream()
+                .map(seckillGoods -> BeanUtil.copyProperties(seckillGoods, SeckillGoodsVO.class))
+                .collect(Collectors.toList());
+
+        pageVO.setMaxIndex(seckillGoodsPage.getPages());
+        pageVO.setList(goodsVOList);
+        pageVO.setMaxSize(seckillGoodsPage.getTotal());
+        return GlobalResult.success(ResultEnum.SUCCESS, pageVO);
+    }
+
+    @GetMapping("/info")
     public GlobalResult<SeckillGoodsVO> getSeckillGoods(
-            @PathVariable("goodsId") Long goodsId,
+            @RequestParam("goodsId") Long goodsId,
             @RequestParam("userId") Long userId
     ) {
-        if (goodsCacheService.finished(goodsId))
+        if (seckillGoodsCacheService.finished(goodsId))
             return GlobalResult.error("秒杀已结束");
 
-        SeckillGoods seckillGoods = goodsCacheService.get(goodsId);
+        SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         if (seckillGoods.getGoodsId() == null) return GlobalResult.error("秒杀产品不存在");
 
         SeckillGoodsVO seckillGoodsVO = BeanUtil.copyProperties(seckillGoods, SeckillGoodsVO.class);
-        int currentStorage = goodsCacheService.get(goodsId).getStorage();
+        int currentStorage = seckillGoodsCacheService.get(goodsId).getStorage();
         seckillGoodsVO.setCurrentStorage(currentStorage);
         return GlobalResult.success(seckillGoodsVO);
     }
 
-    @GetMapping("/goods/{goodsId}/seckillPath")
-    public GlobalResult<JSONObject> getSeckillPath(
-            @PathVariable("goodsId") Long goodsId,
+    @GetMapping("/seckillPath")
+    public GlobalResult<KillVO> getSeckillPath(
+            @RequestParam("goodsId") Long goodsId,
             @RequestParam("userId") Long userId,
-            @RequestBody CaptchaVO captchaVO
+            @RequestBody(required = false) CaptchaVO captchaVO
     ) {
-        if (goodsCacheService.finished(goodsId))
+        if (seckillGoodsCacheService.finished(goodsId))
             return GlobalResult.error("秒杀已结束");
 
-        ResponseModel verification = captchaService.verification(captchaVO);
-        if (!verification.isSuccess()) return GlobalResult.error(verification.getRepMsg());
+//        ResponseModel verification = captchaService.verification(captchaVO);
+//        if (!verification.isSuccess()) return GlobalResult.error(verification.getRepMsg());
 
-        SeckillGoods seckillGoods = goodsCacheService.get(goodsId);
+        SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         if (seckillGoods.getGoodsId() == null) return GlobalResult.error("秒杀产品不存在");
         Date date = new Date();
         if (date.before(seckillGoods.getSeckillStartTime())) return GlobalResult.error("秒杀还未开始");
         if (date.after(seckillGoods.getSeckillEndTime())) {
-            goodsCacheService.updateGoodsStatus(goodsId, true);
+            seckillGoodsCacheService.updateGoodsStatus(goodsId, true);
             return GlobalResult.error("秒杀已结束");
         }
 
         if (purchasedUserCacheService.reachLimit(goodsId, userId, seckillGoods.getPurchaseLimit()))
             GlobalResult.error("您已达到最大秒杀次数");
 
-        JSONObject jsonObject = new JSONObject();
         String path = seckillPathCacheService.set(goodsId);
-        jsonObject.put("seckillPath", path);
-        return GlobalResult.success(jsonObject);
+        KillVO killVO = new KillVO();
+        killVO.setSeckillPath(path);
+        killVO.setUserId(userId);
+        killVO.setGoodsId(goodsId);
+        return GlobalResult.success(killVO);
     }
 
-    @PostMapping("/goods/kill")
+    @PostMapping("/kill")
     public GlobalResult<OrderVO> seckill(
             @RequestBody KillVO killVO,
             @RequestParam("userId") Long userId
     ) {
         Long goodsId = killVO.getGoodsId();
-        if (goodsCacheService.finished(goodsId))
+        if (seckillGoodsCacheService.finished(goodsId))
             return GlobalResult.error("秒杀已结束");
 
-        if (!seckillPathCacheService.delete(killVO.getRandomStr(), goodsId)) return GlobalResult.error("秒杀地址无效！");
-        SeckillGoods seckillGoods = goodsCacheService.get(goodsId);
+//        if (!seckillPathCacheService.delete(killVO.getRandomStr(), goodsId)) return GlobalResult.error("秒杀地址无效！");
+        SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         Integer purchaseLimit = seckillGoods.getPurchaseLimit();
         Integer count = killVO.getCount();
         if (count > purchaseLimit) return GlobalResult.error("秒杀失败，超过最大购买限制");
 
         try {
-            Future<Boolean> decreaseStorage = asyncService.basicTask(goodsCacheService.decreaseStorage(goodsId, count));
+            Future<Boolean> decreaseStorage = asyncService.basicTask(seckillGoodsCacheService.decreaseStorage(goodsId, count));
             Future<Boolean> increase = asyncService.basicTask(purchasedUserCacheService.increase(goodsId, userId, count, purchaseLimit));
             while (true) {
                 if (decreaseStorage.isDone() && increase.isDone()) break;
@@ -143,7 +176,7 @@ public class SeckillController {
     }
 
     //    正常情况：第一次请求>150ms，后续10次请求平均20ms
-    @PostMapping("/goods/{goodsId}")
+    @PostMapping("/kill/test")
     public GlobalResult<JSONObject> seckillTest(
             @PathVariable("goodsId") Long goodsId,
             @RequestParam("userId") Long userId,
@@ -154,7 +187,7 @@ public class SeckillController {
         if (count > purchaseLimit) return GlobalResult.error("秒杀失败，超过最大购买限制");
 
         try {
-            Future<Boolean> decreaseStorage = asyncService.basicTask(goodsCacheService.decreaseStorage(goodsId, count));
+            Future<Boolean> decreaseStorage = asyncService.basicTask(seckillGoodsCacheService.decreaseStorage(goodsId, count));
             Future<Boolean> increase = asyncService.basicTask(purchasedUserCacheService.increase(goodsId, userId, count, purchaseLimit));
             while (true) {
                 if (decreaseStorage.isDone() && increase.isDone()) break;

@@ -5,25 +5,18 @@
 ---
 -- batchRollBackGoodsRetailerStorage GoodsRetailerCacheService
 local key = KEYS[1]
-local orderVO
 local orderVOList = {}
 local goodsId
 local retailerId
-for _, value in pairs(ARGV) do
-    orderVO = cjson.decode(value)
-    goodsId = orderVO['goodsId']
-    retailerId = orderVO['retailerId']
-    if next(redis.call('HKEYS', key .. retailerId .. goodsId)) then
+for _ , orderVO in pairs(cjson.decode(ARGV[1])) do
+    goodsId = tostring(orderVO['goodsId'])
+    retailerId = tostring(orderVO['retailerId'])
+    if not redis.call('HGET' , key .. retailerId .. goodsId , 'storage') then
         orderVO['status'] = '库存回滚失败'
-        table.insert(orderVOList, orderVO)
+        table.insert(orderVOList , orderVO)
     else
-        redis.call('HINCRBY', key .. retailerId .. goodsId, 'storage', orderVO['count'])
-        orderVO['status'] = '库存回滚成功'
+        redis.call('HINCRBY' , key .. retailerId .. goodsId , 'storage' , tonumber(orderVO['count']))
     end
 end
 
-if not next(orderVOList) then
-    return nil
-else
-    return cjson.encode(orderVOList)
-end
+return cjson.encode(orderVOList)

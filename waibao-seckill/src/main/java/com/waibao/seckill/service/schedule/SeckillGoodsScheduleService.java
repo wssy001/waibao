@@ -4,9 +4,8 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
-import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.cache.GoodsRetailerCacheService;
-import com.waibao.util.async.AsyncService;
+import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -26,15 +25,15 @@ import java.util.concurrent.atomic.LongAdder;
 @Service
 @RequiredArgsConstructor
 public class SeckillGoodsScheduleService {
-    private final AsyncService asyncService;
-    private final SeckillGoodsCacheService goodsCacheService;
     private final SeckillGoodsMapper seckillGoodsMapper;
+    private final SeckillGoodsCacheService seckillGoodsCacheService;
     private final GoodsRetailerCacheService goodsRetailerCacheService;
 
     private LongAdder longAdder;
 
     @PostConstruct
     public void init() {
+        List<SeckillGoods> seckillGoods = seckillGoodsMapper.selectList(null);
         Long count = seckillGoodsMapper.selectCount(null);
         longAdder = new LongAdder();
         longAdder.add(count / 1000 + 1);
@@ -42,16 +41,16 @@ public class SeckillGoodsScheduleService {
 
     @Scheduled(fixedDelay = 2000L)
     public void storeAdmin() {
-        log.info("******GoodsScheduleService：开始读取数据库放入缓存");
         long l = longAdder.longValue();
         if (l > 0) {
+            log.info("******SeckillGoodsScheduleService：开始读取数据库放入缓存");
             IPage<SeckillGoods> seckillGoodsPage = new Page<>(l, 1000);
             seckillGoodsPage = seckillGoodsMapper.selectPage(seckillGoodsPage, null);
             List<SeckillGoods> seckillGoodsList = seckillGoodsPage.getRecords();
-            asyncService.basicTask(() -> goodsCacheService.insertBatch(seckillGoodsList));
-            asyncService.basicTask(() -> goodsRetailerCacheService.insertBatch(seckillGoodsList));
+            seckillGoodsCacheService.insertBatch(seckillGoodsList);
+            goodsRetailerCacheService.insertBatch(seckillGoodsList);
             longAdder.decrement();
+            log.info("******SeckillGoodsScheduleService：读取数据库放入缓存结束");
         }
-        log.info("******GoodsScheduleService：读取数据库放入缓存结束");
     }
 }

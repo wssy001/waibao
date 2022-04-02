@@ -14,19 +14,21 @@ import java.util.concurrent.Future;
  * @author alexpetertyler
  * @since 2022/3/3
  */
-@Async
 @Service
 public class AsyncService {
 
-    public <T> void basicTask(Runnable runnable) {
+    @Async
+    public void basicTask(Runnable runnable) {
         runnable.run();
     }
 
+    @Async
     @SneakyThrows
     public <T> void basicTask(Callable<T> callable) {
         callable.call();
     }
 
+    @Async
     public <V> Future<V> basicTask(V method) {
         return new AsyncResult<>(method);
     }

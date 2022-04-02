@@ -37,12 +37,14 @@ public class MsgCompensationService {
                 .parallelStream()
                 .peek(mqMsgCompensation -> mqMsgCompensation.setStatus("补偿消息已发送"))
                 .collect(Collectors.toList());
-
         if (collect.isEmpty()) return;
+
+        log.info("******MsgCompensationService.orderCreate：开始发送补偿信息");
         List<Message> messageList = collect.parallelStream()
                 .map(mqMsgCompensation -> new Message("order", "create", mqMsgCompensation.getMsgId(), mqMsgCompensation.getContent().getBytes())).collect(Collectors.toList());
 
         orderCompensationMQProducer.send(messageList, (SendCallback) null);
         mqMsgCompensationService.updateBatchById(collect);
+        log.info("******MsgCompensationService.orderCreate：补偿信息发送完毕");
     }
 }

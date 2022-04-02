@@ -3,15 +3,15 @@
 --- Created by alexpetertyler.
 --- DateTime: 2022/3/16 10:09
 ---
--- decreaseGoodsStorage GoodsCacheService
+-- decreaseGoodsStorage SeckillGoodsCacheService
 local key = KEYS[1]
-local goodsId = ARGV[1]
-local count = ARGV[2]
-if tonumber(redis.call('HEGT', key .. goodsId, 'purchaseLimit')) < count then
+local goodsId = tostring(ARGV[1])
+local count = tonumber(ARGV[2])
+if tonumber(redis.call('HGET' , key .. goodsId , 'purchaseLimit')) < count then
     return false
 end
-if tonumber(redis.call('HINCRBY', key .. goodsId, 'storage', -count)) < 0 then
-    redis.call('HINCRBY', key .. goodsId, 'storage', count)
+if tonumber(redis.call('HINCRBY' , key .. goodsId , 'storage' , -count)) < 0 then
+    redis.call('HINCRBY' , key .. goodsId , 'storage' , count)
     return false
 else
     return true

@@ -6,14 +6,11 @@
 -- batchInsertGoodsRetailerScript GoodsRetailerCacheService
 local key = KEYS[1]
 local retailerId
-local seckillGoods
 local goodsId
-for _ , seckillGoodsData in pairs(ARGV) do
-    seckillGoods = cjson.decode(seckillGoodsData)
-    goodsId = seckillGoods['goodsId']
-    retailerId = seckillGoods['retailerId']
-    redis.call('HSET' , key .. retailerId .. '-' .. goodsId , '@type' , 'com.waibao.seckill.entity.SeckillGoods')
+for _ , seckillGoods in pairs(cjson.decode(ARGV[1])) do
+    goodsId = tostring(seckillGoods['goodsId'])
+    retailerId = tostring(seckillGoods['retailerId'])
     for index , value in pairs(seckillGoods) do
-        redis.call('HSET' , key .. retailerId .. '-' .. goodsId , index , value)
+        redis.call('HSET' , key .. retailerId .. '-' .. goodsId , index , tostring(value))
     end
 end

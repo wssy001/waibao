@@ -4,9 +4,9 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
+import com.waibao.util.async.AsyncService;
 import com.waibao.seckill.entity.Goods;
 import com.waibao.seckill.mapper.GoodsMapper;
-import com.waibao.util.async.AsyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class GoodsCacheService {
+public class HotGoodsDetailCacheService {
     private final GoodsMapper goodsMapper;
     private final AsyncService asyncService;
 
@@ -37,7 +37,7 @@ public class GoodsCacheService {
 
         goodsCache = Caffeine.newBuilder()
                 .expireAfterWrite(1, TimeUnit.HOURS)
-                .maximumSize(300)
+                .maximumSize(20)
                 .build();
     }
 

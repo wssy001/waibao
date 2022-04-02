@@ -2,11 +2,11 @@ package com.waibao.seckill.service.mq;
 
 import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.waibao.util.async.AsyncService;
 import com.waibao.seckill.entity.MqMsgCompensation;
 import com.waibao.seckill.mapper.MqMsgCompensationMapper;
-import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
-import com.waibao.util.async.AsyncService;
+import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

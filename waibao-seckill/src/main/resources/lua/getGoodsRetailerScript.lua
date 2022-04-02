@@ -6,11 +6,11 @@
 -- getGoodsRetailerScript GoodsRetailerCacheService
 local key = KEYS[1]
 local seckillGoods = {}
-local retailerId = ARGV[1]
-local goodsId = ARGV[2]
-local seckillGoodsKeys = redis.call('HVALS', key .. retailerId .. goodsId)
-for _, value in pairs(seckillGoodsKeys) do
-    seckillGoods[value] = redis.call('HGET', key .. retailerId .. goodsId, value)
+local retailerId = tostring(ARGV[1])
+local goodsId = tostring(ARGV[2])
+local seckillGoodsKeys = redis.call('HKEYS' , key .. retailerId .. goodsId)
+for _ , value in pairs(seckillGoodsKeys) do
+    seckillGoods[value] = redis.call('HGET' , key .. retailerId .. goodsId , tostring(value))
 end
 
 return cjson.encode(seckillGoods)

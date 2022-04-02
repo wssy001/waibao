@@ -3,13 +3,13 @@
 --- Created by alexpetertyler.
 --- DateTime: 2022/3/16 10:08
 ---
--- getGoodsScript GoodsCacheService
+-- getGoodsScript SeckillGoodsCacheService
 local key = KEYS[1]
 local seckillGoods = {}
-local goodsId = ARGV[1]
-local seckillGoodsKeys = redis.call('HVALS', key .. goodsId)
-for _, value in pairs(seckillGoodsKeys) do
-    seckillGoods[value] = redis.call('HGET', key .. goodsId, value)
+local goodsId = tostring(ARGV[1])
+local seckillGoodsKeys = redis.call('HKEYS' , key .. goodsId)
+for _ , value in pairs(seckillGoodsKeys) do
+    seckillGoods[value] = redis.call('HGET' , key .. goodsId , tostring(value))
 end
 
 return cjson.encode(seckillGoods)

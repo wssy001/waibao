@@ -5,14 +5,14 @@
 ---
 -- increasePurchasedCountScript PurchasedUserCacheService
 local key = KEYS[1]
-local userId = tonumber(ARGV[2])
+local userId = tostring(ARGV[1])
 local count = tonumber(ARGV[2])
 local limit = tonumber(ARGV[3])
 
 local currentCount = tonumber(redis.call('HINCRBY' , key , userId , count))
 if (currentCount > limit) then
     redis.call('HINCRBY' , key , userId , -count)
-    return false
+    return -1
 else
-    return true
+    return currentCount
 end

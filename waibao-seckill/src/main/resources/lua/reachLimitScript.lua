@@ -5,7 +5,7 @@
 ---
 -- reachLimitScript PurchasedUserCacheService
 local key = KEYS[1]
-local userId = tonumber(ARGV[1])
+local userId = tostring(ARGV[1])
 local limit = tonumber(ARGV[2])
 if tonumber(redis.call('HEXISTS' , key , userId)) == 0 then
     return false

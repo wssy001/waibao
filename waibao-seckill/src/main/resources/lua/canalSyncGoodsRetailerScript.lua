@@ -5,19 +5,16 @@
 ---
 -- canalSyncGoodsRetailerScript GoodsRetailerCacheService
 local key = KEYS[1]
-local redisCommand
 local seckillGoods
 local goodsId
 local retailerId
-for _ , redisCommandData in pairs(ARGV) do
-    redisCommand = cjson.decode(redisCommandData)
+for _ , redisCommand in pairs(cjson.decode(ARGV[1])) do
     seckillGoods = redisCommand['value']
-    goodsId = seckillGoods['goodsId']
-    retailerId = seckillGoods['retailerId']
+    goodsId = tostring(seckillGoods['goodsId'])
+    retailerId = tostring(seckillGoods['retailerId'])
     if (redisCommand['command'] == 'INSERT' or redisCommand['command'] == 'UPDATE') then
-        redis.call('HSET' , key .. retailerId .. goodsId , '@type' , 'com.waibao.seckill.entity.SeckillGoods')
         for index , value in pairs(seckillGoods) do
-            redis.call('HSET' , key .. retailerId .. goodsId , index , value)
+            redis.call('HSET' , key .. retailerId .. goodsId , index , tostring(value))
         end
     else
         redis.call('DEL' , key)

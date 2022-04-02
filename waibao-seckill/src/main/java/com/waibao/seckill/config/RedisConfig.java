@@ -11,6 +11,7 @@ import org.springframework.data.redis.connection.lettuce.LettuceClientConfigurat
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.GenericToStringSerializer;
 
 import java.time.Duration;
 
@@ -100,10 +101,11 @@ public class RedisConfig {
     private RedisTemplate<String, Object> getStringObjectRedisTemplate(LettuceConnectionFactory lettuceConnectionFactory) {
         RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
         redisTemplate.setConnectionFactory(lettuceConnectionFactory);
-        redisTemplate.setHashKeySerializer(new FastJson2JsonRedisSerializer<>(String.class));
-        redisTemplate.setHashValueSerializer(new FastJson2JsonRedisSerializer<>(Object.class));
-        redisTemplate.setKeySerializer(new FastJson2JsonRedisSerializer<>(String.class));
-        redisTemplate.setValueSerializer(new FastJson2JsonRedisSerializer<>(Object.class));
+
+        redisTemplate.setHashKeySerializer(new GenericToStringSerializer<>(String.class));
+        redisTemplate.setHashValueSerializer(new GenericToStringSerializer<>(String.class));
+        redisTemplate.setKeySerializer(new GenericToStringSerializer<>(String.class));
+        redisTemplate.setValueSerializer(new GenericToStringSerializer<>(String.class));
         redisTemplate.afterPropertiesSet();
         return redisTemplate;
     }

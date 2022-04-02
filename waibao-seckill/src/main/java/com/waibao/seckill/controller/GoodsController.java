@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.waibao.seckill.entity.Goods;
 import com.waibao.seckill.mapper.GoodsMapper;
-import com.waibao.seckill.service.cache.GoodsCacheService;
+import com.waibao.seckill.service.cache.HotGoodsDetailCacheService;
 import com.waibao.util.enums.ResultEnum;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.seckill.GoodsVO;
@@ -30,11 +30,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class GoodsController {
     private final GoodsMapper goodsMapper;
-    private final GoodsCacheService goodsCacheService;
+    private final HotGoodsDetailCacheService goodsCacheService;
 
-    @GetMapping(value = "/{goodsId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/info", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<GoodsVO> getUserInfo(
-            @PathVariable("goodsId") Long goodsId
+            @RequestParam("goodsId") Long goodsId
     ) {
         Goods goods = goodsCacheService.get(goodsId);
         if (goods == null) return GlobalResult.error("商品ID不存在");
@@ -67,7 +67,9 @@ public class GoodsController {
     ) {
         Goods goods = BeanUtil.copyProperties(goodsVO, Goods.class);
         goodsMapper.insert(goods);
+        goodsCacheService.set(goods);
         goodsVO.setId(goods.getId());
         return GlobalResult.success(ResultEnum.SUCCESS, goodsVO);
     }
+
 }

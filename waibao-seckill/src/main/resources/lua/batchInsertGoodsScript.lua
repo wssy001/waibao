@@ -3,15 +3,12 @@
 --- Created by alexpetertyler.
 --- DateTime: 2022/3/16 09:52
 ---
--- batchInsertGoodsScript GoodsCacheService
+-- batchInsertGoodsScript SeckillGoodsCacheService
 local key = KEYS[1]
-local seckillGoods
 local goodsId
-for _ , seckillGoodsData in pairs(ARGV) do
-    seckillGoods = cjson.decode(seckillGoodsData)
-    goodsId = seckillGoods['goodsId']
-    redis.call('HSET' , key .. goodsId , '@type' , 'com.waibao.seckill.entity.SeckillGoods')
+for _ , seckillGoods in pairs(cjson.decode(ARGV[1])) do
+    goodsId = tostring(seckillGoods['goodsId'])
     for index , value in pairs(seckillGoods) do
-        redis.call('HSET' , key .. goodsId , index , value)
+        redis.call('HSET' , key .. goodsId , index , tostring(value))
     end
 end

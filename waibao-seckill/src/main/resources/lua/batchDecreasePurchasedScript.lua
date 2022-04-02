@@ -4,18 +4,15 @@
 --- DateTime: 2022/3/16 10:25
 ---
 -- batchDecreasePurchasedScript PurchasedUserCacheService
-
 local key = KEYS[1]
 local orderVOList = {}
 local goodsId
 local userId
-local orderVO
 local count
-for _ , value in pairs(ARGV) do
-    orderVO = cjson.decode(value)
-    goodsId = orderVO['goodsId']
-    userId = orderVO['userId']
-    count = orderVO['count']
+for _ , orderVO in pairs(cjson.decode(ARGV[1])) do
+    goodsId = tostring(orderVO['goodsId'])
+    userId = tostring(orderVO['userId'])
+    count = tonumber(orderVO['count'])
     if tonumber(redis.call('HEXISTS' , key .. goodsId , userId)) == 0 then
         table.insert(orderVOList , orderVO)
     else

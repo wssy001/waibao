@@ -1,6 +1,6 @@
 package com.waibao.seckill.service.cache;
 
-import cn.hutool.core.lang.id.NanoId;
+import cn.hutool.core.util.RandomUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -26,8 +26,8 @@ public class SeckillPathCacheService {
     @Resource
     private RedisTemplate<String, Long> goodsRetailerRedisTemplate;
 
-    private ValueOperations<String, Long> valueOperations;
     private RedisScript<Boolean> deleteSeckillPath;
+    private ValueOperations<String, Long> valueOperations;
 
     @PostConstruct
     public void init() {
@@ -35,13 +35,13 @@ public class SeckillPathCacheService {
         deleteSeckillPath = RedisScript.of(new ClassPathResource("lua/deleteSeckillPath.lua"), Boolean.class);
     }
 
-    public boolean delete(String randomStr, Long goodsId) {
+    public boolean delete(String seckillPath, Long goodsId) {
         return Boolean.TRUE.equals(valueOperations.getOperations()
-                .execute(deleteSeckillPath, Collections.singletonList(randomStr), goodsId));
+                .execute(deleteSeckillPath, Collections.singletonList(seckillPath), goodsId + ""));
     }
 
     public String set(Long goodsId) {
-        String key = NanoId.randomNanoId(20);
+        String key = RandomUtil.randomString(20);
         valueOperations.set(key, goodsId);
         return key;
     }

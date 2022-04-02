@@ -14,6 +14,8 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -34,11 +36,20 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class StorageDecreaseConsumer implements MessageListenerConcurrently {
-    private final AsyncMQMessage asyncMQMessage;
-    private final SeckillGoodsCacheService goodsCacheService;
-    private final SeckillGoodsMapper seckillGoodsMapper;
-    private final DefaultMQProducer orderUpdateMQProducer;
-    private final DefaultMQProducer orderCancelMQProducer;
+    private AsyncMQMessage asyncMQMessage;
+    private SeckillGoodsCacheService goodsCacheService;
+    private SeckillGoodsMapper seckillGoodsMapper;
+    private DefaultMQProducer orderUpdateMQProducer;
+    private DefaultMQProducer orderCancelMQProducer;
+
+    @Autowired
+    public StorageDecreaseConsumer(AsyncMQMessage asyncMQMessage, SeckillGoodsCacheService goodsCacheService, SeckillGoodsMapper seckillGoodsMapper, @Lazy DefaultMQProducer orderUpdateMQProducer, @Lazy DefaultMQProducer orderCancelMQProducer) {
+        this.asyncMQMessage = asyncMQMessage;
+        this.goodsCacheService = goodsCacheService;
+        this.seckillGoodsMapper = seckillGoodsMapper;
+        this.orderUpdateMQProducer = orderUpdateMQProducer;
+        this.orderCancelMQProducer = orderCancelMQProducer;
+    }
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {

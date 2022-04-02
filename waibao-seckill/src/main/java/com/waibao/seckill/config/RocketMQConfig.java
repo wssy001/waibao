@@ -30,6 +30,7 @@ public class RocketMQConfig {
     @SneakyThrows
     public DefaultMQProducer orderCreateMQProducer() {
         DefaultMQProducer orderCreate = new DefaultMQProducer("orderCreate");
+        orderCreate.setProducerGroup("order-producer");
         orderCreate.setNamesrvAddr(rocketMQProperties.getNameServer());
         orderCreate.start();
         return orderCreate;
@@ -38,28 +39,31 @@ public class RocketMQConfig {
     @Bean
     @SneakyThrows
     public DefaultMQProducer orderUpdateMQProducer() {
-        DefaultMQProducer orderCreate = new DefaultMQProducer("orderUpdate");
-        orderCreate.setNamesrvAddr(rocketMQProperties.getNameServer());
-        orderCreate.start();
-        return orderCreate;
+        DefaultMQProducer orderUpdate = new DefaultMQProducer("orderUpdate");
+        orderUpdate.setProducerGroup("order-producer");
+        orderUpdate.setNamesrvAddr(rocketMQProperties.getNameServer());
+        orderUpdate.start();
+        return orderUpdate;
     }
 
     @Bean
     @SneakyThrows
     public DefaultMQProducer orderCancelMQProducer() {
-        DefaultMQProducer orderCreate = new DefaultMQProducer("orderCancel");
-        orderCreate.setNamesrvAddr(rocketMQProperties.getNameServer());
-        orderCreate.start();
-        return orderCreate;
+        DefaultMQProducer orderCancel = new DefaultMQProducer("orderCancel");
+        orderCancel.setProducerGroup("order-producer");
+        orderCancel.setNamesrvAddr(rocketMQProperties.getNameServer());
+        orderCancel.start();
+        return orderCancel;
     }
 
     @Bean
     @SneakyThrows
     public DefaultMQProducer orderCompensationMQProducer() {
-        DefaultMQProducer seckillDelay = new DefaultMQProducer("orderCompensation");
-        seckillDelay.setNamesrvAddr(rocketMQProperties.getNameServer());
-        seckillDelay.start();
-        return seckillDelay;
+        DefaultMQProducer orderCompensation = new DefaultMQProducer("orderCompensation");
+        orderCompensation.setProducerGroup("order-producer");
+        orderCompensation.setNamesrvAddr(rocketMQProperties.getNameServer());
+        orderCompensation.start();
+        return orderCompensation;
     }
 
     @Bean
@@ -86,7 +90,7 @@ public class RocketMQConfig {
 
     @Bean
     @SneakyThrows
-    public DefaultMQPushConsumer storageDecreaseConsumer() {
+    public DefaultMQPushConsumer storageDecreaseBatchConsumer() {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(storageDecreaseConsumer);
         consumer.setConsumerGroup("storageDecrease");

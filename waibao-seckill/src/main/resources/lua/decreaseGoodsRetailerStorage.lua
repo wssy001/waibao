@@ -5,14 +5,14 @@
 ---
 -- decreaseGoodsRetailerStorage GoodsRetailerCacheService
 local key = KEYS[1]
-local retailerId = ARGV[2]
-local goodsId = ARGV[2]
-local count = ARGV[3]
-if tonumber(redis.call('HEGT', key .. retailerId .. goodsId, 'purchaseLimit')) < count then
+local retailerId = tostring(ARGV[1])
+local goodsId = tostring(ARGV[2])
+local count = tonumber(ARGV[3])
+if tonumber(redis.call('HGET' , key .. retailerId .. goodsId , 'purchaseLimit')) < count then
     return false
 end
-if tonumber(redis.call('HINCRBY', key .. retailerId .. goodsId, 'storage', -count)) < 0 then
-    redis.call('HINCRBY', key .. goodsId, 'storage', count)
+if tonumber(redis.call('HINCRBY' , key .. retailerId .. goodsId , 'storage' , -count)) < 0 then
+    redis.call('HINCRBY' , key .. goodsId , 'storage' , count)
     return false
 else
     return true

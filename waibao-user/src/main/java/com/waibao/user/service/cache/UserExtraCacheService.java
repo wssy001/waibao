@@ -68,7 +68,7 @@ public class UserExtraCacheService {
         if (userExtra != null) return userExtra;
 
         String execute = userExtraRedisTemplate.execute(getUserExtra, Collections.singletonList(REDIS_USER_EXTRA_KEY_PREFIX), userId + "");
-        userExtra = JSON.parseObject(execute, UserExtra.class);
+        if (!"{}".equals(execute)) userExtra = JSON.parseObject(execute, UserExtra.class);
         if (userExtra != null) {
             set(userExtra, false);
             return userExtra;

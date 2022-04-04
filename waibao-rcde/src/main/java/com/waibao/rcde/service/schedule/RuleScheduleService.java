@@ -7,7 +7,6 @@ import com.waibao.rcde.mapper.RuleMapper;
 import com.waibao.rcde.service.cache.RuleCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -35,16 +34,16 @@ public class RuleScheduleService {
         longAdder.add(count / 3000 + 1);
     }
 
-    @Scheduled(fixedDelay = 60 * 1000L)
+//    @Scheduled(fixedDelay = 60 * 1000L)
     public void storeRule() {
-        log.info("******RuleScheduleService：开始读取数据库放入缓存");
         long l = longAdder.longValue();
         if (l > 0) {
+            log.info("******RuleScheduleService：开始读取数据库放入缓存");
             IPage<Rule> rulePage = new Page<>(l, 3000);
             rulePage = ruleMapper.selectPage(rulePage, null);
             ruleCacheService.insertBatch(rulePage.getRecords());
             longAdder.decrement();
+            log.info("******RuleScheduleService：读取数据库放入缓存结束");
         }
-        log.info("******RuleScheduleService：读取数据库放入缓存结束");
     }
 }

@@ -2,24 +2,34 @@ package com.waibao.rcde.controller;
 
 import cn.hutool.core.bean.BeanUtil;
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.waibao.rcde.entity.Rule;
 import com.waibao.rcde.mapper.RuleMapper;
 import com.waibao.rcde.service.cache.RiskUserCacheService;
 import com.waibao.rcde.service.mq.AsyncMQMessage;
 import com.waibao.util.enums.ResultEnum;
-import com.waibao.util.tools.SMUtil;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.rcde.RiskUserVO;
 import com.waibao.util.vo.rcde.RuleVO;
+import com.waibao.util.vo.user.PageVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.common.message.Message;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 /**
  * RCDEController
@@ -36,18 +46,14 @@ public class RCDEController {
     private final AsyncMQMessage asyncMQMessage;
     private final Executor dbThreadPoolExecutor;
     private final RiskUserCacheService riskUserCacheService;
+    private final DefaultMQProducer riskUserCheckMQProducer;
 
-    @PostMapping("/add/rule")
+    @PostMapping(value = "/add/rule", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<GlobalResult<RuleVO>> storeRCDERule(
-            @RequestBody JSONObject jsonObject
+            @RequestBody RuleVO ruleVO
     ) {
-        String sign = jsonObject.getString("sign");
-        String ruleVOJson = jsonObject.getString("data");
-        if (!SMUtil.sm2VerifySign("", ruleVOJson, sign))
-            return Mono.just(GlobalResult.error("签名验证失败"));
-
-        return Mono.just(JSON.parseObject(ruleVOJson, RuleVO.class))
-                .map(ruleVO -> BeanUtil.copyProperties(ruleVO, Rule.class))
+        return Mono.just(ruleVO)
+                .map(vo -> BeanUtil.copyProperties(vo, Rule.class))
                 .flatMap(rule ->
                         Mono.fromFuture(CompletableFuture.supplyAsync(() -> ruleMapper.insert(rule), dbThreadPoolExecutor))
                                 .map(count -> {
@@ -56,27 +62,45 @@ public class RCDEController {
                                     } else {
                                         return GlobalResult.success(ResultEnum.SUCCESS, BeanUtil.copyProperties(rule, RuleVO.class));
                                     }
-                                }));
+                                })
+                );
     }
 
-    @PostMapping("/request/check")
+    @PostMapping(value = "/request/check/", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<GlobalResult<String>> requestCheckUser(
-            @RequestParam("userId") Long userId,
-            @RequestParam("goodsId") Long goodsId
+            @RequestBody RiskUserVO riskUserVO
     ) {
-        return Mono.just(new RiskUserVO().setGoodsId(goodsId).setUserId(userId))
-                .map(riskUserVO -> new Message("riskUser", "check", JSON.toJSONBytes(riskUserVO)))
-                //TODO 完成riskProducer
-                .doOnNext(message -> asyncMQMessage.sendMessage(null, message))
+        return Mono.just(new RiskUserVO().setGoodsId(riskUserVO.getGoodsId()).setUserId(riskUserVO.getUserId()))
+                .map(vo -> new Message("riskUser", "check", JSON.toJSONBytes(vo)))
+                .doOnNext(message -> asyncMQMessage.sendMessage(riskUserCheckMQProducer, message))
                 .thenReturn(GlobalResult.success("请求发送成功"));
     }
 
-    @GetMapping("/check")
+    @PostMapping(value = "/check", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<GlobalResult<String>> checkUser(
-            @RequestParam("userId") Long userId,
-            @RequestParam("goodsId") Long goodsId
+            @RequestBody RiskUserVO riskUserVO
     ) {
-        return riskUserCacheService.checkRiskUser(userId, goodsId)
+        return riskUserCacheService.checkRiskUser(riskUserVO.getUserId(), riskUserVO.getGoodsId())
                 .map(contains -> contains ? GlobalResult.success("存在") : GlobalResult.success("不存在"));
+    }
+
+    @PostMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
+    public GlobalResult<PageVO<RuleVO>> getAdminPage(
+            @RequestBody PageVO<RuleVO> pageVO
+    ) {
+        IPage<Rule> rulePage = new Page<>(pageVO.getIndex(), pageVO.getCount());
+        rulePage = ruleMapper.selectPage(rulePage, Wrappers.<Rule>lambdaQuery().orderByDesc(Rule::getGoodsId));
+
+        List<Rule> records = rulePage.getRecords();
+        if (records == null) records = new ArrayList<>();
+
+        List<RuleVO> ruleVOList = records.parallelStream()
+                .map(rule -> BeanUtil.copyProperties(rule, RuleVO.class))
+                .collect(Collectors.toList());
+        pageVO.setMaxIndex(rulePage.getPages());
+        pageVO.setList(ruleVOList);
+        pageVO.setMaxSize(rulePage.getTotal());
+
+        return GlobalResult.success(ResultEnum.SUCCESS, pageVO);
     }
 }

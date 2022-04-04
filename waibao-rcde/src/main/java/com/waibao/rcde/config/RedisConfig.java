@@ -1,6 +1,5 @@
 package com.waibao.rcde.config;
 
-import com.alibaba.fastjson.support.spring.GenericFastJsonRedisSerializer;
 import com.waibao.util.enums.RedisDBEnum;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
@@ -12,6 +11,7 @@ import org.springframework.data.redis.connection.lettuce.LettuceClientConfigurat
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.serializer.GenericToStringSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 
 import java.time.Duration;
@@ -86,11 +86,12 @@ public class RedisConfig {
 
     private RedisSerializationContext<String, Object> getObjectRedisSerializationContext() {
         return RedisSerializationContext
-                .<String, Object>newSerializationContext(new GenericFastJsonRedisSerializer())
-                .key(new FastJson2JsonRedisSerializer<>(String.class))
-                .value(new FastJson2JsonRedisSerializer<>(Object.class))
-                .hashKey(new FastJson2JsonRedisSerializer<>(String.class))
-                .hashValue(new FastJson2JsonRedisSerializer<>(Object.class))
+                .<String, Object>newSerializationContext(new GenericToStringSerializer<>(Object.class))
+                .key(new GenericToStringSerializer<>(String.class))
+                .value(new GenericToStringSerializer<>(Object.class))
+                .hashKey(new GenericToStringSerializer<>(String.class))
+                .hashValue(new GenericToStringSerializer<>(String.class))
                 .build();
     }
+
 }

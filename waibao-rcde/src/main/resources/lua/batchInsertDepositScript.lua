@@ -8,12 +8,12 @@ local key = KEYS[1]
 local deposit
 local userId
 for _ , depositData in pairs(ARGV) do
+    depositData = string.gsub(depositData , '("userId":)(%s*)(%d+)' , '%1"%3"')
     deposit = cjson.decode(depositData)
     userId = deposit['userId']
     local id = deposit['id']
     redis.call('SADD' , 'index-' .. key .. userId , id)
-    redis.call('HSET' , key .. id , '@type' , 'com.waibao.rcde.entity.Deposit')
     for index , value in pairs(deposit) do
-        redis.call('HSET' , key .. id , index , value)
+        redis.call('HSET' , key .. id , index , tostring(value))
     end
 end

@@ -7,7 +7,6 @@
 local key = KEYS[1]
 local rule = cjson.decode(ARGV[1])
 local goodsId = rule['goodsId']
-redis.call('HSET' , key .. goodsId , '@type' , 'com.waibao.rcde.entity.Rule')
 for index , value in pairs(rule) do
-    redis.call('HSET' , key .. goodsId , index , value)
+    redis.call('HSET' , key .. goodsId , index , tostring(value))
 end

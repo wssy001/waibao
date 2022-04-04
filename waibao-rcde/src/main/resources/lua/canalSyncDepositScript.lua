@@ -10,6 +10,7 @@ local deposit
 local userId
 local id
 for _ , redisCommandData in pairs(ARGV) do
+    redisCommandData = string.gsub(redisCommandData , '("userId":)(%s*)(%d+)' , '%1"%3"')
     redisCommand = cjson.decode(redisCommandData)
     deposit = redisCommand['value']
     userId = deposit['userId']
@@ -19,7 +20,7 @@ for _ , redisCommandData in pairs(ARGV) do
         local oldDeposit = redisCommand['oldValue']
         local oldId = oldDeposit['id']
         for index , value in pairs(oldDeposit) do
-            redis.call('HSET' , key .. oldId , index , value)
+            redis.call('HSET' , key .. oldId , index , tostring(value))
         end
     else
         redis.call('SMOVE' , 'index-' .. key .. userId , id)

@@ -7,7 +7,6 @@ import com.waibao.rcde.mapper.DepositMapper;
 import com.waibao.rcde.service.cache.DepositCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -35,16 +34,16 @@ public class DepositScheduleService {
         longAdder.add(count / 3000 + 1);
     }
 
-    @Scheduled(fixedDelay = 60 * 1000L)
+//    @Scheduled(fixedDelay = 60 * 1000L)
     public void storeDeposit() {
-        log.info("******DepositScheduleService：开始读取数据库放入缓存");
         long l = longAdder.longValue();
         if (l > 0) {
+            log.info("******DepositScheduleService：开始读取数据库放入缓存");
             IPage<Deposit> depositPage = new Page<>(l, 3000);
             depositPage = depositMapper.selectPage(depositPage, null);
             depositCacheService.insertBatch(depositPage.getRecords());
             longAdder.decrement();
+            log.info("******DepositScheduleService：读取数据库放入缓存结束");
         }
-        log.info("******DepositScheduleService：读取数据库放入缓存结束");
     }
 }

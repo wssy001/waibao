@@ -80,6 +80,21 @@ create table if not exists waibao_payment.log_payment
 	update_time datetime not null comment '修改时间'
 );
 
+create table if not exists waibao_v2.log_seckill_goods
+(
+	id bigint(12) unsigned auto_increment comment '自增ID'
+		primary key,
+	retailer_id bigint(12) unsigned not null comment '卖家ID',
+	price decimal(10,2) unsigned not null comment '原价',
+	seckill_price decimal(10,2) unsigned not null comment '秒杀价',
+	storage int(7) unsigned not null comment '库存量',
+	purchase_limit int(3) unsigned default 1 null comment '每位顾客可购买量',
+	seckill_start_time datetime not null comment '秒杀开始时间',
+	seckill_end_time datetime not null comment '秒杀结束时间',
+	goods_id bigint(12) null comment '商品ID',
+	operation varchar(255) not null comment '操作类型'
+);
+
 create table if not exists waibao_credit_user.log_user_credit
 (
 	id bigint(12) auto_increment comment '自增id'
@@ -244,14 +259,14 @@ create table if not exists waibao_v2.seckill_goods
 (
 	id bigint(12) unsigned auto_increment comment '自增ID'
 		primary key,
+	goods_id bigint(12) not null comment '商品ID',
 	retailer_id bigint(12) unsigned not null comment '卖家ID',
 	price decimal(10,2) unsigned not null comment '原价',
 	seckill_price decimal(10,2) unsigned not null comment '秒杀价',
 	storage int(7) unsigned not null comment '库存量',
 	purchase_limit int(3) unsigned default 1 null comment '每位顾客可购买量',
 	seckill_start_time datetime not null comment '秒杀开始时间',
-	seckill_end_time datetime not null comment '秒杀结束时间',
-	goods_id bigint(12) null comment '商品ID'
+	seckill_end_time datetime not null comment '秒杀结束时间'
 );
 
 create table if not exists waibao_v2.user_0

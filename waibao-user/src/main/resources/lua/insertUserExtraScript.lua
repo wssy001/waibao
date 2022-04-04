@@ -6,7 +6,7 @@
 --insertUserExtraScript UserExtraCacheService
 local key = KEYS[1]
 if not (string.find(ARGV[1] , '"userId"') == nil) then
-    ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%d+)' , '%1"%2"')
+    ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
 end
 local userExtra = cjson.decode(ARGV[1])
 local userId = userExtra['userId'] .. ''

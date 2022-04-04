@@ -9,14 +9,15 @@ local deposit
 local userId
 local depositList = {}
 for _ , depositData in pairs(ARGV) do
+    depositData = string.gsub(depositData , '("userId":)(%s*)(%d+)' , '%1"%3"')
     deposit = cjson.decode(depositData)
     userId = deposit['userId']
     local depositIds = redis.call('SMEMBERS' , 'index-' .. key .. userId)
-    for _ , depositId in ipairs(depositIds) do
-        local depositKeys = redis.call('HVALS' , key .. depositId)
+    for _ , depositId in pairs(depositIds) do
+        local depositKeys = redis.call('HKEYS' , key .. depositId)
         if next(depositKeys) then
             for _ , value in pairs(depositKeys) do
-                deposit[value] = redis.call('HGET' , key .. depositId , value)
+                deposit[value] = redis.call('HGET' , key .. depositId , tostring(value))
             end
             table.insert(depositList , deposit)
         end

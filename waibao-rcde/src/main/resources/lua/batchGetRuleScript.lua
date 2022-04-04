@@ -11,10 +11,10 @@ local ruleList = {}
 for _ , ruleData in pairs(ARGV) do
     rule = cjson.decode(ruleData)
     goodsId = rule['goodsId']
-    local ruleKeys = redis.call('HVALS' , key .. goodsId)
+    local ruleKeys = redis.call('HKEYS' , key .. goodsId)
     if next(ruleKeys) then
         for _ , value in pairs(ruleKeys) do
-            rule[value] = redis.call('HGET' , key .. goodsId , value)
+            rule[value] = redis.call('HGET' , key .. goodsId , tostring(value))
         end
         table.insert(ruleList , rule)
     end

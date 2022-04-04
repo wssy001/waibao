@@ -1,17 +1,18 @@
 package com.waibao.rcde.service.cache;
 
+import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSONArray;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.hash.BloomFilter;
+import com.google.common.hash.Funnels;
 import com.waibao.rcde.entity.Rule;
 import com.waibao.rcde.mapper.RuleMapper;
 import com.waibao.util.base.RedisCommand;
 import lombok.RequiredArgsConstructor;
-import org.redisson.api.RBloomFilter;
-import org.redisson.api.RedissonClient;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
@@ -31,29 +32,27 @@ import java.util.concurrent.TimeUnit;
 public class RuleCacheService {
     public static final String REDIS_RULE_KEY_PREFIX = "rule-";
 
-    private final RedissonClient redissonClient;
     private final RuleMapper ruleMapper;
 
     @Resource
-    private RedisTemplate<String, Rule> ruleRedisTemplate;
+    private ReactiveRedisTemplate<String, Rule> ruleReactiveRedisTemplate;
 
-    private RedisScript<Rule> getRule;
-    private RBloomFilter<Long> bloomFilter;
+    private Cache<Long, Rule> ruleCache;
+    private RedisScript<String> getRule;
+    private BloomFilter<Long> bloomFilter;
     private RedisScript<String> insertRule;
     private RedisScript<String> batchGetRule;
-    private Cache<Long, Rule> ruleCache;
     private RedisScript<String> canalSyncRule;
     private RedisScript<String> batchInsertRule;
 
     @PostConstruct
     public void init() {
-        bloomFilter = redissonClient.getBloomFilter("ruleList");
-        bloomFilter.tryInit(100000L, 0.01);
-        batchGetRule = RedisScript.of(new ClassPathResource("lua/batchGetRuleScript.lua"), String.class);
-        batchInsertRule = RedisScript.of(new ClassPathResource("lua/batchInsertRuleScript.lua"), String.class);
-        getRule = RedisScript.of(new ClassPathResource("lua/getRuleScript.lua"), Rule.class);
+        bloomFilter = BloomFilter.create(Funnels.longFunnel(), 100000L, 0.01);
+        getRule = RedisScript.of(new ClassPathResource("lua/getRuleScript.lua"), String.class);
         insertRule = RedisScript.of(new ClassPathResource("lua/insertRuleScript.lua"), String.class);
+        batchGetRule = RedisScript.of(new ClassPathResource("lua/batchGetRuleScript.lua"), String.class);
         canalSyncRule = RedisScript.of(new ClassPathResource("lua/canalSyncRuleScript.lua"), String.class);
+        batchInsertRule = RedisScript.of(new ClassPathResource("lua/batchInsertRuleScript.lua"), String.class);
 
         ruleCache = Caffeine.newBuilder()
                 .expireAfterWrite(1, TimeUnit.MINUTES)
@@ -65,27 +64,42 @@ public class RuleCacheService {
         Rule rule = ruleCache.getIfPresent(goodsId);
         if (rule != null) return rule;
 
-        if (!bloomFilter.contains(goodsId)) return null;
+        List<Rule> list = ruleReactiveRedisTemplate.execute(getRule, Collections.singletonList(REDIS_RULE_KEY_PREFIX), Collections.singletonList(goodsId + ""))
+                .filter(StrUtil::isNotBlank)
+                .collectList()
+                .map(ruleList -> ruleList.get(0))
+                .map(str -> JSONArray.parseArray(str, Rule.class))
+                .share()
+                .block();
 
-        rule = ruleRedisTemplate.execute(getRule, Collections.singletonList(REDIS_RULE_KEY_PREFIX), goodsId);
-        if (rule != null) {
+        if (list != null && !list.isEmpty()) {
+            rule = list.get(0);
             set(rule, false);
             return rule;
         }
 
+        if (!bloomFilter.mightContain(goodsId)) return null;
+
         rule = ruleMapper.selectOne(Wrappers.<Rule>lambdaQuery().eq(Rule::getGoodsId, goodsId));
         if (rule != null) set(rule);
-
         return rule;
     }
 
-    public List<Rule> get(Collection<Long> goodsIdList) {
+    public List<Rule> get(List<Long> goodsIdList) {
         Map<Long, Rule> allPresent = ruleCache.getAllPresent(goodsIdList);
         goodsIdList.removeAll(allPresent.keySet());
         if (goodsIdList.isEmpty()) return new ArrayList<>(allPresent.values());
 
-        String jsonArray = ruleRedisTemplate.execute(batchGetRule, Collections.singletonList(REDIS_RULE_KEY_PREFIX), goodsIdList);
-        return jsonArray.equals("{}") ? new ArrayList<>() : JSONArray.parseArray(jsonArray, Rule.class);
+        List<Rule> list = ruleReactiveRedisTemplate.execute(batchGetRule, Collections.singletonList(REDIS_RULE_KEY_PREFIX), goodsIdList)
+                .filter(StrUtil::isNotBlank)
+                .collectList()
+                .map(ruleList -> ruleList.get(0))
+                .map(str -> JSONArray.parseArray(str, Rule.class))
+                .share()
+                .block();
+
+        if (list == null) return new ArrayList<>();
+        return list;
     }
 
     public void set(Rule rule) {
@@ -94,16 +108,19 @@ public class RuleCacheService {
 
     public void set(Rule rule, boolean updateRedis) {
         ruleCache.put(rule.getGoodsId(), rule);
-        bloomFilter.add(rule.getGoodsId());
+        bloomFilter.put(rule.getGoodsId());
         if (updateRedis)
-            ruleRedisTemplate.execute(insertRule, Collections.singletonList(REDIS_RULE_KEY_PREFIX), rule);
+            ruleReactiveRedisTemplate.execute(insertRule, Collections.singletonList(REDIS_RULE_KEY_PREFIX), Collections.singletonList(rule))
+                    .subscribe();
     }
 
     public void insertBatch(List<Rule> ruleList) {
-        ruleRedisTemplate.execute(batchInsertRule, Collections.singletonList(REDIS_RULE_KEY_PREFIX), ruleList.toArray());
+        ruleReactiveRedisTemplate.execute(batchInsertRule, Collections.singletonList(REDIS_RULE_KEY_PREFIX), ruleList)
+                .subscribe();
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        ruleRedisTemplate.execute(canalSyncRule, Collections.singletonList(REDIS_RULE_KEY_PREFIX), redisCommandList.toArray());
+        ruleReactiveRedisTemplate.execute(canalSyncRule, Collections.singletonList(REDIS_RULE_KEY_PREFIX), redisCommandList)
+                .subscribe();
     }
 }

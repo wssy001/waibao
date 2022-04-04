@@ -5,20 +5,7 @@
 ---
 -- batchInsertRiskUserScript RiskUserCacheService
 local key = KEYS[1]
-local ruleList = {}
-local rule
-for _ , value in pairs(ARGV) do
-    rule = cjson.decode(value)
-    rule['@type'] = 'com.waibao.rcde.entity.Rule'
-    local count = tonumber(redis.call('SET' , key .. rule["id"] , cjson.encode(rule)))
-    if count == 0 then
-        table.insert(ruleList , rule)
-    else
-        redis.call('SET' , key .. rule["goodsId"] , cjson.encode(rule))
-    end
-end
-if not next(ruleList) then
-    return nil
-else
-    return cjson.encode(ruleList)
+local jsonStr = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
+for _ , riskUserVO in pairs(cjson.decode(jsonStr)) do
+    redis.call('SADD' , key .. riskUserVO["goodsId"] , riskUserVO["userId"])
 end

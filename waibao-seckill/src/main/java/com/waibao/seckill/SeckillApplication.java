@@ -1,6 +1,7 @@
 package com.waibao.seckill;
 
 import com.waibao.util.async.AsyncService;
+import lombok.extern.slf4j.Slf4j;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -15,6 +16,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * @author alexpetertyler
  * @since 2022-02-17
  */
+@Slf4j
 @EnableAsync
 @EnableScheduling
 @EnableDiscoveryClient

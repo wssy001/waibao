@@ -1,5 +1,6 @@
 package com.waibao.rcde.service.mq;
 
+import cn.hutool.core.util.IdUtil;
 import com.waibao.rcde.entity.MqMsgCompensation;
 import com.waibao.rcde.service.db.MqMsgCompensationService;
 import com.waibao.util.mq.SelectSingleMessageQueue;
@@ -35,8 +36,9 @@ public class AsyncMQMessage {
     private final Executor mqThreadPoolExecutor;
     private final MqMsgCompensationService mqMsgCompensationService;
 
-    public void sendMessage(DefaultMQProducer producer, Message message) {
-        Mono.fromFuture(CompletableFuture.supplyAsync(() -> {
+    public Mono<Void> sendMessage(DefaultMQProducer producer, Message message) {
+        if (message.getKeys() == null) message.setKeys(IdUtil.getSnowflakeNextIdStr());
+        return Mono.fromFuture(CompletableFuture.supplyAsync(() -> {
                     try {
                         return producer.send(message, SelectSingleMessageQueue.selectFirst(producer, message.getTopic()));
                     } catch (Exception e) {
@@ -45,12 +47,13 @@ public class AsyncMQMessage {
                 }
                 , mqThreadPoolExecutor))
                 .filter(Objects::nonNull)
-                .subscribe(sendResult -> executeSendResult(sendResult, message));
+                .doOnNext(sendResult -> executeSendResult(sendResult, message))
+                .then();
     }
 
-    public void sendMessage(DefaultMQProducer producer, Map<String, List<Message>> map) {
-        Flux.fromIterable(map.values())
-                .subscribe(sameTopicList -> {
+    public Mono<Void> sendMessage(DefaultMQProducer producer, Map<String, List<Message>> map) {
+        return Flux.fromIterable(map.values())
+                .doOnNext(sameTopicList -> {
                     String topic = sameTopicList.get(0).getTopic();
                     Mono.fromFuture(CompletableFuture.supplyAsync(() -> {
                                 try {
@@ -62,7 +65,8 @@ public class AsyncMQMessage {
                             , mqThreadPoolExecutor))
                             .filter(Objects::nonNull)
                             .subscribe(sendResult -> executeSendResult(sendResult, sameTopicList));
-                });
+                })
+                .then();
     }
 
     private SendResult handleError(List<Message> messageList, String errorMessage) {

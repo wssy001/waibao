@@ -6,16 +6,12 @@
 -- batchCheckUserScript RiskUserCacheService
 local key = KEYS[1]
 local riskUserVOList = {}
-local riskUserVO
-for _, value in pairs(ARGV) do
-    riskUserVO = cjson.decode(value)
-    local count = tonumber(redis.call('SISMEMBER', key .. riskUserVO["goodsId"], riskUserVO["userId"]))
+local jsonStr = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
+for _ , riskUserVO in pairs(cjson.decode(jsonStr)) do
+    local count = tonumber(redis.call('SISMEMBER' , key .. riskUserVO["goodsId"] , riskUserVO["userId"]))
     if count == 1 then
-        table.insert(riskUserVOList, riskUserVO)
+        table.insert(riskUserVOList , riskUserVO)
     end
 end
-if not next(riskUserVOList) then
-    return nil
-else
-    return cjson.encode(riskUserVOList)
-end
+
+return cjson.encode(riskUserVOList)

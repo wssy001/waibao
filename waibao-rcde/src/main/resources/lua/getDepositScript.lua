@@ -9,11 +9,11 @@ local deposit = {}
 local depositList = {}
 local userId = ARGV[1]
 local depositIds = redis.call('SMEMBERS' , 'index-' .. key .. userId)
-for _ , depositId in ipairs(depositIds) do
-    local depositKeys = redis.call('HVALS' , key .. depositId)
+for _ , depositId in pairs(depositIds) do
+    local depositKeys = redis.call('HKEYS' , key .. depositId)
     if next(depositKeys) then
         for _ , value in pairs(depositKeys) do
-            deposit[value] = redis.call('HGET' , key .. depositId , value)
+            deposit[value] = redis.call('HGET' , key .. depositId , tostring(value))
         end
         table.insert(depositList , deposit)
     end

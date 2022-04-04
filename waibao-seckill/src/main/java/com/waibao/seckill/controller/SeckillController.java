@@ -20,6 +20,7 @@ import com.waibao.util.enums.ResultEnum;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.order.OrderVO;
 import com.waibao.util.vo.seckill.KillVO;
+import com.waibao.util.vo.seckill.SeckillControlVO;
 import com.waibao.util.vo.seckill.SeckillGoodsVO;
 import com.waibao.util.vo.user.PageVO;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +57,21 @@ public class SeckillController {
     private final SeckillGoodsCacheService seckillGoodsCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;
 
+
+    @PostMapping(value = "/control", produces = MediaType.APPLICATION_JSON_VALUE)
+    public GlobalResult<String> seckillControl(
+            @RequestBody SeckillControlVO seckillControlVO
+    ) {
+        Long goodsId = seckillControlVO.getGoodsId();
+        if (goodsId == null) return GlobalResult.error("请传入goodsId");
+        asyncService.basicTask(() -> seckillGoodsCacheService.updateGoodsStatus(goodsId, seckillControlVO.getFinished()));
+        asyncService.basicTask(() -> seckillGoodsMapper.update(null, Wrappers.<SeckillGoods>lambdaUpdate()
+                .eq(SeckillGoods::getGoodsId, goodsId)
+                .set(SeckillGoods::getStorage, 0)
+                .set(SeckillGoods::getSeckillEndTime, new Date())
+        ));
+        return GlobalResult.success("请求成功");
+    }
 
     @PostMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<PageVO<SeckillGoodsVO>> getUserPage(

@@ -8,7 +8,6 @@ import com.waibao.user.entity.Admin;
 import com.waibao.user.mapper.AdminMapper;
 import com.waibao.user.service.cache.AdminCacheService;
 import com.waibao.util.enums.ResultEnum;
-import com.waibao.util.feign.AdminService;
 import com.waibao.util.tools.JWTUtil;
 import com.waibao.util.tools.SMUtil;
 import com.waibao.util.vo.GlobalResult;
@@ -36,11 +35,10 @@ import java.util.stream.Collectors;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/admin")
-public class AdminController implements AdminService {
+public class AdminController{
     private final AdminMapper adminMapper;
     private final AdminCacheService adminCacheService;
-
-    @Override
+    
     @GetMapping(value = "/check", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<AdminVO> checkAdmin(
             @RequestParam("adminId") Long adminId
@@ -52,7 +50,6 @@ public class AdminController implements AdminService {
         return GlobalResult.success(BeanUtil.copyProperties(admin, AdminVO.class));
     }
 
-    @Override
     @GetMapping(value = "/info", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<AdminVO> getAdminInfo(
             @RequestParam("adminId") Long adminId
@@ -64,7 +61,6 @@ public class AdminController implements AdminService {
         return GlobalResult.success(BeanUtil.copyProperties(admin, AdminVO.class));
     }
 
-    @Override
     @PostMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<PageVO<AdminVO>> getAdminPage(
             @RequestBody PageVO<AdminVO> pageVO
@@ -85,7 +81,6 @@ public class AdminController implements AdminService {
         return GlobalResult.success(ResultEnum.SUCCESS, pageVO);
     }
 
-    @Override
     @PostMapping(value = "/add", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<AdminVO> addAdminInfo(
             @RequestBody AdminVO adminVO
@@ -103,7 +98,6 @@ public class AdminController implements AdminService {
         return GlobalResult.success(ResultEnum.SUCCESS, adminVO);
     }
 
-    @Override
     @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<AdminLoginVO> login(
             @RequestBody AdminVO adminVO

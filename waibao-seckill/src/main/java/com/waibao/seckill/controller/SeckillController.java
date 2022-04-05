@@ -182,6 +182,7 @@ public class SeckillController {
         orderVO.setUserId(userId);
         orderVO.setGoodsPrice(seckillGoods.getPrice());
         orderVO.setOrderPrice(seckillGoods.getSeckillPrice().multiply(new BigDecimal(count)));
+        orderVO.setPayId(IdUtil.getSnowflakeNextIdStr());
 
         String jsonString = JSON.toJSONString(orderVO);
         Message message = new Message("order", "create", orderId, jsonString.getBytes());
@@ -227,6 +228,7 @@ public class SeckillController {
         orderVO.setUserId(userId);
         orderVO.setGoodsPrice(new BigDecimal("10000.00"));
         orderVO.setOrderPrice(new BigDecimal("10000.00").multiply(new BigDecimal(count)));
+        orderVO.setPayId(IdUtil.getSnowflakeNextIdStr());
 
         String jsonString = JSON.toJSONString(orderVO);
         Message message = new Message("order", "create", orderId, jsonString.getBytes());

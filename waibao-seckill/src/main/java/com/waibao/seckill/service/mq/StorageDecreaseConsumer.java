@@ -36,20 +36,12 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class StorageDecreaseConsumer implements MessageListenerConcurrently {
-    private AsyncMQMessage asyncMQMessage;
-    private SeckillGoodsCacheService goodsCacheService;
-    private SeckillGoodsMapper seckillGoodsMapper;
+    private final AsyncMQMessage asyncMQMessage;
+    private final SeckillGoodsCacheService goodsCacheService;
+    private final SeckillGoodsMapper seckillGoodsMapper;
+
     private DefaultMQProducer orderUpdateMQProducer;
     private DefaultMQProducer orderCancelMQProducer;
-
-    @Autowired
-    public StorageDecreaseConsumer(AsyncMQMessage asyncMQMessage, SeckillGoodsCacheService goodsCacheService, SeckillGoodsMapper seckillGoodsMapper, @Lazy DefaultMQProducer orderUpdateMQProducer, @Lazy DefaultMQProducer orderCancelMQProducer) {
-        this.asyncMQMessage = asyncMQMessage;
-        this.goodsCacheService = goodsCacheService;
-        this.seckillGoodsMapper = seckillGoodsMapper;
-        this.orderUpdateMQProducer = orderUpdateMQProducer;
-        this.orderCancelMQProducer = orderCancelMQProducer;
-    }
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
@@ -111,4 +103,15 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
+    @Lazy
+    @Autowired
+    public void setOrderUpdateMQProducer(DefaultMQProducer orderUpdateMQProducer) {
+        this.orderUpdateMQProducer = orderUpdateMQProducer;
+    }
+
+    @Lazy
+    @Autowired
+    public void setOrderCancelMQProducer(DefaultMQProducer orderCancelMQProducer) {
+        this.orderCancelMQProducer = orderCancelMQProducer;
+    }
 }

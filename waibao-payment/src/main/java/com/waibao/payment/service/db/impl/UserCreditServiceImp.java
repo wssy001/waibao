@@ -7,9 +7,14 @@ import com.waibao.payment.service.db.UserCreditService;
 import org.springframework.stereotype.Service;
 
 /**
- * @Author: wwj
- * @Date: 2022/3/5
+ * <p>
+ * 账户信息表 服务实现类
+ * </p>
+ *
+ * @author alexpetertyler
+ * @since 2022-04-05
  */
 @Service
-public class UserCreditServiceImpl extends ServiceImpl<UserCreditMapper, UserCredit> implements UserCreditService {
+public class UserCreditServiceImp extends ServiceImpl<UserCreditMapper, UserCredit> implements UserCreditService {
+
 }

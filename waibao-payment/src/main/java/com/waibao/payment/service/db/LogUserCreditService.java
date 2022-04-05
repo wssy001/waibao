@@ -9,7 +9,7 @@ import com.waibao.payment.entity.LogUserCredit;
  * </p>
  *
  * @author alexpetertyler
- * @since 2022-03-06
+ * @since 2022-04-05
  */
 public interface LogUserCreditService extends IService<LogUserCredit> {
 

@@ -1,12 +1,12 @@
 package com.waibao.payment.service.mq;
 
-import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.waibao.payment.entity.LogPayment;
 import com.waibao.payment.entity.Payment;
 import com.waibao.payment.entity.UserCredit;
 import com.waibao.payment.mapper.UserCreditMapper;
+import com.waibao.payment.service.cache.LogPaymentCacheService;
 import com.waibao.payment.service.cache.UserCreditCacheService;
 import com.waibao.payment.service.db.LogPaymentService;
 import com.waibao.payment.service.db.PaymentService;
@@ -38,6 +38,7 @@ public class PaymentCreateConsumer implements MessageListenerConcurrently {
     private final PaymentService paymentService;
     private final UserCreditMapper userCreditMapper;
     private final LogPaymentService logPaymentService;
+    private final LogPaymentCacheService logPaymentCacheService;
     private final UserCreditCacheService userCreditCacheService;
 
     @Override
@@ -46,8 +47,11 @@ public class PaymentCreateConsumer implements MessageListenerConcurrently {
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
 
+        List<Payment> paymentList = convert(messageExtMap.values(), Payment.class)
+                .stream()
+                .filter(payment -> logPaymentCacheService.hasConsumeTags(payment.getUserId(), payment.getPayId(), "create"))
+                .collect(Collectors.toList());
 
-        List<Payment> paymentList = convert(messageExtMap.values(), Payment.class);
         asyncService.basicTask(() -> paymentService.saveBatch(paymentList));
         asyncService.basicTask(() -> logPaymentService.saveBatch(convert(messageExtMap.values(), LogPayment.class)));
         asyncService.basicTask(() -> {
@@ -63,7 +67,6 @@ public class PaymentCreateConsumer implements MessageListenerConcurrently {
         return msgs.parallelStream()
                 .map(messageExt -> {
                     JSONObject jsonObject = (JSONObject) JSON.toJSON(new String(messageExt.getBody()));
-                    jsonObject.put("payId", IdUtil.getSnowflakeNextIdStr());
                     jsonObject.put("money", jsonObject.getBigDecimal("orderPrice"));
                     return jsonObject;
                 })

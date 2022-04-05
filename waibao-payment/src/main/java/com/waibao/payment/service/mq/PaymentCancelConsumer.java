@@ -37,7 +37,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PaymentCancelConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
-    private final AsyncMQMessage asyncMQMessage;
     private final LogPaymentCacheService logPaymentCacheService;
     private final PaymentService paymentService;
     private final LogPaymentService logPaymentService;
@@ -50,7 +49,7 @@ public class PaymentCancelConsumer implements MessageListenerConcurrently {
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
         convert(messageExtMap.values(), Payment.class).parallelStream()
-                .filter(payment -> logPaymentCacheService.hasConsumeTags(payment.getUserId(),payment.getPayId(),"cancel"))
+                .filter(payment -> logPaymentCacheService.hasConsumeTags(payment.getUserId(), payment.getPayId(), "cancel"))
                 .map(Payment::getPayId)
                 .forEach(messageExtMap::remove);
         Future<List<Payment>> paymentFuture = asyncService.basicTask(convert(messageExtMap.values(), Payment.class));
@@ -63,7 +62,7 @@ public class PaymentCancelConsumer implements MessageListenerConcurrently {
         List<Payment> payments = paymentFuture.get();
         List<LogPayment> logPayments = logPaymentFuture.get();
         asyncService.basicTask(() -> paymentService.updateBatchById(payments));
-        asyncService.basicTask(()->logPaymentService.saveBatch(logPayments));
+        asyncService.basicTask(() -> logPaymentService.saveBatch(logPayments));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, messageExtMap.keySet())

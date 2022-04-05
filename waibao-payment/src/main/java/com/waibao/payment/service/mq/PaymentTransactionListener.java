@@ -114,9 +114,32 @@ public class PaymentTransactionListener implements TransactionListener {
         }
 
         try {
+            List<OrderVO> orderVOList = convert(msg, OrderVO.class);
+            List<LogUserCredit> logUserCredits = userCreditCacheService.batchDecreaseUserCredit(orderVOList, LogUserCredit.class);
+            asyncService.basicTask(() -> logUserCreditService.saveBatch(logUserCredits));
+
+            List<Message> messageList = userCreditCacheService.batchDecreaseUserCredit(orderVOList, OrderVO.class)
+                    .parallelStream()
+                    .map(orderVO -> new Message("order", "update", orderVO.getOrderId(), JSON.toJSONBytes(orderVO)))
+                    .collect(Collectors.toList());
+            LambdaUpdateWrapper<UserCredit> userCreditLambdaUpdateWrapper = Wrappers.lambdaUpdate();
+            asyncService.basicTask(() -> logUserCredits.forEach(logUserCredit -> {
+                userCreditLambdaUpdateWrapper.clear();
+                userCreditMapper.update(null, userCreditLambdaUpdateWrapper
+                        .eq(UserCredit::getUserId, logUserCredit.getUserId())
+                        .eq(UserCredit::getMoney, logUserCredit.getOldMoney())
+                        .set(UserCredit::getMoney, logUserCredit.getMoney())
+                );
+            }));
+
+            asyncMQMessage.sendMessage(paymentUpdateMQProducer, messageList);
+            asyncService.basicTask(() -> mqMsgCompensationMapper.update(null, Wrappers.<MqMsgCompensation>lambdaUpdate()
+                    .eq(MqMsgCompensation::getMsgId, keys)
+                    .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
 
             transactionRedisTemplate.opsForSet()
                     .add("payment-transaction", transactionId + "-" + keys);
+
             return LocalTransactionState.COMMIT_MESSAGE;
         } catch (Exception e) {
             log.error("******PaymentTransactionListener.checkLocalTransaction：消息id：{} 事务id：{} 出错 原因：{} 处理：回滚", keys, transactionId, e.getMessage());

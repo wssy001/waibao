@@ -1,0 +1,23 @@
+server:
+  port: 8005
+
+spring:
+  application:
+    name: waibao-payment
+
+  cloud:
+    nacos:
+      server-addr: 10.61.20.211:38848
+      discovery:
+        namespace: waibao
+      username: nacos
+      password: nacos
+
+      config:
+        namespace: waibao
+        extension-configs: application.yml,${spring.application.name}.yml
+
+  shardingsphere:
+    props:
+      sql:
+        show: true

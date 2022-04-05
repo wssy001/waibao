@@ -7,9 +7,14 @@ import com.waibao.payment.service.db.PaymentService;
 import org.springframework.stereotype.Service;
 
 /**
- * @Author: wwj
- * @Date: 2022/3/5
+ * <p>
+ * 支付记录表 服务实现类
+ * </p>
+ *
+ * @author alexpetertyler
+ * @since 2022-04-05
  */
 @Service
-public class PaymentServiceImpl extends ServiceImpl<PaymentMapper, Payment> implements PaymentService {
+public class PaymentServiceImp extends ServiceImpl<PaymentMapper, Payment> implements PaymentService {
+
 }

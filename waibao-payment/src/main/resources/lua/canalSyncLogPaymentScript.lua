@@ -5,21 +5,20 @@
 ---
 -- canalSyncLogPaymentScript.lua PaymentCacheService
 local key = KEYS[1]
-local redisCommand
 local logPayment
-for _ , value in pairs(ARGV) do
-    redisCommand = cjson.decode(value)
+local goodsId
+for _ , redisCommand in pairs(cjson.decode(ARGV[1])) do
     logPayment = redisCommand['value']
-    key = '"' .. string.gsub(key , '"' , '') .. logPayment['goodsId'] .. '"'
+    goodsId = logPayment['goodsId']
     if redisCommand['command'] == 'INSERT' then
-        redis.call('LPUSH' , key , logPayment['payId'] .. '-' .. logPayment['operation'])
+        redis.call('LPUSH' , key .. goodsId , logPayment['payId'] .. '-' .. logPayment['operation'])
     elseif redisCommand['command'] == 'UPDATE' then
         local oldLogPayment = redisCommand['oldValue']
         if oldLogPayment['operation'] ~= nil then
-            redis.call('LPUSH' , key , logPayment['payId'] .. '-' .. logPayment['operation'])
-            redis.call('LREM' , key , 0 , logPayment['payId'] .. '-' .. oldLogPayment['operation'])
+            redis.call('LPUSH' , key .. goodsId , logPayment['payId'] .. '-' .. logPayment['operation'])
+            redis.call('LREM' , key .. goodsId , 0 , logPayment['payId'] .. '-' .. oldLogPayment['operation'])
         end
     else
-        redis.call('LREM' , key , 0 , logPayment['orderId'] .. '-' .. logPayment['operation'])
+        redis.call('LREM' , key .. goodsId , 0 , logPayment['orderId'] .. '-' .. logPayment['operation'])
     end
 end

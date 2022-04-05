@@ -13,7 +13,6 @@ import com.waibao.user.mapper.UserExtraMapper;
 import com.waibao.user.mapper.UserMapper;
 import com.waibao.user.service.cache.UserCacheService;
 import com.waibao.util.enums.ResultEnum;
-import com.waibao.util.feign.UserService;
 import com.waibao.util.tools.JWTUtil;
 import com.waibao.util.tools.SMUtil;
 import com.waibao.util.vo.GlobalResult;
@@ -42,12 +41,11 @@ import java.util.stream.Collectors;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/user")
-public class UserController implements UserService {
+public class UserController {
     private final UserMapper userMapper;
     private final UserExtraMapper userExtraMapper;
     private final UserCacheService userCacheService;
 
-    @Override
     @GetMapping(value = "/check", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<UserVO> checkUser(
             @RequestParam("userId") Long userId
@@ -62,7 +60,6 @@ public class UserController implements UserService {
         return GlobalResult.success(userVO);
     }
 
-    @Override
     @GetMapping(value = "/info", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<UserVO> getUserInfo(
             @RequestParam("userId") Long userId
@@ -77,7 +74,6 @@ public class UserController implements UserService {
         return GlobalResult.success(userVO);
     }
 
-    @Override
     @PostMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<PageVO<UserVO>> getUserPage(
             @RequestBody PageVO<UserVO> pageVO
@@ -107,7 +103,7 @@ public class UserController implements UserService {
         return GlobalResult.success(ResultEnum.SUCCESS, pageVO);
     }
 
-    @Override
+
     @PostMapping(value = "/add", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<UserVO> addUserInfo(
             @RequestBody UserVO userVO
@@ -128,7 +124,7 @@ public class UserController implements UserService {
         return GlobalResult.success(ResultEnum.SUCCESS, userVO);
     }
 
-    @Override
+
     @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<JSONObject> login(
             @RequestParam String principal,
@@ -152,7 +148,7 @@ public class UserController implements UserService {
         return GlobalResult.success(jsonObject);
     }
 
-    @Override
+
     @PostMapping(value = "/renew", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<JSONObject> renew(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String token

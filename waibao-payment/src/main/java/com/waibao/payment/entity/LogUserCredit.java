@@ -1,6 +1,9 @@
 package com.waibao.payment.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.extension.activerecord.Model;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,65 +19,37 @@ import java.util.Date;
  * </p>
  *
  * @author alexpetertyler
- * @since 2022-03-06
+ * @since 2022-04-05
  */
 @Getter
 @Setter
 @Accessors(chain = true)
-@TableName("log_user_credit")
 public class LogUserCredit extends Model<LogUserCredit> {
 
-    /**
-     * 自增id
-     */
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    /**
-     * 用户id
-     */
     @TableField("user_id")
     private Long userId;
 
-    /**
-     * 交易id
-     */
     @TableField("pay_id")
-    private Long payId;
+    private String payId;
 
-    /**
-     * 订单ID
-     */
     @TableField("order_id")
     private String orderId;
 
-    /**
-     * 先前的余额
-     */
     @TableField("old_money")
     private BigDecimal oldMoney;
 
-    /**
-     * 余额
-     */
     @TableField("money")
     private BigDecimal money;
 
-    /**
-     * 操作类型
-     */
     @TableField("operation")
     private String operation;
 
-    /**
-     * 创建时间
-     */
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private Date createTime;
 
-    /**
-     * 修改时间
-     */
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     private Date updateTime;
 

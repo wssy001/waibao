@@ -4,8 +4,13 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.waibao.payment.entity.Payment;
 
 /**
- * @Author: wwj
- * @Date: 2022/3/5
+ * <p>
+ * 支付记录表 服务类
+ * </p>
+ *
+ * @author alexpetertyler
+ * @since 2022-04-05
  */
 public interface PaymentService extends IService<Payment> {
+
 }

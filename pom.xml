@@ -35,7 +35,6 @@
         <velocity.version>2.3</velocity.version>
         <jwt.version>3.2.0</jwt.version>
         <lambok.version>1.18.16</lambok.version>
-        <dynamic-datasource.version>3.5.0</dynamic-datasource.version>
         <sm.version>0.3.2</sm.version>
         <rocketMQ.version>2.2.1</rocketMQ.version>
         <aj-captcha.version>1.3.0</aj-captcha.version>

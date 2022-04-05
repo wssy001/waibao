@@ -3,7 +3,6 @@ package com.waibao.payment.config;
 import com.waibao.payment.service.mq.*;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.TransactionMQProducer;
@@ -17,7 +16,6 @@ import org.springframework.context.annotation.Configuration;
  * @author alexpetertyler
  * @since 2022-02-17
  */
-@Slf4j
 @Configuration
 @RequiredArgsConstructor
 public class RocketMQConfig {
@@ -42,20 +40,20 @@ public class RocketMQConfig {
     @Bean
     @SneakyThrows
     public DefaultMQProducer paymentRequestPayMQProducer() {
-        TransactionMQProducer transactionMQProducer = new TransactionMQProducer("paymentRequestPay");
-        transactionMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
-        transactionMQProducer.start();
-        return transactionMQProducer;
+        DefaultMQProducer paymentRequestPayMQProducer = new DefaultMQProducer("paymentRequestPay");
+        paymentRequestPayMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
+        paymentRequestPayMQProducer.start();
+        return paymentRequestPayMQProducer;
     }
 
     @Bean
     @SneakyThrows
     public DefaultMQProducer paymentPayMQProducer() {
-        TransactionMQProducer transactionMQProducer = new TransactionMQProducer("paymentPayTransaction");
-        transactionMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
-        transactionMQProducer.setTransactionListener(paymentTransactionListener);
-        transactionMQProducer.start();
-        return transactionMQProducer;
+        TransactionMQProducer paymentPayMQProducer = new TransactionMQProducer("paymentPayTransaction");
+        paymentPayMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
+        paymentPayMQProducer.setTransactionListener(paymentTransactionListener);
+        paymentPayMQProducer.start();
+        return paymentPayMQProducer;
     }
 
     @Bean

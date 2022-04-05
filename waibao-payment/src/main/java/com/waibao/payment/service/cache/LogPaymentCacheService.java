@@ -1,5 +1,6 @@
 package com.waibao.payment.service.cache;
 
+import com.alibaba.fastjson.JSONArray;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import com.waibao.util.base.RedisCommand;
@@ -44,10 +45,10 @@ public class LogPaymentCacheService {
 
     public boolean hasConsumeTags(Long userId, String payId, String operation) {
         if (!bloomFilter.mightContain(payId + operation)) return false;
-        return Boolean.TRUE.equals(logPaymentRedisTemplate.execute(checkPaymentOperation, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX + payId), userId, operation));
+        return Boolean.TRUE.equals(logPaymentRedisTemplate.execute(checkPaymentOperation, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX + payId), userId + "", operation + ""));
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        logPaymentRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX), redisCommandList.toArray());
+        logPaymentRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
     }
 }

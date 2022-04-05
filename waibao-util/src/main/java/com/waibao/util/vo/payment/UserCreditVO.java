@@ -17,7 +17,6 @@ import java.math.BigDecimal;
 public class UserCreditVO implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private Long id;
     private Long userId;
     private BigDecimal money;
 

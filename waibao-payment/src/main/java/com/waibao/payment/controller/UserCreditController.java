@@ -8,7 +8,6 @@ import com.waibao.payment.entity.UserCredit;
 import com.waibao.payment.mapper.UserCreditMapper;
 import com.waibao.payment.service.cache.UserCreditCacheService;
 import com.waibao.util.enums.ResultEnum;
-import com.waibao.util.feign.UserService;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.payment.UserCreditVO;
 import com.waibao.util.vo.user.PageVO;
@@ -28,14 +27,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @RequestMapping("/user/credit")
 public class UserCreditController {
-    private final UserService userService;
     private final UserCreditMapper userCreditMapper;
     private final UserCreditCacheService userCreditCacheService;
 
     @PostMapping(value = "/add", produces = MediaType.APPLICATION_JSON_VALUE)
-    public GlobalResult<UserCreditVO> addUserCreditInfo(@RequestBody UserCreditVO userCreditVO) {
-        GlobalResult<String> result = userService.checkUser(userCreditVO.getUserId());
-        if (result.getCode() != 200) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
+    public GlobalResult<UserCreditVO> addUserCreditInfo(
+            @RequestBody UserCreditVO userCreditVO
+    ) {
         UserCredit record = BeanUtil.copyProperties(userCreditVO, UserCredit.class);
         int insert = userCreditMapper.insert(record);
         if (insert == 0) return GlobalResult.error(ResultEnum.SYSTEM_SAVE_FAIL);
@@ -53,7 +51,9 @@ public class UserCreditController {
     }
 
     @PostMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
-    public GlobalResult<PageVO<UserCreditVO>> getPage(@RequestBody PageVO<UserCreditVO> pageVO) {
+    public GlobalResult<PageVO<UserCreditVO>> getPage(
+            @RequestBody PageVO<UserCreditVO> pageVO
+    ) {
         IPage<UserCredit> creditPage = new Page<>(pageVO.getIndex(), pageVO.getCount());
         creditPage = userCreditMapper.selectPage(creditPage, Wrappers.<UserCredit>lambdaQuery().orderByDesc(UserCredit::getUpdateTime));
 
@@ -72,11 +72,11 @@ public class UserCreditController {
     }
 
     @PostMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE)
-    public GlobalResult<UserCreditVO> update(@RequestBody UserCreditVO userCreditVO) {
-        GlobalResult<String> result = userService.checkUser(userCreditVO.getUserId());
-        if (result.getCode() != 200) return GlobalResult.error(ResultEnum.USER_IS_NOT_EXIST);
+    public GlobalResult<UserCreditVO> update(
+            @RequestBody UserCreditVO userCreditVO
+    ) {
         UserCredit record = BeanUtil.copyProperties(userCreditVO, UserCredit.class);
-        int insert = userCreditMapper.updateByPrimaryKeySelective(record);
+        int insert = userCreditMapper.updateById(record);
         if (insert == 0) return GlobalResult.error(ResultEnum.SYSTEM_UPDATE_FAIL);
         return GlobalResult.success(userCreditVO);
     }

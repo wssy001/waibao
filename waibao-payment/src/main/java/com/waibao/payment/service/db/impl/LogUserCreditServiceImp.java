@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
  * </p>
  *
  * @author alexpetertyler
- * @since 2022-03-06
+ * @since 2022-04-05
  */
 @Service
 public class LogUserCreditServiceImp extends ServiceImpl<LogUserCreditMapper, LogUserCredit> implements LogUserCreditService {

@@ -6,14 +6,14 @@
 -- canalSyncPaymentScript PaymentCacheService
 local key = KEYS[1]
 local redisCommand
-local payment
-ARGV[1] = string.gsub(ARGV[1] , '("id":)(%s*)(%d+)' , '%1"%3"')
+local userCredit
+ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
 for _ , value in pairs(cjson.decode(ARGV[1])) do
     redisCommand = cjson.decode(value)
-    payment = redisCommand['value']
-    key = '"' .. string.gsub(key , '"' , '') .. payment['payId'] .. '"'
+    userCredit = redisCommand['value']
+    key = '"' .. string.gsub(key , '"' , '') .. userCredit['payId'] .. '"'
     if (redisCommand['command'] == 'INSERT' or redisCommand['command'] == 'UPDATE') then
-        redis.call('SET' , key , cjson.encode(payment))
+        redis.call('SET' , key , cjson.encode(userCredit))
     else
         redis.call('DEL' , key)
     end

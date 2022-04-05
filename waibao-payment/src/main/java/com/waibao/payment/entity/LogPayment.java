@@ -16,7 +16,7 @@ import java.util.Date;
  * </p>
  *
  * @author alexpetertyler
- * @since 2022-03-06
+ * @since 2022-04-05
  */
 @Getter
 @Setter
@@ -34,7 +34,7 @@ public class LogPayment extends Model<LogPayment> {
      * 支付id
      */
     @TableField("pay_id")
-    private Long payId;
+    private String payId;
 
     /**
      * 用户编号

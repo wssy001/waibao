@@ -21,6 +21,8 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -43,11 +45,12 @@ public class OrderCancelConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
     private final AsyncMQMessage asyncMQMessage;
     private final OrderUserService orderUserService;
-    private final DefaultMQProducer orderCancelMQProducer;
     private final LogOrderGoodsService logOrderGoodsService;
     private final OrderRetailerService orderRetailerService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
     private final LogOrderGoodsCacheService logOrderGoodsCacheService;
+
+    private DefaultMQProducer orderCancelMQProducer;
 
     @Override
     @SneakyThrows
@@ -95,5 +98,11 @@ public class OrderCancelConsumer implements MessageListenerConcurrently {
                 })
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());
+    }
+
+    @Lazy
+    @Autowired
+    public void setOrderCancelMQProducer(DefaultMQProducer orderCancelMQProducer) {
+        this.orderCancelMQProducer = orderCancelMQProducer;
     }
 }

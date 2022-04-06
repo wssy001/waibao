@@ -33,6 +33,12 @@ public class OrderUser extends Model<OrderUser> {
     private String orderId;
 
     /**
+     * 支付单ID
+     */
+    @TableField("pay_id")
+    private String payId;
+
+    /**
      * 商品ID
      */
     @TableField("goods_id")

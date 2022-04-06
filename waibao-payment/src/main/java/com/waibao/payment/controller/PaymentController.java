@@ -49,7 +49,7 @@ public class PaymentController {
         return GlobalResult.success(paymentVO);
     }
 
-    @GetMapping(value = "/check", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/info", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<PaymentVO> getPaymentInfo(
             @RequestParam("payId") String payId,
             @RequestParam("userId") Long userId

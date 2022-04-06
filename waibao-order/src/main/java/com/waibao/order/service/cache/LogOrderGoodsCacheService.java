@@ -1,5 +1,6 @@
 package com.waibao.order.service.cache;
 
+import com.alibaba.fastjson.JSONArray;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import com.waibao.util.base.RedisCommand;
@@ -50,6 +51,6 @@ public class LogOrderGoodsCacheService {
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        logOrderUserRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_LOG_ORDER_RETAILER_KEY_PREFIX), redisCommandList.toArray());
+        logOrderUserRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_LOG_ORDER_RETAILER_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
     }
 }

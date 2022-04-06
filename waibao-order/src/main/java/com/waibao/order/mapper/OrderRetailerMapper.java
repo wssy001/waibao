@@ -1,7 +1,7 @@
 package com.waibao.order.mapper;
 
-import com.waibao.order.entity.OrderRetailer;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.waibao.order.entity.OrderRetailer;
 
 /**
  * <p>

@@ -5,12 +5,11 @@
 ---
 -- canalSyncLogOrderUserScript LogOrderUserCacheService
 local key
-local redisCommand
 local logOrderUser
-for _ , value in pairs(ARGV) do
-    redisCommand = cjson.decode(value)
+ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
+for _ , redisCommand in pairs(cjson.decode(ARGV[1])) do
     logOrderUser = redisCommand['value']
-    key = '"' .. string.gsub(KEYS[1] , '"' , '') .. logOrderUser['userId'] .. '"'
+    key = KEYS[1] .. logOrderUser['userId']
     if redisCommand['command'] == 'INSERT' then
         redis.call('LPUSH' , key , logOrderUser['orderId'] .. '-' .. logOrderUser['operation'])
     elseif redisCommand['command'] == 'UPDATE' then

@@ -16,8 +16,3 @@ spring:
       config:
         namespace: waibao
         extension-configs: application.yml,${spring.application.name}.yml
-
-  shardingsphere:
-    props:
-      sql:
-        show: true

@@ -41,9 +41,9 @@ public class UserCreditController {
         return GlobalResult.success(userCreditVO);
     }
 
-    @GetMapping(value = "/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/info", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<UserCreditVO> getUserCreditInfo(
-            @PathVariable("userId") Long userId
+            @RequestParam("userId") Long userId
     ) {
         UserCredit userCredit = userCreditCacheService.get(userId);
         if (userCredit == null) return GlobalResult.error("账户不存在");

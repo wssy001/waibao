@@ -1,7 +1,9 @@
 package com.waibao.order.controller;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.alibaba.fastjson.JSON;
-import com.waibao.order.service.cache.OrderGoodsCacheService;
+import com.waibao.order.entity.OrderUser;
+import com.waibao.order.service.cache.OrderUserCacheService;
 import com.waibao.order.service.mq.AsyncMQMessage;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.order.OrderVO;
@@ -21,15 +23,15 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/order")
-public class OrderController {
+public class OrderUserController {
     private final AsyncMQMessage asyncMQMessage;
     private final DefaultMQProducer orderCancelMQProducer;
     private final DefaultMQProducer orderDeleteMQProducer;
-    private final OrderGoodsCacheService orderGoodsCacheService;
+    private final OrderUserCacheService orderUserCacheService;
 
-    @GetMapping("/order/{orderId}")
+    @GetMapping("/info")
     public GlobalResult<OrderVO> getOrderInfo(
-            @PathVariable("orderId") String orderId,
+            @RequestParam("orderId") String orderId,
             @RequestParam("userId") Long userId
     ) {
         OrderVO orderVO = getOrderId(orderId, userId);
@@ -37,9 +39,9 @@ public class OrderController {
         return GlobalResult.success(orderVO);
     }
 
-    @PostMapping("/cancel/{orderId}")
+    @PostMapping("/cancel")
     public GlobalResult<OrderVO> cancelOrder(
-            @PathVariable("orderId") String orderId,
+            @RequestParam("orderId") String orderId,
             @RequestParam("userId") Long userId
     ) {
         OrderVO orderVO = getOrderId(orderId, userId);
@@ -49,9 +51,9 @@ public class OrderController {
         return GlobalResult.success("订单取消请求提交成功", orderVO);
     }
 
-    @PostMapping("/delete/{orderId}")
+    @PostMapping("/delete")
     public GlobalResult<OrderVO> deleteOrder(
-            @PathVariable("orderId") String orderId,
+            @RequestParam("orderId") String orderId,
             @RequestParam("userId") Long userId
     ) {
         OrderVO orderVO = getOrderId(orderId, userId);
@@ -62,8 +64,9 @@ public class OrderController {
     }
 
     private OrderVO getOrderId(String orderId, Long userId) {
-        OrderVO orderVO = orderGoodsCacheService.get(orderId);
-        if (orderVO == null || !orderVO.getUserId().equals(userId)) return null;
+        OrderVO orderVO = null;
+        OrderUser orderUser = orderUserCacheService.get(userId, orderId);
+        if (orderUser != null) orderVO = BeanUtil.copyProperties(orderUser, OrderVO.class);
         return orderVO;
     }
 }

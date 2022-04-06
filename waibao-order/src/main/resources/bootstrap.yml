@@ -1,0 +1,25 @@
+server:
+  port: 33382
+
+spring:
+  application:
+    name: waibao-order
+
+  cloud:
+    nacos:
+      server-addr: 10.61.20.211:38848
+      discovery:
+        namespace: waibao
+      username: nacos
+      password: nacos
+
+      config:
+        namespace: waibao
+        extension-configs: application.yml,${spring.application.name}.yml
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: enable
+      logic-delete-value: false
+      logic-not-delete-value: true

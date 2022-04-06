@@ -19,7 +19,10 @@ import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * AdminService
@@ -93,8 +96,13 @@ public class AdminCacheService {
     }
 
     public void insertBatch(List<Admin> adminList) {
-        asyncService.basicTask(() -> adminList.parallelStream().forEach(admin -> adminCache.put(admin.getId(), admin)));
-        asyncService.basicTask(() -> adminList.parallelStream().forEach(admin -> bloomFilter.put(admin.getId())));
+        asyncService.basicTask(() -> {
+            Map<Long, Admin> collect = adminList.parallelStream()
+                    .peek(admin -> bloomFilter.put(admin.getId()))
+                    .collect(Collectors.toMap(Admin::getId, Function.identity()));
+            adminCache.asMap()
+                    .putAll(collect);
+        });
         asyncService.basicTask(() -> adminRedisTemplate.execute(batchInsertAdmin, Collections.singletonList(REDIS_ADMIN_KEY_PREFIX), JSONArray.toJSONString(adminList)));
     }
 

@@ -10,6 +10,7 @@ import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import com.waibao.payment.entity.UserCredit;
 import com.waibao.payment.mapper.UserCreditMapper;
+import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 public class UserCreditCacheService {
     private final String REDIS_USER_CREDIT_KEY_PREFIX = "user-credit-";
 
+    private final AsyncService asyncService;
     private final UserCreditMapper userCreditMapper;
 
     @Resource
@@ -115,12 +118,14 @@ public class UserCreditCacheService {
     }
 
     public void batchSet(List<UserCredit> userCreditList) {
-        userCreditList.stream()
-                .peek(userCredit -> userCreditCache.put(userCredit.getUserId(), userCredit))
-                .map(UserCredit::getUserId)
-                .forEach(bloomFilter::put);
-
-        userCreditRedisTemplate.execute(batchInsertUserCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(userCreditList));
+        asyncService.basicTask(() -> {
+            Map<Long, UserCredit> collect = userCreditList.stream()
+                    .peek(userCredit -> bloomFilter.put(userCredit.getUserId()))
+                    .collect(Collectors.toMap(UserCredit::getUserId, Function.identity()));
+            userCreditCache.asMap()
+                    .putAll(collect);
+        });
+        asyncService.basicTask(() -> userCreditRedisTemplate.execute(batchInsertUserCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(userCreditList)));
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {

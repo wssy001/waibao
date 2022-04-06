@@ -31,9 +31,8 @@
         <fastjson.version>1.2.79</fastjson.version>
         <hutool.version>5.7.20</hutool.version>
         <mybatis-plus.version>3.5.1</mybatis-plus.version>
-        <mybatis-plus-generator.version>3.5.1</mybatis-plus-generator.version>
-        <velocity.version>2.3</velocity.version>
-        <jwt.version>3.2.0</jwt.version>
+<!--        <mybatis-plus-generator.version>3.5.1</mybatis-plus-generator.version>-->
+<!--        <velocity.version>2.3</velocity.version>-->
         <lambok.version>1.18.16</lambok.version>
         <sm.version>0.3.2</sm.version>
         <rocketMQ.version>2.2.1</rocketMQ.version>
@@ -91,16 +90,16 @@
                 <artifactId>mybatis-plus-boot-starter</artifactId>
                 <version>${mybatis-plus.version}</version>
             </dependency>
-            <dependency>
-                <groupId>com.baomidou</groupId>
-                <artifactId>mybatis-plus-generator</artifactId>
-                <version>${mybatis-plus-generator.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.velocity</groupId>
-                <artifactId>velocity-engine-core</artifactId>
-                <version>${velocity.version}</version>
-            </dependency>
+<!--            <dependency>-->
+<!--                <groupId>com.baomidou</groupId>-->
+<!--                <artifactId>mybatis-plus-generator</artifactId>-->
+<!--                <version>${mybatis-plus-generator.version}</version>-->
+<!--            </dependency>-->
+<!--            <dependency>-->
+<!--                <groupId>org.apache.velocity</groupId>-->
+<!--                <artifactId>velocity-engine-core</artifactId>-->
+<!--                <version>${velocity.version}</version>-->
+<!--            </dependency>-->
             <!--shardingsphere-jdbc-->
             <dependency>
                 <groupId>org.apache.shardingsphere</groupId>

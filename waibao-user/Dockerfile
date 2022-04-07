@@ -10,4 +10,5 @@ ENV JAVA_OPTS="\
 ADD target/*.jar /usr/waibao-user/waibao-user.jar
 WORKDIR   /usr/waibao-user
 RUN bash -c 'touch /usr/waibao-user/waibao-user.jar'
+RUN /bin/cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo 'Asia/Shanghai' >/etc/timezone
 ENTRYPOINT ["java","-server","-Xmx2048m","-Xms2048m","-jar","/usr/waibao-user/waibao-user.jar"]

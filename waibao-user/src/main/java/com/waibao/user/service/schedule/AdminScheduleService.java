@@ -8,6 +8,7 @@ import com.waibao.user.service.cache.AdminCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import java.util.concurrent.atomic.LongAdder;
@@ -19,7 +20,7 @@ import java.util.concurrent.atomic.LongAdder;
  * @since 2022/3/13
  */
 @Slf4j
-//@Service
+@Service
 @RequiredArgsConstructor
 public class AdminScheduleService {
     private final AdminCacheService adminCacheService;

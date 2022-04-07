@@ -10,4 +10,5 @@ ENV JAVA_OPTS="\
 ADD target/*.jar /usr/waibao-rcde/waibao-rcde.jar
 WORKDIR   /usr/waibao-rcde
 RUN bash -c 'touch /usr/waibao-rcde/waibao-rcde.jar'
+RUN /bin/cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo 'Asia/Shanghai' >/etc/timezone
 ENTRYPOINT ["java","-server","-Xmx2048m","-Xms2048m","-jar","/usr/waibao-rcde/waibao-rcde.jar"]

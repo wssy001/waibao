@@ -58,6 +58,15 @@ public class RocketMQConfig {
 
     @Bean
     @SneakyThrows
+    public DefaultMQProducer seckillCompensationMQProducer() {
+        DefaultMQProducer seckillCancel = new DefaultMQProducer("seckillCompensation");
+        seckillCancel.setNamesrvAddr(rocketMQProperties.getNameServer());
+        seckillCancel.start();
+        return seckillCancel;
+    }
+
+    @Bean
+    @SneakyThrows
     public DefaultMQProducer orderCompensationMQProducer() {
         DefaultMQProducer orderCompensation = new DefaultMQProducer("orderCompensation");
         orderCompensation.setProducerGroup("order-producer");

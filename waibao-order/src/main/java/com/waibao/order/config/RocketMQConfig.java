@@ -49,6 +49,15 @@ public class RocketMQConfig {
 
     @Bean
     @SneakyThrows
+    public DefaultMQProducer orderCompensationMQProducer() {
+        DefaultMQProducer orderCancel = new DefaultMQProducer("orderCompensation");
+        orderCancel.setNamesrvAddr(rocketMQProperties.getNameServer());
+        orderCancel.start();
+        return orderCancel;
+    }
+
+    @Bean
+    @SneakyThrows
     public DefaultMQPushConsumer orderCreateDBBatchConsumer() {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(orderCreateConsumer);

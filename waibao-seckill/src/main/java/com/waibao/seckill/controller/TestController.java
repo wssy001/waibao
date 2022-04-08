@@ -72,6 +72,7 @@ public class TestController {
         orderVO.setRetailerId(seckillGoods.getRetailerId());
         orderVO.setCount(count);
         orderVO.setGoodsId(goodsId);
+        orderVO.setRetailerId(seckillGoods.getRetailerId());
         orderVO.setUserId(userId);
         orderVO.setGoodsPrice(seckillGoods.getPrice());
         orderVO.setOrderPrice(seckillGoods.getSeckillPrice().multiply(new BigDecimal(count)));

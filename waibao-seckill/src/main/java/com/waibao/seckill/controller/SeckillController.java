@@ -3,19 +3,18 @@ package com.waibao.seckill.controller;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson.JSON;
-import com.anji.captcha.model.common.ResponseModel;
 import com.anji.captcha.model.vo.CaptchaVO;
 import com.anji.captcha.service.CaptchaService;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.waibao.util.async.AsyncService;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
 import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.cache.SeckillPathCacheService;
 import com.waibao.seckill.service.mq.AsyncMQMessage;
+import com.waibao.util.async.AsyncService;
 import com.waibao.util.enums.ResultEnum;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.order.OrderVO;
@@ -119,8 +118,8 @@ public class SeckillController {
         if (seckillGoodsCacheService.finished(goodsId))
             return GlobalResult.error("秒杀已结束");
 
-        ResponseModel verification = captchaService.verification(captchaVO);
-        if (!verification.isSuccess()) return GlobalResult.error(verification.getRepMsg());
+//        ResponseModel verification = captchaService.verification(captchaVO);
+//        if (!verification.isSuccess()) return GlobalResult.error(verification.getRepMsg());
 
         SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         if (seckillGoods.getGoodsId() == null) return GlobalResult.error("秒杀产品不存在");

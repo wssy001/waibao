@@ -25,7 +25,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class LogOrderGoodsCacheService {
-    public static final String REDIS_LOG_ORDER_RETAILER_KEY_PREFIX = "log-order-goods-";
+    public static final String REDIS_LOG_ORDER_GOODS_KEY_PREFIX = "log-order-goods-";
 
     @Resource
     private RedisTemplate<String, String> logOrderUserRedisTemplate;
@@ -43,7 +43,7 @@ public class LogOrderGoodsCacheService {
 
     public boolean hasConsumedTags(Long goodsId, String orderId, String operation) {
         if (!bloomFilter.mightContain(orderId + operation)) return false;
-        return Boolean.TRUE.equals(logOrderUserRedisTemplate.execute(checkLogOrderGoodsOperation, Collections.singletonList(REDIS_LOG_ORDER_RETAILER_KEY_PREFIX + goodsId), orderId, operation));
+        return Boolean.TRUE.equals(logOrderUserRedisTemplate.execute(checkLogOrderGoodsOperation, Collections.singletonList(REDIS_LOG_ORDER_GOODS_KEY_PREFIX + goodsId), orderId, operation));
     }
 
     public void putToBloomFilter(String orderId, String operation) {
@@ -51,6 +51,6 @@ public class LogOrderGoodsCacheService {
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        logOrderUserRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_LOG_ORDER_RETAILER_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
+        logOrderUserRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_LOG_ORDER_GOODS_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
     }
 }

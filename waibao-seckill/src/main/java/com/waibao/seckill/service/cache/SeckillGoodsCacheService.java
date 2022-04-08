@@ -88,7 +88,7 @@ public class SeckillGoodsCacheService {
     public void updateBatchGoodsStatus(List<SeckillGoods> seckillGoodsList) {
         Date now = new Date();
         Map<Long, Boolean> collect = seckillGoodsList.stream()
-                .collect(Collectors.toMap(SeckillGoods::getId, seckillGoods -> now.before(seckillGoods.getSeckillEndTime())));
+                .collect(Collectors.toMap(SeckillGoods::getId, seckillGoods -> !now.before(seckillGoods.getSeckillEndTime())));
         goodsStatusCache.asMap()
                 .putAll(collect);
         goodsRedisTemplate.execute(batchUpdateGoodsStatus, Collections.singletonList(REDIS_SECKILL_GOODS_STATUS_KEY), JSONArray.toJSONString(seckillGoodsList));

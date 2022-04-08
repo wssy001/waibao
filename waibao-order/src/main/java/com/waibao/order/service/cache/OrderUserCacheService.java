@@ -54,6 +54,6 @@ public class OrderUserCacheService {
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        orderUserRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_ORDER_USER_KEY_PREFIX), redisCommandList.toArray());
+        orderUserRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_ORDER_USER_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
     }
 }

@@ -94,7 +94,7 @@ public class LogOrderGoods extends Model<LogOrderGoods> {
     /**
      * 操作
      */
-    @TableField("tags")
+    @TableField("operation")
     private String operation;
 
 

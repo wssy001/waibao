@@ -62,6 +62,6 @@ public class OrderRetailerCacheService {
 //    }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        orderRetailerRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_ORDER_RETAILER_KEY_PREFIX), redisCommandList.toArray());
+        orderRetailerRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_ORDER_RETAILER_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
     }
 }

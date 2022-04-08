@@ -115,6 +115,7 @@ public class GoodsRetailerCacheService {
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
+        log.info("******GoodsRetailerCacheService.canalSync：{}", JSONArray.toJSONString(redisCommandList));
         goodsRedisTemplate.execute(canalSyncGoodsRetailer, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
     }
 }

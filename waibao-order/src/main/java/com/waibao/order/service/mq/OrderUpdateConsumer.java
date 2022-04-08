@@ -46,7 +46,7 @@ public class OrderUpdateConsumer implements MessageListenerConcurrently {
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
+                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
         convert(messageExtMap.values(), OrderUser.class)
                 .parallelStream()
                 .filter(orderUser -> logOrderGoodsCacheService.hasConsumedTags(orderUser.getGoodsId(), orderUser.getOrderId(), "update"))

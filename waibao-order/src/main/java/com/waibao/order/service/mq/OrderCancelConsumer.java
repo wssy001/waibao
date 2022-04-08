@@ -57,7 +57,7 @@ public class OrderCancelConsumer implements MessageListenerConcurrently {
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
+                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
         convert(messageExtMap.values(), OrderUser.class)
                 .parallelStream()
                 .filter(orderUser -> logOrderGoodsCacheService.hasConsumedTags(orderUser.getGoodsId(), orderUser.getOrderId(), "cancel"))
@@ -79,7 +79,7 @@ public class OrderCancelConsumer implements MessageListenerConcurrently {
         asyncService.basicTask(() -> logOrderGoodsService.saveBatch(logOrderGoods));
         asyncService.basicTask(() -> orderRetailerService.updateBatchById(orderRetailers));
         List<Message> collect = msgs.parallelStream()
-                .map(messageExt -> new Message("storage", "rollback", messageExt.getKeys(), messageExt.getBody()))
+                .map(messageExt -> new Message("storage", "rollback", messageExt.getMsgId(), messageExt.getBody()))
                 .collect(Collectors.toList());
         asyncMQMessage.sendMessage(orderCancelMQProducer, collect);
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,

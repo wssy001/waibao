@@ -35,7 +35,7 @@ public class RedisLogPaymentCanalConsumer implements MessageListenerConcurrently
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
+                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
 
         List<RedisCommand> redisCommandList = messageExtMap.values()
                 .parallelStream()

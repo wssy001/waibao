@@ -34,6 +34,15 @@ public class RocketMQConfig {
 
     @Bean
     @SneakyThrows
+    public DefaultMQProducer rcdeCompensationMQProducer() {
+        DefaultMQProducer rcdeCancel = new DefaultMQProducer("rcdeCompensation");
+        rcdeCancel.setNamesrvAddr(rocketMQProperties.getNameServer());
+        rcdeCancel.start();
+        return rcdeCancel;
+    }
+
+    @Bean
+    @SneakyThrows
     public DefaultMQPushConsumer riskUserCheckBatchConsumer() {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(checkRiskUserConsumer);

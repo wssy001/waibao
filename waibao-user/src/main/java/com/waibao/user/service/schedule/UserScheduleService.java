@@ -2,6 +2,7 @@ package com.waibao.user.service.schedule;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.google.common.collect.Lists;
 import com.waibao.user.entity.User;
 import com.waibao.user.mapper.UserMapper;
 import com.waibao.user.service.cache.UserCacheService;
@@ -32,7 +33,7 @@ public class UserScheduleService {
     public void init() {
         Long count = userMapper.selectCount(null);
         longAdder = new LongAdder();
-        longAdder.add(count / 2000 + 1);
+        longAdder.add(count / 10000 + 1);
     }
 
     @Scheduled(fixedDelay = 2000L)
@@ -41,9 +42,11 @@ public class UserScheduleService {
         long l = longAdder.longValue();
         if (l > 0) {
             log.info("******UserScheduleService：开始读取数据库放入缓存");
-            IPage<User> userPage = new Page<>(l, 2000);
+            IPage<User> userPage = new Page<>(l, 10000);
             userPage = userMapper.selectPage(userPage, null);
-            userCacheService.insertBatch(userPage.getRecords());
+            Lists.partition(userPage.getRecords(), 2000)
+                    .parallelStream()
+                    .forEach(userCacheService::insertBatch);
             longAdder.decrement();
             log.info("******UserScheduleService：读取数据库放入缓存结束");
         }

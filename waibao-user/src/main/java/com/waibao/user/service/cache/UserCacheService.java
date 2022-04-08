@@ -19,7 +19,10 @@ import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * UserService
@@ -93,8 +96,13 @@ public class UserCacheService {
     }
 
     public void insertBatch(List<User> userList) {
-        asyncService.basicTask(() -> userList.parallelStream().forEach(user -> userCache.put(user.getId(), user)));
-        asyncService.basicTask(() -> userList.parallelStream().forEach(user -> bloomFilter.put(user.getId())));
+        asyncService.basicTask(() -> {
+            Map<Long, User> collect = userList.parallelStream()
+                    .peek(user -> bloomFilter.put(user.getId()))
+                    .collect(Collectors.toMap(User::getId, Function.identity()));
+            userCache.asMap()
+                    .putAll(collect);
+        });
         asyncService.basicTask(() -> userRedisTemplate.execute(batchInsertUser, Collections.singletonList(REDIS_USER_KEY_PREFIX), JSONArray.toJSONString(userList)));
     }
 

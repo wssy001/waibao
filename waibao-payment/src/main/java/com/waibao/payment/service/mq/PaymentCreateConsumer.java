@@ -45,7 +45,7 @@ public class PaymentCreateConsumer implements MessageListenerConcurrently {
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         ConcurrentHashMap<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
+                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
 
         List<Payment> paymentList = convert(messageExtMap.values(), Payment.class)
                 .stream()

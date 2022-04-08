@@ -26,7 +26,7 @@ public class RocketMQConfig {
     private final OrderCancelConsumer orderCancelConsumer;
     private final OrderDeleteConsumer orderDeleteConsumer;
     private final RedisOrderUserCanalConsumer redisOrderUserCanalConsumer;
-    private final RedisLogOrderGoodsCanalConsumer redisLogOrderUserCanalConsumer;
+    private final RedisLogOrderGoodsCanalConsumer redisLogOrderGoodsCanalConsumer;
     private final RedisOrderRetailerCanalConsumer redisOrderRetailerCanalConsumer;
 
     @Bean
@@ -114,12 +114,11 @@ public class RocketMQConfig {
 
     @Bean
     @SneakyThrows
-    public DefaultMQPushConsumer logOrderUserCanalConsumer() {
+    public DefaultMQPushConsumer logOrderGoodsCanalConsumer() {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
-        consumer.registerMessageListener(redisLogOrderUserCanalConsumer);
-        consumer.setConsumerGroup("logOrderUserCanal");
-        consumer.subscribe("waibao_order_user_order_user_0", "*");
-        consumer.subscribe("waibao_order_user_order_user_1", "*");
+        consumer.registerMessageListener(redisLogOrderGoodsCanalConsumer);
+        consumer.setConsumerGroup("logOrderGoodsCanal");
+        consumer.subscribe("waibao_v2_log_order_goods", "*");
         consumer.start();
         return consumer;
     }

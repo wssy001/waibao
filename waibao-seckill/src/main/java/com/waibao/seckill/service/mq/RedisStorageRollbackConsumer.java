@@ -41,7 +41,7 @@ public class RedisStorageRollbackConsumer implements MessageListenerConcurrently
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
+                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
         List<OrderVO> orderVOList = convert(messageExtMap.values()).parallelStream()
 //                .filter(orderVO -> !logSeckillGoodsCacheService.checkOperation(orderVO.getGoodsId(), orderVO.getOrderId(), "rollback"))
                 .collect(Collectors.toList());

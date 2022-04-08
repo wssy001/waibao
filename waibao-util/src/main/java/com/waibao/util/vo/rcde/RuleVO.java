@@ -35,4 +35,6 @@ public class RuleVO {
     private Integer userType = 0;
 
     private Integer ruleCode;
+
+    private String denyWorkStatus;
 }

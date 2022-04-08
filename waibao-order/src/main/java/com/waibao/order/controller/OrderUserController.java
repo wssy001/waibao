@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.common.message.Message;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -29,7 +30,7 @@ public class OrderUserController {
     private final DefaultMQProducer orderDeleteMQProducer;
     private final OrderUserCacheService orderUserCacheService;
 
-    @GetMapping("/info")
+    @GetMapping(value = "/info", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<OrderVO> getOrderInfo(
             @RequestParam("orderId") String orderId,
             @RequestParam("userId") Long userId
@@ -39,7 +40,7 @@ public class OrderUserController {
         return GlobalResult.success(orderVO);
     }
 
-    @PostMapping("/cancel")
+    @PostMapping(value = "/cancel", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<OrderVO> cancelOrder(
             @RequestParam("orderId") String orderId,
             @RequestParam("userId") Long userId
@@ -51,7 +52,7 @@ public class OrderUserController {
         return GlobalResult.success("订单取消请求提交成功", orderVO);
     }
 
-    @PostMapping("/delete")
+    @PostMapping(value = "/delete", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<OrderVO> deleteOrder(
             @RequestParam("orderId") String orderId,
             @RequestParam("userId") Long userId

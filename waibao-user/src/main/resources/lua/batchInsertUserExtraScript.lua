@@ -6,9 +6,7 @@
 -- batchInsertUserExtraScript UserExtraCacheService
 local key = KEYS[1]
 local userId
-if not (string.find(ARGV[1] , '"userId"') == nil) then
-    ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
-end
+ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
 for _ , userExtra in pairs(cjson.decode(ARGV[1])) do
     userId = userExtra['userId']
     for index , value in pairs(userExtra) do

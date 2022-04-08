@@ -48,7 +48,7 @@ public class PaymentDeleteConsumer implements MessageListenerConcurrently {
 
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
+                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
         convert(messageExtMap.values(), Payment.class)
                 .parallelStream()
                 .filter(payment -> logPaymentCacheService.hasConsumeTags(payment.getUserId(),payment.getPayId(),"delete"))

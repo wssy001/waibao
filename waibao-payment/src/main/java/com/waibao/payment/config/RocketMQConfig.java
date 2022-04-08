@@ -67,6 +67,15 @@ public class RocketMQConfig {
 
     @Bean
     @SneakyThrows
+    public DefaultMQProducer paymentCompensationMQProducer() {
+        DefaultMQProducer paymentCancel = new DefaultMQProducer("paymentCompensation");
+        paymentCancel.setNamesrvAddr(rocketMQProperties.getNameServer());
+        paymentCancel.start();
+        return paymentCancel;
+    }
+
+    @Bean
+    @SneakyThrows
     public DefaultMQPushConsumer paymentCancelDBBatchConsumer() {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(paymentCancelConsumer);
@@ -82,7 +91,7 @@ public class RocketMQConfig {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(paymentCreateConsumer);
         consumer.setConsumerGroup("paymentCreate");
-        consumer.subscribe("order", "create");
+        consumer.subscribe("payment", "create");
         consumer.start();
         return consumer;
     }

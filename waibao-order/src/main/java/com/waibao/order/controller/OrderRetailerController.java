@@ -5,6 +5,7 @@ import com.waibao.order.service.cache.OrderRetailerCacheService;
 import com.waibao.util.vo.GlobalResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -23,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderRetailerController {
     private final OrderRetailerCacheService orderRetailerCacheService;
 
-    @GetMapping("/info")
+    @GetMapping(value = "/info", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<OrderRetailer> getOrderInfo(
             @RequestParam("retailerId") Long retailerId,
             @RequestParam("orderId") String orderId

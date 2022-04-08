@@ -32,6 +32,6 @@ public enum RedisDBEnum {
     Rule(15, "规则"),
     RiskUser(15, "风险用户");
 
-    private int index;
-    private String desc;
+    private final int index;
+    private final String desc;
 }

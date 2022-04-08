@@ -1,5 +1,11 @@
 server:
   port: 33381
+  tomcat:
+    threads:
+      max: 600
+      min-spare: 75
+    accept-count: 750
+    max-connections: 7500
 
 spring:
   application:

@@ -37,7 +37,7 @@ public class RedisGoodsCanalConsumer implements MessageListenerConcurrently {
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
+                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
         List<RedisCommand> redisCommandList = messageExtMap.values()
                 .parallelStream()
                 .map(messageExt -> (JSONObject) JSON.parse(messageExt.getBody()))

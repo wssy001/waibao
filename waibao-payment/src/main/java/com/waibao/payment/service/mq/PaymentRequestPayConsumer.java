@@ -48,7 +48,7 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         ConcurrentHashMap<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getKeys(), messageExt));
+                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
         List<OrderVO> orderVOList = batchGetOrderVo(convert(messageExtMap.values(), OrderVO.class));
 
         Message message = new Message("storage", "update", JSON.toJSONBytes(orderVOList));

@@ -74,7 +74,7 @@ public class OrderUpdateConsumer implements MessageListenerConcurrently {
         return msgs.parallelStream()
                 .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
                 .peek(jsonObject -> {
-                    if (clazz == LogOrderGoods.class) jsonObject.put("topic", "update");
+                    if (clazz == LogOrderGoods.class) jsonObject.put("topic", "order");
                 })
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());

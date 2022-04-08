@@ -94,7 +94,10 @@ public class OrderCancelConsumer implements MessageListenerConcurrently {
                 .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
                 .peek(jsonObject -> jsonObject.put("status", "订单取消"))
                 .peek(jsonObject -> {
-                    if (clazz == LogOrderGoods.class) jsonObject.put("topic", "cancel");
+                    if (clazz == LogOrderGoods.class) {
+                        jsonObject.put("topic", "order");
+                        jsonObject.put("operation", "cancel");
+                    }
                 })
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());

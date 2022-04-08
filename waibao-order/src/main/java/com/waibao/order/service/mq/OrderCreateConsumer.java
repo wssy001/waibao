@@ -83,7 +83,10 @@ public class OrderCreateConsumer implements MessageListenerConcurrently {
                 .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
                 .peek(jsonObject -> jsonObject.put("status", "订单创建"))
                 .peek(jsonObject -> {
-                    if (clazz == LogOrderGoods.class) jsonObject.put("topic", "create");
+                    if (clazz == LogOrderGoods.class) {
+                        jsonObject.put("topic", "order");
+                        jsonObject.put("operation", "create");
+                    }
                 })
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());

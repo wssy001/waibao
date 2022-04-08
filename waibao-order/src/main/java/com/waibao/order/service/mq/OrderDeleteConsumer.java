@@ -84,7 +84,10 @@ public class OrderDeleteConsumer implements MessageListenerConcurrently {
                 .peek(jsonObject -> jsonObject.put("status", "订单删除"))
                 .peek(jsonObject -> jsonObject.put("enable", false))
                 .peek(jsonObject -> {
-                    if (clazz == LogOrderGoods.class) jsonObject.put("topic", "delete");
+                    if (clazz == LogOrderGoods.class) {
+                        jsonObject.put("topic", "order");
+                        jsonObject.put("operation", "delete");
+                    }
                 })
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());

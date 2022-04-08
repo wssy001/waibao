@@ -92,10 +92,10 @@ public class LogOrderGoods extends Model<LogOrderGoods> {
     private String status;
 
     /**
-     * 标签
+     * 操作
      */
     @TableField("tags")
-    private String tags;
+    private String operation;
 
 
     @Override

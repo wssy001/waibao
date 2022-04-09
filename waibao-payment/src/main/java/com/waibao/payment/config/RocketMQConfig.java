@@ -26,7 +26,7 @@ public class RocketMQConfig {
     private final PaymentUpdateConsumer paymentUpdateConsumer;
     private final RedisPaymentCanalConsumer redisPaymentCanalConsumer;
     private final PaymentTransactionListener paymentTransactionListener;
-
+    private final RedisLogPaymentCanalConsumer redisLogPaymentCanalConsumer;
 
     @Bean
     @SneakyThrows
@@ -127,6 +127,17 @@ public class RocketMQConfig {
         consumer.setConsumerGroup("paymentCanal");
         consumer.subscribe("waibao_payment_payment_0", "*");
         consumer.subscribe("waibao_payment_payment_1", "*");
+        consumer.start();
+        return consumer;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer logPaymentCanalBatchConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(redisLogPaymentCanalConsumer);
+        consumer.setConsumerGroup("logPaymentCanal");
+        consumer.subscribe("waibao_payment_log_payment", "*");
         consumer.start();
         return consumer;
     }

@@ -1,5 +1,6 @@
 package com.waibao.seckill.service.mq;
 
+import cn.hutool.core.util.IdUtil;
 import com.waibao.seckill.entity.MqMsgCompensation;
 import com.waibao.seckill.service.db.MqMsgCompensationService;
 import com.waibao.util.mq.SelectSingleMessageQueue;
@@ -22,14 +23,19 @@ import java.util.stream.Collectors;
  * @since 2022/3/4
  */
 @Slf4j
-@Async
 @Service
 @RequiredArgsConstructor
 public class AsyncMQMessage {
     private final MqMsgCompensationService mqMsgCompensationService;
 
+    @Async
     public void sendMessage(DefaultMQProducer producer, Message message) {
         String msgId = message.getKeys();
+        if (msgId == null) {
+            String keys = IdUtil.getSnowflakeNextIdStr();
+            message.setKeys(keys);
+            msgId = keys;
+        }
         SendResult send;
         try {
             send = producer.send(message, SelectSingleMessageQueue.selectFirst(producer, message.getTopic()));
@@ -48,6 +54,7 @@ public class AsyncMQMessage {
         }
     }
 
+    @Async
     public void sendDelayedMessage(DefaultMQProducer producer, Message message, int delayedLevel) {
         message.setTags(message.getTags() + "Check");
         message.setDelayTimeLevel(delayedLevel);
@@ -70,6 +77,7 @@ public class AsyncMQMessage {
         }
     }
 
+    @Async
     public void sendMessage(DefaultMQProducer producer, List<Message> messages) {
         messages.parallelStream()
                 .collect(Collectors.groupingBy(Message::getTopic))

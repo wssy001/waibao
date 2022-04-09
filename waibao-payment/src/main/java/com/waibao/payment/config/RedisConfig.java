@@ -51,6 +51,12 @@ public class RedisConfig {
     }
 
     @Bean
+    public RedisTemplate<String, Object> logPaymentRedisTemplate() {
+        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.LogPayment);
+        return getStringObjectRedisTemplate(lettuceConnectionFactory);
+    }
+
+    @Bean
     public RedisTemplate<String, Object> userCreditRedisTemplate() {
         LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.UserCredit);
         return getStringObjectRedisTemplate(lettuceConnectionFactory);

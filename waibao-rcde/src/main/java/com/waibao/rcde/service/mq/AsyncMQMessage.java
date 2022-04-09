@@ -29,13 +29,13 @@ import java.util.stream.Collectors;
  * @since 2022/3/4
  */
 @Slf4j
-@Async
 @Service
 @RequiredArgsConstructor
 public class AsyncMQMessage {
     private final Executor mqThreadPoolExecutor;
     private final MqMsgCompensationService mqMsgCompensationService;
 
+    @Async
     public Mono<Void> sendMessage(DefaultMQProducer producer, Message message) {
         if (message.getKeys() == null) message.setKeys(IdUtil.getSnowflakeNextIdStr());
         return Mono.fromFuture(CompletableFuture.supplyAsync(() -> {
@@ -51,6 +51,7 @@ public class AsyncMQMessage {
                 .then();
     }
 
+    @Async
     public Mono<Void> sendMessage(DefaultMQProducer producer, Map<String, List<Message>> map) {
         return Flux.fromIterable(map.values())
                 .doOnNext(sameTopicList -> {

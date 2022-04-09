@@ -1,5 +1,6 @@
 package com.waibao.payment.service.mq;
 
+import cn.hutool.core.util.IdUtil;
 import com.waibao.payment.entity.MqMsgCompensation;
 import com.waibao.payment.service.db.MqMsgCompensationService;
 import com.waibao.util.mq.SelectSingleMessageQueue;
@@ -28,6 +29,11 @@ public class AsyncMQMessage {
     @Async
     public void sendMessage(DefaultMQProducer producer, Message message) {
         String msgId = message.getKeys();
+        if (msgId == null) {
+            String keys = IdUtil.getSnowflakeNextIdStr();
+            message.setKeys(keys);
+            msgId = keys;
+        }
         SendResult send;
         try {
             send = producer.send(message, SelectSingleMessageQueue.selectFirst(producer, message.getTopic()));
@@ -157,7 +163,6 @@ public class AsyncMQMessage {
                 });
     }
 
-    @Async
     private void sendMqMsgCompensation(List<Message> messages, String exceptionMsg) {
         List<MqMsgCompensation> collect = messages.parallelStream()
                 .map(message -> {
@@ -181,7 +186,6 @@ public class AsyncMQMessage {
         }
     }
 
-    @Async
     private void sendMqMsgCompensation(Message message, String exceptionMsg) {
         MqMsgCompensation mqMsgCompensation = new MqMsgCompensation();
         mqMsgCompensation.setTags(message.getTags());

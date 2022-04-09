@@ -6,12 +6,10 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.payment.entity.LogPayment;
 import com.waibao.payment.entity.MqMsgCompensation;
 import com.waibao.payment.entity.Payment;
-import com.waibao.payment.entity.UserCredit;
 import com.waibao.payment.mapper.MqMsgCompensationMapper;
 import com.waibao.payment.service.cache.LogPaymentCacheService;
-import com.waibao.payment.service.cache.UserCreditCacheService;
+import com.waibao.payment.service.cache.PaymentCacheService;
 import com.waibao.payment.service.db.LogPaymentService;
-import com.waibao.payment.service.db.PaymentService;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.vo.payment.PaymentVO;
 import lombok.RequiredArgsConstructor;
@@ -37,17 +35,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PaymentCreateConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
-    private final PaymentService paymentService;
     private final LogPaymentService logPaymentService;
+    private final PaymentCacheService paymentCacheService;
     private final LogPaymentCacheService logPaymentCacheService;
-    private final UserCreditCacheService userCreditCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(msgs, PaymentVO.class), "create");
 
-        asyncService.basicTask(() -> paymentService.saveBatch(convert(paymentVOList, Payment.class)));
+        asyncService.basicTask(() -> paymentCacheService.batchSet(convert(paymentVOList, Payment.class)));
         asyncService.basicTask(() -> logPaymentService.saveBatch(convert(paymentVOList, LogPayment.class)));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
@@ -58,7 +55,9 @@ public class PaymentCreateConsumer implements MessageListenerConcurrently {
 
     private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
         return msgs.parallelStream()
-                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), clazz))
+                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
+                .peek(jsonObject -> jsonObject.put("money", jsonObject.getBigDecimal("orderPrice")))
+                .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());
     }
 
@@ -74,11 +73,6 @@ public class PaymentCreateConsumer implements MessageListenerConcurrently {
                 })
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());
-    }
-
-    private void batchStoreCache(List<UserCredit> userCredits) {
-        userCredits.parallelStream()
-                .forEach(userCreditCacheService::set);
     }
 
 }

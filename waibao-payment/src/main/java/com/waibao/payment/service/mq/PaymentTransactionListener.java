@@ -4,14 +4,13 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.waibao.payment.entity.LogPayment;
-import com.waibao.payment.entity.LogUserCredit;
-import com.waibao.payment.entity.MqMsgCompensation;
-import com.waibao.payment.entity.UserCredit;
+import com.waibao.payment.entity.*;
 import com.waibao.payment.mapper.MqMsgCompensationMapper;
 import com.waibao.payment.mapper.UserCreditMapper;
+import com.waibao.payment.service.cache.PaymentCacheService;
 import com.waibao.payment.service.cache.UserCreditCacheService;
 import com.waibao.payment.service.db.LogUserCreditService;
+import com.waibao.payment.service.db.PaymentService;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +42,9 @@ import java.util.stream.Collectors;
 public class PaymentTransactionListener implements TransactionListener {
     private final AsyncService asyncService;
     private final AsyncMQMessage asyncMQMessage;
+    private final PaymentService paymentService;
     private final UserCreditMapper userCreditMapper;
+    private final PaymentCacheService paymentCacheService;
     private final LogUserCreditService logUserCreditService;
     private final UserCreditCacheService userCreditCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
@@ -90,9 +91,10 @@ public class PaymentTransactionListener implements TransactionListener {
                     .eq(MqMsgCompensation::getMsgId, keys)
                     .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
 
+            List<Payment> paymentList = paymentCacheService.batchGet(orderVOList.stream().map(OrderVO::getPayId).collect(Collectors.toList()));
+            asyncService.basicTask(() -> paymentService.saveBatch(paymentList));
             transactionRedisTemplate.opsForSet()
                     .add("payment-transaction", transactionId + "-" + keys);
-
             return LocalTransactionState.COMMIT_MESSAGE;
         } catch (Exception e) {
             log.error("******PaymentTransactionListener.executeLocalTransaction：消息id：{} 事务id：{} 出错 原因：{} 处理：回查", keys, transactionId, e.getMessage());
@@ -137,18 +139,15 @@ public class PaymentTransactionListener implements TransactionListener {
                     .eq(MqMsgCompensation::getMsgId, keys)
                     .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
 
+            List<Payment> paymentList = paymentCacheService.batchGet(orderVOList.stream().map(OrderVO::getPayId).collect(Collectors.toList()));
+            asyncService.basicTask(() -> paymentService.saveBatch(paymentList));
             transactionRedisTemplate.opsForSet()
                     .add("payment-transaction", transactionId + "-" + keys);
-
             return LocalTransactionState.COMMIT_MESSAGE;
         } catch (Exception e) {
             log.error("******PaymentTransactionListener.checkLocalTransaction：消息id：{} 事务id：{} 出错 原因：{} 处理：回滚", keys, transactionId, e.getMessage());
             return LocalTransactionState.ROLLBACK_MESSAGE;
         }
-    }
-
-    private void rollback(Message msg) {
-        asyncMQMessage.sendMessage(paymentCancelMQProducer, msg);
     }
 
     private <T> List<T> convert(Message message, Class<T> clazz) {

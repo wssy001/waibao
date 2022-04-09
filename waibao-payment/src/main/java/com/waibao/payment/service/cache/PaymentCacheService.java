@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -112,10 +113,11 @@ public class PaymentCacheService {
     }
 
     public void batchSet(List<Payment> paymentList) {
-        paymentList.stream()
-                .peek(payment -> paymentCache.put(payment.getPayId(), payment))
-                .map(Payment::getPayId)
-                .forEach(bloomFilter::put);
+        Map<String, Payment> collect = paymentList.stream()
+                .peek(payment -> bloomFilter.put(payment.getPayId()))
+                .collect(Collectors.toMap(Payment::getPayId, Function.identity()));
+        paymentCache.asMap()
+                        .putAll(collect);
 
         paymentRedisTemplate.execute(batchInsertPayment, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(paymentList));
     }

@@ -14,6 +14,7 @@ import com.waibao.util.async.AsyncService;
 import com.waibao.util.vo.order.OrderVO;
 import com.waibao.util.vo.payment.PaymentVO;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
@@ -21,6 +22,8 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -40,12 +43,14 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
     private final AsyncMQMessage asyncMQMessage;
     private final LogPaymentService logPaymentService;
-    private final DefaultMQProducer paymentPayMQProducer;
     private final OrderUserCacheService orderUserCacheService;
     private final LogPaymentCacheService logPaymentCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
 
+    private DefaultMQProducer paymentPayMQProducer;
+
     @Override
+    @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(msgs, PaymentVO.class), "requestPay");
         List<OrderVO> orderVOList = orderUserCacheService.batchGetOrderVO(paymentVOList);
@@ -54,7 +59,7 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
         Message message = new Message("storage", "update", JSON.toJSONBytes(orderVOList));
         message.setTransactionId(IdUtil.objectId());
         asyncMQMessage.sendMessageInTransaction(paymentPayMQProducer, message);
-        asyncService.basicTask(() -> logPaymentService.saveBatch(convert(msgs, LogPayment.class)));
+        asyncService.basicTask(() -> logPaymentService.saveBatch(convert(paymentVOList, LogPayment.class)));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
@@ -90,4 +95,10 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
 //                .multiGet(keyList);
 //    }
 
+
+    @Lazy
+    @Autowired
+    public void setPaymentPayMQProducer(DefaultMQProducer paymentPayMQProducer) {
+        this.paymentPayMQProducer = paymentPayMQProducer;
+    }
 }

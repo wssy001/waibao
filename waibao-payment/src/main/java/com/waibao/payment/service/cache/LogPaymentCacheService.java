@@ -56,6 +56,7 @@ public class LogPaymentCacheService {
         List<PaymentVO> temp = paymentVOList.parallelStream()
                 .filter(paymentVO -> !bloomFilter.mightContain(paymentVO.getPayId() + operation))
                 .collect(Collectors.toList());
+        if (temp.size() == paymentVOList.size()) return temp;
 
         String execute = logPaymentRedisTemplate.execute(batchCheckPaymentOperation, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(paymentVOList), operation);
         if (!"{}".equals(execute)) temp.addAll(JSONArray.parseArray(execute, PaymentVO.class));

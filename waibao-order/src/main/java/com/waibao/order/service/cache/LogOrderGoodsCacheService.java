@@ -6,6 +6,7 @@ import com.google.common.hash.Funnels;
 import com.waibao.util.base.RedisCommand;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
  * @author alexpetertyler
  * @since 2022/2/28
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class LogOrderGoodsCacheService {

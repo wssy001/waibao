@@ -24,6 +24,7 @@ public class RocketMQConfig {
     private final PaymentCreateConsumer paymentCreateConsumer;
     private final PaymentDeleteConsumer paymentDeleteConsumer;
     private final PaymentUpdateConsumer paymentUpdateConsumer;
+    private final PaymentRequestPayConsumer paymentRequestPayConsumer;
     private final RedisPaymentCanalConsumer redisPaymentCanalConsumer;
     private final PaymentTransactionListener paymentTransactionListener;
     private final RedisLogPaymentCanalConsumer redisLogPaymentCanalConsumer;
@@ -118,6 +119,16 @@ public class RocketMQConfig {
         return consumer;
     }
 
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer paymentRequestPayBatchConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(paymentRequestPayConsumer);
+        consumer.setConsumerGroup("paymentRequestPay");
+        consumer.subscribe("payment", "requestPay");
+        consumer.start();
+        return consumer;
+    }
 
     @Bean
     @SneakyThrows

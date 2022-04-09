@@ -9,6 +9,7 @@ local operation = ARGV[2]
 local goodsId
 local orderId
 local orderVOList = {}
+ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
 for _ , orderVO in pairs(cjson.decode(ARGV[1])) do
     goodsId = orderVO['goodsId']
     orderId = orderVO['orderId']

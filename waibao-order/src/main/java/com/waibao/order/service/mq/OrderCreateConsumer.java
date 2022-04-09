@@ -58,8 +58,8 @@ public class OrderCreateConsumer implements MessageListenerConcurrently {
         }
 
         List<OrderUser> orderUsers = orderUsersFuture.get();
-        List<OrderRetailer> orderRetailers = orderRetailersFuture.get();
         List<LogOrderGoods> logOrderGoods = logOrderGoodsFuture.get();
+        List<OrderRetailer> orderRetailers = orderRetailersFuture.get();
 
         asyncService.basicTask(() -> orderUserService.saveBatch(orderUsers));
         asyncService.basicTask(() -> logOrderGoodsService.saveBatch(logOrderGoods));

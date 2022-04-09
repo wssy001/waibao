@@ -15,9 +15,9 @@ import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * OrderUserCacheService
@@ -53,13 +53,20 @@ public class LogOrderGoodsCacheService {
     }
 
     public List<OrderVO> batchCheckNotConsumedTags(List<OrderVO> orderVOList, String operation) {
-        List<OrderVO> temp = orderVOList.parallelStream()
-                .filter(orderVO -> !bloomFilter.mightContain(orderVO.getOrderId() + operation))
-                .collect(Collectors.toList());
+        List<OrderVO> mightContain = new ArrayList<>();
+        List<OrderVO> result = new ArrayList<>();
+        orderVOList.forEach(orderVO -> {
+            if (bloomFilter.mightContain(orderVO.getOrderId() + operation)) {
+                mightContain.add(orderVO);
+            } else {
+                result.add(orderVO);
+            }
+        });
+        if (mightContain.isEmpty()) return result;
 
-        String execute = logOrderUserRedisTemplate.execute(batchCheckLogOrderGoodsOperation, Collections.singletonList(REDIS_LOG_ORDER_GOODS_KEY_PREFIX), JSONArray.toJSONString(orderVOList), operation);
-        if (!"{}".equals(execute)) temp.addAll(JSONArray.parseArray(execute, OrderVO.class));
-        return temp;
+        String execute = logOrderUserRedisTemplate.execute(batchCheckLogOrderGoodsOperation, Collections.singletonList(REDIS_LOG_ORDER_GOODS_KEY_PREFIX), JSONArray.toJSONString(mightContain), operation);
+        if (!"{}".equals(execute)) result.addAll(JSONArray.parseArray(execute, OrderVO.class));
+        return result;
     }
 
     public void putToBloomFilter(String orderId, String operation) {

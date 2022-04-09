@@ -1,9 +1,12 @@
 package com.waibao.order.service.mq;
 
 import com.alibaba.fastjson.JSON;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.order.entity.LogOrderGoods;
+import com.waibao.order.entity.MqMsgCompensation;
 import com.waibao.order.entity.OrderRetailer;
 import com.waibao.order.entity.OrderUser;
+import com.waibao.order.mapper.MqMsgCompensationMapper;
 import com.waibao.order.service.cache.LogOrderGoodsCacheService;
 import com.waibao.order.service.db.LogOrderGoodsService;
 import com.waibao.order.service.db.OrderRetailerService;
@@ -40,6 +43,7 @@ public class OrderUpdateConsumer implements MessageListenerConcurrently {
     private final OrderUserService orderUserService;
     private final LogOrderGoodsService logOrderGoodsService;
     private final OrderRetailerService orderRetailerService;
+    private final MqMsgCompensationMapper mqMsgCompensationMapper;
     private final LogOrderGoodsCacheService logOrderGoodsCacheService;
 
     @Override
@@ -68,6 +72,10 @@ public class OrderUpdateConsumer implements MessageListenerConcurrently {
         asyncService.basicTask(() -> orderUserService.updateBatchById(orderUsers));
         asyncService.basicTask(() -> orderRetailerService.updateBatchById(orderRetailers));
         asyncService.basicTask(() -> logOrderGoodsService.saveBatch(logOrderGoods));
+        asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
+                Wrappers.<MqMsgCompensation>lambdaUpdate()
+                        .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
+                        .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 

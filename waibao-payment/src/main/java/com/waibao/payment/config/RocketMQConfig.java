@@ -91,7 +91,7 @@ public class RocketMQConfig {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(paymentCreateConsumer);
         consumer.setConsumerGroup("paymentCreate");
-        consumer.subscribe("payment", "create");
+        consumer.subscribe("order", "create");
         consumer.start();
         return consumer;
     }

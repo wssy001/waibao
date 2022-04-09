@@ -66,25 +66,14 @@ public class OrderDeleteConsumer implements MessageListenerConcurrently {
         asyncService.basicTask(() -> logOrderGoodsService.saveBatch(logOrderGoods));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
-                        .in(MqMsgCompensation::getMsgId, orderVOList.stream()
-                                .map(OrderVO::getOrderId)
-                                .collect(Collectors.toList()))
+                        .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
                         .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
     private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
         return msgs.parallelStream()
-                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
-                .peek(jsonObject -> jsonObject.put("status", "订单删除"))
-                .peek(jsonObject -> jsonObject.put("enable", false))
-                .peek(jsonObject -> {
-                    if (clazz == LogOrderGoods.class) {
-                        jsonObject.put("topic", "order");
-                        jsonObject.put("operation", "delete");
-                    }
-                })
-                .map(jsonObject -> jsonObject.toJavaObject(clazz))
+                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()),clazz))
                 .collect(Collectors.toList());
     }
 

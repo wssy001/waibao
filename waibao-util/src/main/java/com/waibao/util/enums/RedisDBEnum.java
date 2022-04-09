@@ -21,7 +21,6 @@ public enum RedisDBEnum {
     Goods(5, "商品"),
     OrderRetailer(6, "订单|商户"),
     OrderUser(7, "订单|用户"),
-    OrderGoods(8, "订单|商品"),
     Payment(9, "支付"),
     UserCredit(10, "用户积分"),
     User(11, "用户"),

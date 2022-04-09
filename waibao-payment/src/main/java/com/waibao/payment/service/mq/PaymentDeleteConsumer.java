@@ -1,6 +1,7 @@
 package com.waibao.payment.service.mq;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.payment.entity.LogPayment;
 import com.waibao.payment.entity.MqMsgCompensation;
@@ -10,6 +11,7 @@ import com.waibao.payment.service.cache.LogPaymentCacheService;
 import com.waibao.payment.service.db.LogPaymentService;
 import com.waibao.payment.service.db.PaymentService;
 import com.waibao.util.async.AsyncService;
+import com.waibao.util.vo.payment.PaymentVO;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -21,8 +23,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
@@ -39,24 +39,16 @@ public class PaymentDeleteConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
     private final PaymentService paymentService;
     private final LogPaymentService logPaymentService;
-    private final MqMsgCompensationMapper mqMsgCompensationMapper;
     private final LogPaymentCacheService logPaymentCacheService;
+    private final MqMsgCompensationMapper mqMsgCompensationMapper;
 
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
+        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(msgs, PaymentVO.class), "delete");
 
-        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
-        msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        convert(messageExtMap.values(), Payment.class)
-                .parallelStream()
-                .filter(payment -> logPaymentCacheService.hasConsumeTags(payment.getUserId(),payment.getPayId(),"delete"))
-                .map(Payment::getUserId)
-                .forEach(messageExtMap::remove);
-
-        Future<List<Payment>> paymentFuture = asyncService.basicTask(convert(messageExtMap.values(), Payment.class));
-        Future<List<LogPayment>> logPaymentFuture = asyncService.basicTask(convert(messageExtMap.values(), LogPayment.class));
+        Future<List<Payment>> paymentFuture = asyncService.basicTask(convert(paymentVOList, Payment.class));
+        Future<List<LogPayment>> logPaymentFuture = asyncService.basicTask(convert(paymentVOList, LogPayment.class));
         while (true) {
             if (paymentFuture.isDone() && logPaymentFuture.isDone()) break;
         }
@@ -68,17 +60,26 @@ public class PaymentDeleteConsumer implements MessageListenerConcurrently {
         asyncService.basicTask(() -> logPaymentService.updateBatchById(logPayments));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
-                        .in(MqMsgCompensation::getMsgId, messageExtMap.keySet())
+                        .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
                         .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
+
     private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
         return msgs.parallelStream()
-                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
+                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), clazz))
+                .collect(Collectors.toList());
+    }
+
+    private <T> List<T> convert(List<PaymentVO> paymentVOList, Class<T> clazz) {
+        return paymentVOList.parallelStream()
+                .map(paymentVO -> (JSONObject) JSON.toJSON(paymentVO))
                 .peek(jsonObject -> jsonObject.put("status", "支付删除"))
-                .peek(jsonObject -> jsonObject.put("enable", false))
                 .peek(jsonObject -> {
-                    if (clazz == LogPayment.class) jsonObject.put("topic", "delete");
+                    if (clazz == LogPayment.class) {
+                        jsonObject.put("topic", "payment");
+                        jsonObject.put("operation", "delete");
+                    }
                 })
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());

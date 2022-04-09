@@ -37,16 +37,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PaymentUpdateConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
-    private final AsyncMQMessage asyncMQMessage;
-    private final LogPaymentCacheService logPaymentCacheService;
     private final PaymentService paymentService;
     private final LogPaymentService logPaymentService;
+    private final LogPaymentCacheService logPaymentCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
 
     @SneakyThrows
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
@@ -55,9 +53,9 @@ public class PaymentUpdateConsumer implements MessageListenerConcurrently {
                 .filter(payment -> logPaymentCacheService.hasConsumeTags(payment.getUserId(), payment.getPayId(), "update"))
                 .map(Payment::getOrderId)
                 .forEach(messageExtMap::remove);
+
         Future<List<Payment>> paymentFuture = asyncService.basicTask(convert(messageExtMap.values(), Payment.class));
         Future<List<LogPayment>> logPaymentFuture = asyncService.basicTask(convert(messageExtMap.values(), LogPayment.class));
-
         while (true) {
             if (paymentFuture.isDone() && logPaymentFuture.isDone()) break;
         }
@@ -65,14 +63,19 @@ public class PaymentUpdateConsumer implements MessageListenerConcurrently {
         List<Payment> payments = paymentFuture.get();
         List<LogPayment> logPayments = logPaymentFuture.get();
         asyncService.basicTask(() -> paymentService.updateBatchById(payments));
-        asyncService.basicTask(()->logPaymentService.saveBatch(logPayments));
+        asyncService.basicTask(() -> logPaymentService.saveBatch(logPayments));
+        asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
+                Wrappers.<MqMsgCompensation>lambdaUpdate()
+                        .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
+                        .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
+
     private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
         return msgs.parallelStream()
                 .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
                 .peek(jsonObject -> {
-                    if (clazz == LogPayment.class) jsonObject.put("topic", "update");
+                    if (clazz == LogPayment.class) jsonObject.put("topic", "payment");
                 })
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());

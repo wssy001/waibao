@@ -59,12 +59,12 @@ public class RedisLogOrderGoodsCanalConsumer implements MessageListenerConcurren
                     switch (jsonObject.getString("type")) {
                         case "INSERT":
                             redisCommand.setCommand("INSERT");
-                            logOrderGoodsCacheService.putToBloomFilter(jsonObject.getString("orderId"), jsonObject.getString("status"));
+                            logOrderGoodsCacheService.putToBloomFilter(jsonObject.getString("orderId"), jsonObject.getString("operation"));
                             break;
                         case "UPDATE":
                             redisCommand.setCommand("UPDATE");
                             redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(LogOrderGoods.class));
-                            logOrderGoodsCacheService.putToBloomFilter(((JSONObject) v).getString("orderId"), ((JSONObject) v).getString("status"));
+                            logOrderGoodsCacheService.putToBloomFilter(((JSONObject) v).getString("orderId"), ((JSONObject) v).getString("operation"));
                             break;
                         case "DELETE":
                             redisCommand.setCommand("DELETE");

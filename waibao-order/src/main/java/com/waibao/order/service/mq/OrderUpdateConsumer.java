@@ -9,6 +9,7 @@ import com.waibao.order.service.db.LogOrderGoodsService;
 import com.waibao.order.service.db.OrderRetailerService;
 import com.waibao.order.service.db.OrderUserService;
 import com.waibao.util.async.AsyncService;
+import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -47,10 +48,10 @@ public class OrderUpdateConsumer implements MessageListenerConcurrently {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        convert(messageExtMap.values(), OrderUser.class)
+        convert(messageExtMap.values(), OrderVO.class)
                 .parallelStream()
-                .filter(orderUser -> logOrderGoodsCacheService.hasConsumedTags(orderUser.getGoodsId(), orderUser.getOrderId(), "update"))
-                .map(OrderUser::getOrderId)
+                .filter(orderVO -> logOrderGoodsCacheService.checkWhetherConsumedTags(orderVO.getGoodsId(), orderVO.getOrderId(), "update"))
+                .map(OrderVO::getOrderId)
                 .forEach(messageExtMap::remove);
 
         Future<List<OrderUser>> orderUsersFuture = asyncService.basicTask(convert(messageExtMap.values(), OrderUser.class));

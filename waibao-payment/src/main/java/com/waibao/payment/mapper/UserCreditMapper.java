@@ -1,7 +1,11 @@
 package com.waibao.payment.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.waibao.payment.entity.LogUserCredit;
 import com.waibao.payment.entity.UserCredit;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
 
 /**
  * <p>
@@ -13,4 +17,5 @@ import com.waibao.payment.entity.UserCredit;
  */
 public interface UserCreditMapper extends BaseMapper<UserCredit> {
 
+    void batchUpdateByIdAndOldMoney(@Param("logUserCreditList") List<LogUserCredit> logUserCreditList);
 }

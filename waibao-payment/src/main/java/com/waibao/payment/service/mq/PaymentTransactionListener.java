@@ -2,19 +2,20 @@ package com.waibao.payment.service.mq;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.waibao.payment.entity.*;
+import com.waibao.payment.entity.LogPayment;
+import com.waibao.payment.entity.LogUserCredit;
+import com.waibao.payment.entity.MqMsgCompensation;
+import com.waibao.payment.entity.UserCredit;
 import com.waibao.payment.mapper.MqMsgCompensationMapper;
 import com.waibao.payment.mapper.UserCreditMapper;
 import com.waibao.payment.service.cache.PaymentCacheService;
 import com.waibao.payment.service.cache.UserCreditCacheService;
 import com.waibao.payment.service.db.LogUserCreditService;
-import com.waibao.payment.service.db.PaymentService;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.LocalTransactionState;
@@ -28,6 +29,8 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 /**
@@ -42,7 +45,6 @@ import java.util.stream.Collectors;
 public class PaymentTransactionListener implements TransactionListener {
     private final AsyncService asyncService;
     private final AsyncMQMessage asyncMQMessage;
-    private final PaymentService paymentService;
     private final UserCreditMapper userCreditMapper;
     private final PaymentCacheService paymentCacheService;
     private final LogUserCreditService logUserCreditService;
@@ -68,31 +70,51 @@ public class PaymentTransactionListener implements TransactionListener {
         }
 
         try {
-            List<OrderVO> orderVOList = convert(msg, OrderVO.class);
-            List<LogUserCredit> logUserCredits = userCreditCacheService.batchDecreaseUserCredit(orderVOList, LogUserCredit.class);
+            List<JSONObject> jsonObjectList = userCreditCacheService.batchDecreaseUserCredit(convert(msg, OrderVO.class));
+
+            Future<List<OrderVO>> orderVoFuture = asyncService.basicTask(jsonObjectList.stream()
+                    .map(jsonObject -> jsonObject.toJavaObject(OrderVO.class))
+                    .collect(Collectors.toList()));
+            Future<List<UserCredit>> userCreditFuture = asyncService.basicTask(jsonObjectList.stream()
+                    .map(jsonObject -> jsonObject.toJavaObject(UserCredit.class))
+                    .collect(Collectors.toList()));
+            Future<List<LogUserCredit>> logUserCreditFuture = asyncService.basicTask(jsonObjectList.stream()
+                    .map(jsonObject -> jsonObject.toJavaObject(LogUserCredit.class))
+                    .collect(Collectors.toList()));
+            Future<List<Message>> messageListFuture = asyncService.basicTask(jsonObjectList.stream()
+                    .map(jsonObject -> new Message("order", "update", jsonObject.getString("orderId"), jsonObject.toJSONString().getBytes()))
+                    .collect(Collectors.toList()));
+            while (true) {
+                if (orderVoFuture.isDone() && logUserCreditFuture.isDone() && messageListFuture.isDone() && userCreditFuture.isDone())
+                    break;
+            }
+
+            List<UserCredit> userCredits = userCreditFuture.get();
+            List<LogUserCredit> logUserCredits = logUserCreditFuture.get();
+            asyncService.basicTask(() -> userCreditCacheService.batchSet(userCredits));
             asyncService.basicTask(() -> logUserCreditService.saveBatch(logUserCredits));
-
-            List<Message> messageList = userCreditCacheService.batchDecreaseUserCredit(orderVOList, OrderVO.class)
-                    .parallelStream()
-                    .map(orderVO -> new Message("order", "update", orderVO.getOrderId(), JSON.toJSONBytes(orderVO)))
-                    .collect(Collectors.toList());
-            LambdaUpdateWrapper<UserCredit> userCreditLambdaUpdateWrapper = Wrappers.lambdaUpdate();
-            asyncService.basicTask(() -> logUserCredits.forEach(logUserCredit -> {
-                userCreditLambdaUpdateWrapper.clear();
-                userCreditMapper.update(null, userCreditLambdaUpdateWrapper
-                        .eq(UserCredit::getUserId, logUserCredit.getUserId())
-                        .eq(UserCredit::getMoney, logUserCredit.getOldMoney())
-                        .set(UserCredit::getMoney, logUserCredit.getMoney())
-                );
-            }));
-
-            asyncMQMessage.sendMessage(paymentUpdateMQProducer, messageList);
+            asyncMQMessage.sendMessage(paymentUpdateMQProducer, messageListFuture.get());
             asyncService.basicTask(() -> mqMsgCompensationMapper.update(null, Wrappers.<MqMsgCompensation>lambdaUpdate()
                     .eq(MqMsgCompensation::getMsgId, keys)
                     .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
 
-            List<Payment> paymentList = paymentCacheService.batchGet(orderVOList.stream().map(OrderVO::getPayId).collect(Collectors.toList()));
-            asyncService.basicTask(() -> paymentService.saveBatch(paymentList));
+            CopyOnWriteArrayList<LogUserCredit> paidLogUserCreditList = new CopyOnWriteArrayList<>();
+            CopyOnWriteArrayList<Message> unpaidPaymentList = new CopyOnWriteArrayList<>();
+
+            logUserCredits.parallelStream()
+                    .forEach(logUserCredit -> {
+                        if (logUserCredit.getOperation().equals("paid")) {
+                            paidLogUserCreditList.add(logUserCredit);
+                        } else {
+                            String payId = logUserCredit.getPayId();
+                            unpaidPaymentList.add(new Message("payment", "cancel", payId, JSON.toJSONBytes(paymentCacheService.get(payId))));
+                        }
+                    });
+
+            if (!paidLogUserCreditList.isEmpty())
+                asyncService.basicTask(() -> userCreditMapper.batchUpdateByIdAndOldMoney(paidLogUserCreditList));
+            if (!unpaidPaymentList.isEmpty()) asyncMQMessage.sendMessage(paymentCancelMQProducer, unpaidPaymentList);
+
             transactionRedisTemplate.opsForSet()
                     .add("payment-transaction", transactionId + "-" + keys);
             return LocalTransactionState.COMMIT_MESSAGE;
@@ -103,7 +125,6 @@ public class PaymentTransactionListener implements TransactionListener {
     }
 
     @Override
-    @SneakyThrows
     public LocalTransactionState checkLocalTransaction(MessageExt msg) {
         String transactionId = msg.getTransactionId();
         String keys = msg.getKeys();
@@ -116,31 +137,51 @@ public class PaymentTransactionListener implements TransactionListener {
         }
 
         try {
-            List<OrderVO> orderVOList = convert(msg, OrderVO.class);
-            List<LogUserCredit> logUserCredits = userCreditCacheService.batchDecreaseUserCredit(orderVOList, LogUserCredit.class);
+            List<JSONObject> jsonObjectList = userCreditCacheService.batchDecreaseUserCredit(convert(msg, OrderVO.class));
+
+            Future<List<OrderVO>> orderVoFuture = asyncService.basicTask(jsonObjectList.stream()
+                    .map(jsonObject -> jsonObject.toJavaObject(OrderVO.class))
+                    .collect(Collectors.toList()));
+            Future<List<UserCredit>> userCreditFuture = asyncService.basicTask(jsonObjectList.stream()
+                    .map(jsonObject -> jsonObject.toJavaObject(UserCredit.class))
+                    .collect(Collectors.toList()));
+            Future<List<LogUserCredit>> logUserCreditFuture = asyncService.basicTask(jsonObjectList.stream()
+                    .map(jsonObject -> jsonObject.toJavaObject(LogUserCredit.class))
+                    .collect(Collectors.toList()));
+            Future<List<Message>> messageListFuture = asyncService.basicTask(jsonObjectList.stream()
+                    .map(jsonObject -> new Message("order", "update", jsonObject.getString("orderId"), jsonObject.toJSONString().getBytes()))
+                    .collect(Collectors.toList()));
+            while (true) {
+                if (orderVoFuture.isDone() && logUserCreditFuture.isDone() && messageListFuture.isDone() && userCreditFuture.isDone())
+                    break;
+            }
+
+            List<UserCredit> userCredits = userCreditFuture.get();
+            List<LogUserCredit> logUserCredits = logUserCreditFuture.get();
+            asyncService.basicTask(() -> userCreditCacheService.batchSet(userCredits));
             asyncService.basicTask(() -> logUserCreditService.saveBatch(logUserCredits));
-
-            List<Message> messageList = userCreditCacheService.batchDecreaseUserCredit(orderVOList, OrderVO.class)
-                    .parallelStream()
-                    .map(orderVO -> new Message("order", "update", orderVO.getOrderId(), JSON.toJSONBytes(orderVO)))
-                    .collect(Collectors.toList());
-            LambdaUpdateWrapper<UserCredit> userCreditLambdaUpdateWrapper = Wrappers.lambdaUpdate();
-            asyncService.basicTask(() -> logUserCredits.forEach(logUserCredit -> {
-                userCreditLambdaUpdateWrapper.clear();
-                userCreditMapper.update(null, userCreditLambdaUpdateWrapper
-                        .eq(UserCredit::getUserId, logUserCredit.getUserId())
-                        .eq(UserCredit::getMoney, logUserCredit.getOldMoney())
-                        .set(UserCredit::getMoney, logUserCredit.getMoney())
-                );
-            }));
-
-            asyncMQMessage.sendMessage(paymentUpdateMQProducer, messageList);
+            asyncMQMessage.sendMessage(paymentUpdateMQProducer, messageListFuture.get());
             asyncService.basicTask(() -> mqMsgCompensationMapper.update(null, Wrappers.<MqMsgCompensation>lambdaUpdate()
                     .eq(MqMsgCompensation::getMsgId, keys)
                     .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
 
-            List<Payment> paymentList = paymentCacheService.batchGet(orderVOList.stream().map(OrderVO::getPayId).collect(Collectors.toList()));
-            asyncService.basicTask(() -> paymentService.saveBatch(paymentList));
+            CopyOnWriteArrayList<LogUserCredit> paidLogUserCreditList = new CopyOnWriteArrayList<>();
+            CopyOnWriteArrayList<Message> unpaidPaymentList = new CopyOnWriteArrayList<>();
+
+            logUserCredits.parallelStream()
+                    .forEach(logUserCredit -> {
+                        if (logUserCredit.getOperation().equals("paid")) {
+                            paidLogUserCreditList.add(logUserCredit);
+                        } else {
+                            String payId = logUserCredit.getPayId();
+                            unpaidPaymentList.add(new Message("payment", "cancel", payId, JSON.toJSONBytes(paymentCacheService.get(payId))));
+                        }
+                    });
+
+            if (!paidLogUserCreditList.isEmpty())
+                asyncService.basicTask(() -> userCreditMapper.batchUpdateByIdAndOldMoney(paidLogUserCreditList));
+            if (!unpaidPaymentList.isEmpty()) asyncMQMessage.sendMessage(paymentCancelMQProducer, unpaidPaymentList);
+
             transactionRedisTemplate.opsForSet()
                     .add("payment-transaction", transactionId + "-" + keys);
             return LocalTransactionState.COMMIT_MESSAGE;

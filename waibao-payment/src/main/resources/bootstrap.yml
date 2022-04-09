@@ -16,3 +16,6 @@ spring:
       config:
         namespace: waibao
         extension-configs: application.yml,${spring.application.name}.yml
+
+mybatis-plus:
+  mapper-locations: classpath:mybatis/*.xml

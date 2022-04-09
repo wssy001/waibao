@@ -22,7 +22,6 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -48,19 +47,21 @@ public class UserCreditCacheService {
     private RedisTemplate<String, String> userCreditRedisTemplate;
 
     private RedisScript<String> canalSync;
-    private RedisScript<String> getUserCredit;
     private BloomFilter<Long> bloomFilter;
+    private RedisScript<String> getUserCredit;
     private RedisScript<String> insertUserCredit;
     private RedisScript<String> batchGetUserCredit;
+    private RedisScript<String> batchDecreaseCredit;
     private Cache<Long, UserCredit> userCreditCache;
     private RedisScript<String> batchInsertUserCredit;
 
     @PostConstruct
     public void init() {
         getUserCredit = RedisScript.of(new ClassPathResource("lua/getUserCreditScript.lua"), String.class);
-        insertUserCredit = RedisScript.of(new ClassPathResource("lua/insertUserCreditScript.lua"), String.class);
         canalSync = RedisScript.of(new ClassPathResource("lua/canalSyncUserCreditScript.lua"), String.class);
+        insertUserCredit = RedisScript.of(new ClassPathResource("lua/insertUserCreditScript.lua"), String.class);
         batchGetUserCredit = RedisScript.of(new ClassPathResource("lua/batchGetUserCreditScript.lua"), String.class);
+        batchDecreaseCredit = RedisScript.of(new ClassPathResource("lua/batchDecreaseCreditScript.lua"), String.class);
         batchInsertUserCredit = RedisScript.of(new ClassPathResource("lua/batchInsertUserCreditScript.lua"), String.class);
 
         bloomFilter = BloomFilter.create(Funnels.longFunnel(), 15000, 0.001);
@@ -132,32 +133,9 @@ public class UserCreditCacheService {
         userCreditRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
     }
 
-    public <T> List<T> batchDecreaseUserCredit(List<OrderVO> orderVOList, Class<T> clazz) {
-        return orderVOList.parallelStream()
-                .map(orderVO -> (JSONObject) JSON.toJSON(orderVO))
-                .peek(jsonObject -> {
-                    if (jsonObject.getString("status").equals("用户账户不存在")) return;
-                    Long userId = jsonObject.getLong("userId");
-                    BigDecimal orderPrice = jsonObject.getBigDecimal("orderPrice");
-                    //TODO 异常
-                    UserCredit userCredit = get(userId);
-                    if (userCredit!=null){
-                        BigDecimal money = v.getMoney();
-                        jsonObject.put("oldMoney", money);
-                        if (money.compareTo(orderPrice) < 0) return null;
-                        v.setMoney(money.min(orderPrice));
-                        jsonObject.put("money", v.getMoney());
-                    }
-                    if (userCredit == null) {
-                        jsonObject.put("operation", "支付失败，余额不足");
-                        jsonObject.put("status", "支付失败，余额不足");
-                    } else {
-                        jsonObject.put("paid", true);
-                        jsonObject.put("status", "支付成功");
-                        jsonObject.put("operation", "支付成功");
-                    }
-                })
-                .map(jsonObject -> jsonObject.toJavaObject(clazz))
-                .collect(Collectors.toList());
+    public List<JSONObject> batchDecreaseUserCredit(List<OrderVO> orderVOList) {
+        String execute = userCreditRedisTemplate.execute(batchDecreaseCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(orderVOList));
+        if ("{}".equals(execute)) return new ArrayList<>();
+        return JSONArray.parseArray(execute, JSONObject.class);
     }
 }

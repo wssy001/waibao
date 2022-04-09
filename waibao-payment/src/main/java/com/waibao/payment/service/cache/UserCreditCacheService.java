@@ -129,7 +129,7 @@ public class UserCreditCacheService {
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        userCreditRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), redisCommandList.toArray());
+        userCreditRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
     }
 
     public <T> List<T> batchDecreaseUserCredit(List<OrderVO> orderVOList, Class<T> clazz) {

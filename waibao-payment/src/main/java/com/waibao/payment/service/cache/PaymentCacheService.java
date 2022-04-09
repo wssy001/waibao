@@ -53,8 +53,8 @@ public class PaymentCacheService {
     @PostConstruct
     public void init() {
         getPayment = RedisScript.of(new ClassPathResource("lua/getPaymentScript.lua"), String.class);
-        insertPayment = RedisScript.of(new ClassPathResource("lua/insertPaymentScript.lua"), String.class);
         canalSync = RedisScript.of(new ClassPathResource("lua/canalSyncPaymentScript.lua"), String.class);
+        insertPayment = RedisScript.of(new ClassPathResource("lua/insertPaymentScript.lua"), String.class);
         batchGetPayment = RedisScript.of(new ClassPathResource("lua/batchGetPaymentScript.lua"), String.class);
         batchInsertPayment = RedisScript.of(new ClassPathResource("lua/batchInsertPaymentScript.lua"), String.class);
 
@@ -121,6 +121,6 @@ public class PaymentCacheService {
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        paymentRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), redisCommandList.toArray());
+        paymentRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
     }
 }

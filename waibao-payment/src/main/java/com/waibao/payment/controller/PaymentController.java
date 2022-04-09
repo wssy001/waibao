@@ -67,7 +67,8 @@ public class PaymentController {
     ) {
         String payId = paymentVO.getPayId();
         Payment payment = paymentCacheService.get(payId);
-        if (payment==null || payment.getUserId()!=paymentVO.getUserId()) return GlobalResult.error("payId或userId不正确");
+        if (payment == null || !payment.getUserId().equals(paymentVO.getUserId()))
+            return GlobalResult.error("payId或userId不正确");
 
         Message message = new Message("payment", "requestPay", JSON.toJSONBytes(payment));
         asyncMQMessage.sendMessage(paymentRequestPayMQProducer, message);

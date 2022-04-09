@@ -139,15 +139,15 @@ public class UserCreditCacheService {
                     if (jsonObject.getString("status").equals("用户账户不存在")) return;
                     Long userId = jsonObject.getLong("userId");
                     BigDecimal orderPrice = jsonObject.getBigDecimal("orderPrice");
-                    UserCredit userCredit = userCreditCache.asMap()
-                            .computeIfPresent(userId, (k, v) -> {
-                                BigDecimal money = v.getMoney();
-                                jsonObject.put("oldMoney", money);
-                                if (money.compareTo(orderPrice) < 0) return null;
-                                v.setMoney(money.min(orderPrice));
-                                jsonObject.put("money", v.getMoney());
-                                return v;
-                            });
+                    //TODO 异常
+                    UserCredit userCredit = get(userId);
+                    if (userCredit!=null){
+                        BigDecimal money = v.getMoney();
+                        jsonObject.put("oldMoney", money);
+                        if (money.compareTo(orderPrice) < 0) return null;
+                        v.setMoney(money.min(orderPrice));
+                        jsonObject.put("money", v.getMoney());
+                    }
                     if (userCredit == null) {
                         jsonObject.put("operation", "支付失败，余额不足");
                         jsonObject.put("status", "支付失败，余额不足");

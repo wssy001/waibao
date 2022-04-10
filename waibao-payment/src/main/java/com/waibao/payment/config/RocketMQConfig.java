@@ -20,6 +20,7 @@ import org.springframework.context.annotation.Configuration;
 @RequiredArgsConstructor
 public class RocketMQConfig {
     private final RocketMQProperties rocketMQProperties;
+    private final PaymentTestConsumer paymentTestConsumer;
     private final PaymentCancelConsumer paymentCancelConsumer;
     private final PaymentCreateConsumer paymentCreateConsumer;
     private final PaymentDeleteConsumer paymentDeleteConsumer;
@@ -49,7 +50,7 @@ public class RocketMQConfig {
 
     @Bean
     @SneakyThrows
-    public DefaultMQProducer paymentPayMQProducer() {
+    public TransactionMQProducer paymentPayMQProducer() {
         TransactionMQProducer paymentPayMQProducer = new TransactionMQProducer("paymentPayTransaction");
         paymentPayMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
         paymentPayMQProducer.setTransactionListener(paymentTransactionListener);
@@ -93,6 +94,17 @@ public class RocketMQConfig {
         consumer.registerMessageListener(paymentCreateConsumer);
         consumer.setConsumerGroup("paymentCreate");
         consumer.subscribe("order", "create");
+        consumer.start();
+        return consumer;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer paymentTestBatchConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(paymentTestConsumer);
+        consumer.setConsumerGroup("paymentTest");
+        consumer.subscribe("order", "test");
         consumer.start();
         return consumer;
     }

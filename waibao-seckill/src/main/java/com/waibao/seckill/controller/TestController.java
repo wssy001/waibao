@@ -79,7 +79,7 @@ public class TestController {
         orderVO.setPayId(IdUtil.getSnowflakeNextIdStr());
 
         String jsonString = JSON.toJSONString(orderVO);
-        Message message = new Message("order", "create", orderId, jsonString.getBytes());
+        Message message = new Message("order", "test", orderId, jsonString.getBytes());
         asyncMQMessage.sendMessage(orderCreateMQProducer, message);
 
         return GlobalResult.success("秒杀成功", orderVO);

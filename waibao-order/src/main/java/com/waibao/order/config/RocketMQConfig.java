@@ -20,6 +20,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @RequiredArgsConstructor
 public class RocketMQConfig {
+    private final OrderTestConsumer orderTestConsumer;
     private final RocketMQProperties rocketMQProperties;
     private final OrderCreateConsumer orderCreateConsumer;
     private final OrderUpdateConsumer orderUpdateConsumer;
@@ -63,6 +64,17 @@ public class RocketMQConfig {
         consumer.registerMessageListener(orderCreateConsumer);
         consumer.setConsumerGroup("orderCreate");
         consumer.subscribe("order", "create");
+        consumer.start();
+        return consumer;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer orderTestDBBatchConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(orderTestConsumer);
+        consumer.setConsumerGroup("orderTest");
+        consumer.subscribe("order", "test");
         consumer.start();
         return consumer;
     }

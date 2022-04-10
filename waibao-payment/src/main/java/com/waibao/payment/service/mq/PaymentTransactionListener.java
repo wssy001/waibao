@@ -86,11 +86,11 @@ public class PaymentTransactionListener implements TransactionListener {
             Future<List<LogUserCredit>> paidLogUserCreditFuture = asyncService.basicTask(paidList.stream().map(jsonObject -> jsonObject.toJavaObject(LogUserCredit.class)).collect(Collectors.toList()));
             Future<List<Message>> paidMessageFuture = asyncService.basicTask(paidList.stream()
                     .map(jsonObject -> jsonObject.toJavaObject(PaymentVO.class))
-                    .map(paymentVO -> new Message("payment", "update", IdUtil.objectId(), JSON.toJSONBytes(paymentVO)))
+                    .map(paymentVO -> new Message("payment", "update", paymentVO.getOrderId(), JSON.toJSONBytes(paymentVO)))
                     .collect(Collectors.toList()));
             Future<List<Message>> unpaidMessageFuture = asyncService.basicTask(unpaidList.stream()
                     .map(jsonObject -> jsonObject.toJavaObject(PaymentVO.class))
-                    .map(paymentVO -> new Message("payment", "cancel", IdUtil.objectId(), JSON.toJSONBytes(paymentVO)))
+                    .map(paymentVO -> new Message("payment", "cancel", paymentVO.getOrderId(), JSON.toJSONBytes(paymentVO)))
                     .collect(Collectors.toList()));
             while (true) {
                 if (paidLogUserCreditFuture.isDone() && paidMessageFuture.isDone() && unpaidMessageFuture.isDone())

@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.Date;
 
 /**
  * @Author: wwj
@@ -32,4 +33,6 @@ public class PaymentVO implements Serializable {
     private String status;
 
     private boolean paid;
+
+    private Date purchaseTime;
 }

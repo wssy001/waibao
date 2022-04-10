@@ -40,6 +40,8 @@ public class OrderVO {
 
     private String status;
 
+    private String operation;
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

@@ -73,6 +73,8 @@ public class OrderTestConsumer implements MessageListenerConcurrently {
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
                         .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
+
+        asyncService.basicTask(() -> orderUsers.forEach(orderUser -> log.info("******OrderTestConsumer：userId：{}，orderId：{} 订单创建成功", orderUser.getUserId(), orderUser.getOrderId())));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 

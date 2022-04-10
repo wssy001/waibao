@@ -48,6 +48,8 @@ public class RedisStorageRollbackConsumer implements MessageListenerConcurrently
         if (orderVOList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
         asyncService.basicTask(() -> goodsCacheService.batchRollBackStorage(orderVOList)
+                .stream()
+                .peek(orderVO -> log.info("******RedisStorageRollbackConsumer：userId：{}，orderId：{} 预扣库存回滚成功", orderVO.getUserId(), orderVO.getOrderId()))
                 .forEach(orderVO -> goodsStorageCacheServiceLog(orderVO, orderVOList)));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()

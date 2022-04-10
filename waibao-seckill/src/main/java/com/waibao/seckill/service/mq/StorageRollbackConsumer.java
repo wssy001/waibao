@@ -45,7 +45,10 @@ public class StorageRollbackConsumer implements MessageListenerConcurrently {
                 .collect(Collectors.groupingByConcurrent(OrderVO::getGoodsId));
 
         collect.forEach((k, v) -> {
-            if (goodsCacheService.finished(k)) goodsCacheService.updateGoodsStatus(k, false);
+            if (goodsCacheService.finished(k)) {
+                log.info("******StorageRollbackConsumer：goodsId：{} 重新开卖", k);
+                goodsCacheService.updateGoodsStatus(k, false);
+            }
             int totalCount = v.parallelStream()
                     .mapToInt(OrderVO::getCount)
                     .sum();

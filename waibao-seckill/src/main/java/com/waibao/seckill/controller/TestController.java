@@ -42,13 +42,18 @@ public class TestController {
             @RequestParam("userId") Long userId
     ) {
         Long goodsId = killVO.getGoodsId();
-        if (seckillGoodsCacheService.finished(goodsId))
+        if (seckillGoodsCacheService.finished(goodsId)) {
+            log.info("******SeckillController：userId：{}，秒杀已结束", userId);
             return GlobalResult.error("秒杀已结束");
+        }
 
         SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         Integer purchaseLimit = seckillGoods.getPurchaseLimit();
         Integer count = killVO.getCount();
-        if (count > purchaseLimit) return GlobalResult.error("秒杀失败，超过最大购买限制");
+        if (count > purchaseLimit) {
+            log.info("******SeckillController：userId：{}，秒杀失败，超过最大购买限制", userId);
+            return GlobalResult.error("秒杀失败，超过最大购买限制");
+        }
 
         try {
             Future<Boolean> decreaseStorage = asyncService.basicTask(seckillGoodsCacheService.decreaseStorage(goodsId, count));
@@ -60,9 +65,16 @@ public class TestController {
             log.info("******减库存操作执行完毕");
             Boolean increaseResult = increase.get();
             log.info("******增加用户购买量操作执行完毕");
-            if (!decreaseStorageResult) return GlobalResult.error("秒杀失败，库存不足");
-            if (!increaseResult) return GlobalResult.error("秒杀失败，已超过个人最大购买量");
+            if (!decreaseStorageResult) {
+                log.info("******SeckillController：userId：{}，秒杀失败，库存不足", userId);
+                return GlobalResult.error("秒杀失败，库存不足");
+            }
+            if (!increaseResult) {
+                log.info("******SeckillController：userId：{}，秒杀失败，已超过个人最大购买量", userId);
+                return GlobalResult.error("秒杀失败，已超过个人最大购买量");
+            }
         } catch (Exception e) {
+            log.error("******SeckillController：{}", e.getMessage());
             return GlobalResult.error("秒杀失败，服务器暂时无法执行操作");
         }
 
@@ -79,9 +91,9 @@ public class TestController {
         orderVO.setPayId(IdUtil.getSnowflakeNextIdStr());
 
         String jsonString = JSON.toJSONString(orderVO);
-        Message message = new Message("order", "test", orderId, jsonString.getBytes());
+        Message message = new Message("order", "create", orderId, jsonString.getBytes());
         asyncMQMessage.sendMessage(orderCreateMQProducer, message);
-
+        log.info("******SeckillController：userId：{}，orderId：{} 预减库存成功", userId, orderId);
         return GlobalResult.success("秒杀成功", orderVO);
     }
 }

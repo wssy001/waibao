@@ -73,6 +73,7 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
                 );
                 complete.addAll(v);
             } else {
+                log.info("******StorageRollbackConsumer：goodsId：{} 库存售罄，停止售卖", k);
                 goodsCacheService.updateGoodsStatus(k, true);
                 for (OrderVO orderVO : v) {
                     int update = seckillGoodsMapper.update(null, Wrappers.<SeckillGoods>lambdaUpdate()

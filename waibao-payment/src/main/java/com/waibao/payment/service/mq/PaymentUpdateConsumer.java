@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -60,14 +59,6 @@ public class PaymentUpdateConsumer implements MessageListenerConcurrently {
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "update");
-        Map<String, PaymentVO> collect = paymentVOList.stream()
-                .collect(Collectors.toMap(PaymentVO::getPayId, Function.identity()));
-        Map<String, Long> collect1 = paymentService.list(Wrappers.<Payment>lambdaQuery().in(Payment::getPayId, collect.keySet()))
-                .stream()
-                .collect(Collectors.toMap(Payment::getPayId, Payment::getId));
-        paymentVOList = paymentVOList.stream()
-                .peek(paymentVO -> paymentVO.setId(collect1.get(paymentVO.getPayId())))
-                .collect(Collectors.toList());
 
         Future<List<Payment>> paymentFuture = asyncService.basicTask(convert(paymentVOList, Payment.class));
         Future<List<LogPayment>> logPaymentFuture = asyncService.basicTask(convert(paymentVOList, LogPayment.class));

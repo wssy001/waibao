@@ -56,9 +56,12 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "create");
+        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "request pay")
+                .stream()
+                .peek(paymentVO -> log.info("******PaymentRequestPayConsumer：userId：{},orderId：{} 请求支付", paymentVO.getUserId(), paymentVO.getOrderId()))
+                .peek(paymentVO -> paymentVO.setStatus("request pay"))
+                .collect(Collectors.toList());
 
-        asyncService.basicTask(() -> paymentVOList.forEach(paymentVO -> log.info("******PaymentRequestPayConsumer：userId：{},orderId：{} 请求支付", paymentVO.getUserId(), paymentVO.getOrderId())));
         asyncService.basicTask(() -> paymentCacheService.batchSet(convert(paymentVOList, Payment.class)));
         asyncService.basicTask(() -> logPaymentService.saveBatch(convert(paymentVOList, LogPayment.class)));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,

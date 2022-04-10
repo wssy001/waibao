@@ -1,6 +1,5 @@
 package com.waibao.payment.service.mq;
 
-import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
@@ -56,14 +55,8 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        List<String> payIdList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "request pay")
+        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "request pay")
                 .stream()
-                .map(PaymentVO::getPayId)
-                .collect(Collectors.toList());
-
-        List<PaymentVO> paymentVOList = paymentCacheService.batchGet(payIdList)
-                .parallelStream()
-                .map(payment -> BeanUtil.copyProperties(payment, PaymentVO.class))
                 .peek(paymentVO -> log.info("******PaymentRequestPayConsumer：userId：{},orderId：{} 请求支付", paymentVO.getUserId(), paymentVO.getOrderId()))
                 .peek(paymentVO -> paymentVO.setStatus("request pay"))
                 .collect(Collectors.toList());
@@ -92,11 +85,11 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
     private <T> List<T> convert(List<PaymentVO> paymentVOList, Class<T> clazz) {
         return paymentVOList.parallelStream()
                 .map(paymentVO -> (JSONObject) JSON.toJSON(paymentVO))
-                .peek(jsonObject -> jsonObject.put("status", "支付创建"))
+                .peek(jsonObject -> jsonObject.put("status", "请求支付"))
                 .peek(jsonObject -> {
                     if (clazz == LogPayment.class) {
                         jsonObject.put("topic", "payment");
-                        jsonObject.put("operation", "create");
+                        jsonObject.put("operation", "request pay");
                     }
                 })
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))

@@ -1,6 +1,5 @@
 package com.waibao.payment.service.mq;
 
-import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -27,7 +26,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
-import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Future;
@@ -77,10 +75,10 @@ public class PaymentTransactionListener implements TransactionListener {
                     .forEach(jsonObject -> {
                         if (jsonObject.getString("operation").equals("paid")) {
                             paidList.add(jsonObject);
-                            log.info("******StorageDecreaseConsumer：userId：{},orderId：{} 付款成功", jsonObject.getString("userId"), jsonObject.getString("orderId"));
+                            log.info("******executeLocalTransaction：userId：{},orderId：{} 付款成功", jsonObject.getString("userId"), jsonObject.getString("orderId"));
                         } else {
                             unpaidList.add(jsonObject);
-                            log.info("******StorageDecreaseConsumer：userId：{},orderId：{} 付款失败，原因：{}", jsonObject.getString("userId"), jsonObject.getString("orderId"), jsonObject.getString("status"));
+                            log.info("******executeLocalTransaction：userId：{},orderId：{} 付款失败，原因：{}", jsonObject.getString("userId"), jsonObject.getString("orderId"), jsonObject.getString("status"));
                         }
                     });
             Future<List<LogUserCredit>> paidLogUserCreditFuture = asyncService.basicTask(paidList.stream().map(jsonObject -> jsonObject.toJavaObject(LogUserCredit.class)).collect(Collectors.toList()));
@@ -141,19 +139,20 @@ public class PaymentTransactionListener implements TransactionListener {
                     .forEach(jsonObject -> {
                         if (jsonObject.getString("operation").equals("paid")) {
                             paidList.add(jsonObject);
+                            log.info("******checkLocalTransaction：userId：{},orderId：{} 付款成功", jsonObject.getString("userId"), jsonObject.getString("orderId"));
                         } else {
                             unpaidList.add(jsonObject);
+                            log.info("******checkLocalTransaction：userId：{},orderId：{} 付款失败，原因：{}", jsonObject.getString("userId"), jsonObject.getString("orderId"), jsonObject.getString("status"));
                         }
                     });
             Future<List<LogUserCredit>> paidLogUserCreditFuture = asyncService.basicTask(paidList.stream().map(jsonObject -> jsonObject.toJavaObject(LogUserCredit.class)).collect(Collectors.toList()));
             Future<List<Message>> paidMessageFuture = asyncService.basicTask(paidList.stream()
                     .map(jsonObject -> jsonObject.toJavaObject(PaymentVO.class))
-                    .peek(paymentVO -> paymentVO.setPurchaseTime(new Date()))
-                    .map(paymentVO -> new Message("payment", "update", IdUtil.objectId(), JSON.toJSONBytes(paymentVO)))
+                    .map(paymentVO -> new Message("payment", "update", paymentVO.getOrderId(), JSON.toJSONBytes(paymentVO)))
                     .collect(Collectors.toList()));
             Future<List<Message>> unpaidMessageFuture = asyncService.basicTask(unpaidList.stream()
                     .map(jsonObject -> jsonObject.toJavaObject(PaymentVO.class))
-                    .map(paymentVO -> new Message("payment", "cancel", IdUtil.objectId(), JSON.toJSONBytes(paymentVO)))
+                    .map(paymentVO -> new Message("payment", "cancel", paymentVO.getOrderId(), JSON.toJSONBytes(paymentVO)))
                     .collect(Collectors.toList()));
             while (true) {
                 if (paidLogUserCreditFuture.isDone() && paidMessageFuture.isDone() && unpaidMessageFuture.isDone())
@@ -161,10 +160,16 @@ public class PaymentTransactionListener implements TransactionListener {
             }
 
             List<LogUserCredit> logUserCreditList = paidLogUserCreditFuture.get();
-            asyncService.basicTask(() -> userCreditMapper.batchUpdateByIdAndOldMoney(logUserCreditList));
-            asyncService.basicTask(() -> logUserCreditService.saveBatch(logUserCreditList));
-            asyncMQMessage.sendMessage(paymentUpdateMQProducer, paidMessageFuture.get());
-            asyncMQMessage.sendMessage(paymentCancelMQProducer, unpaidMessageFuture.get());
+            List<Message> unpaidMessageList = unpaidMessageFuture.get();
+            if (!logUserCreditList.isEmpty()) {
+                asyncService.basicTask(() -> userCreditMapper.batchUpdateByIdAndOldMoney(logUserCreditList));
+                asyncService.basicTask(() -> logUserCreditService.saveBatch(logUserCreditList));
+                asyncMQMessage.sendMessage(paymentUpdateMQProducer, paidMessageFuture.get());
+            }
+
+            if (!unpaidMessageList.isEmpty()) {
+                asyncMQMessage.sendMessage(paymentCancelMQProducer, unpaidMessageList);
+            }
             asyncService.basicTask(() -> mqMsgCompensationMapper.update(null, Wrappers.<MqMsgCompensation>lambdaUpdate()
                     .eq(MqMsgCompensation::getMsgId, keys)
                     .set(MqMsgCompensation::getStatus, "补偿消息已消费")));

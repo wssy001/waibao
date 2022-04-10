@@ -86,7 +86,7 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
                 .peek(jsonObject -> {
                     if (clazz == LogPayment.class) {
                         jsonObject.put("topic", "payment");
-                        jsonObject.put("operation", "requestPay");
+                        jsonObject.put("operation", "request pay");
                     }
                 })
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))

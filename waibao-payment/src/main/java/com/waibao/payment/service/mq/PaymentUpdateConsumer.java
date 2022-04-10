@@ -1,7 +1,7 @@
 package com.waibao.payment.service.mq;
 
-import cn.hutool.core.bean.BeanUtil;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.payment.entity.LogPayment;
 import com.waibao.payment.entity.MqMsgCompensation;
@@ -90,11 +90,8 @@ public class PaymentUpdateConsumer implements MessageListenerConcurrently {
 
     private <T> List<T> convert(List<PaymentVO> msgs, Class<T> clazz) {
         return msgs.parallelStream()
-                .map(paymentVO -> BeanUtil.copyProperties(paymentVO, clazz))
-                .peek(object -> {
-                    if (object instanceof LogPayment)
-                        ((LogPayment) object).setOperation("update");
-                })
+                .map(paymentVO -> (JSONObject) JSON.toJSON(paymentVO))
+                .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());
     }
 

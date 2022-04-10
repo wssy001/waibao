@@ -66,7 +66,8 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
                         .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
                         .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
 
-        Message message = new Message("storage", "update", IdUtil.objectId(), JSONArray.toJSONBytes(paymentVOList));
+        Message message = new Message("storage", "decrease", IdUtil.objectId(), JSON.toJSONBytes(paymentVOList));
+        message.setTransactionId(IdUtil.objectId());
         asyncMQMessage.sendMessage(paymentPayMQProducer, message);
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }

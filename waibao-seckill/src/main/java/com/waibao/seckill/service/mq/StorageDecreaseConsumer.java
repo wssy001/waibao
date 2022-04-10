@@ -59,6 +59,7 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
         List<OrderVO> complete = new ArrayList<>();
 
         collect.forEach((k, v) -> {
+            //TODO null
             v.sort(Comparator.comparingLong(orderVO -> orderVO.getPurchaseTime().getTime()));
             int totalCount = v.parallelStream()
                     .mapToInt(OrderVO::getCount)

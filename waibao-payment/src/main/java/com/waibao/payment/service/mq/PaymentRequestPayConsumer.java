@@ -61,11 +61,11 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
         List<OrderVO> orderVOList = orderUserCacheService.batchGetOrderVO(paymentVOList);
         if (orderVOList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
-        Message message = new Message("storage", "update", IdUtil.objectId(), JSON.toJSONBytes(orderVOList));
+        Message message = new Message("storage", "decrease", IdUtil.objectId(), JSON.toJSONBytes(orderVOList));
         message.setTransactionId(IdUtil.objectId());
         asyncService.basicTask(() -> orderVOList.forEach(orderVO -> log.info("******PaymentRequestPayConsumer：userId：{},orderId：{} 请求支付", orderVO.getUserId(), orderVO.getOrderId())));
         asyncMQMessage.sendMessageInTransaction(paymentPayMQProducer, message);
-        asyncService.basicTask(() -> logPaymentService.saveBatch(convert(paymentVOList, LogPayment.class)));
+        asyncService.basicTask(() -> logPaymentService.saveOrUpdateBatch(convert(paymentVOList, LogPayment.class)));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))

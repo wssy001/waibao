@@ -62,19 +62,17 @@ public class TestController {
                 if (decreaseStorage.isDone() && increase.isDone()) break;
             }
             Boolean decreaseStorageResult = decreaseStorage.get();
-            log.info("******减库存操作执行完毕");
             Boolean increaseResult = increase.get();
-            log.info("******增加用户购买量操作执行完毕");
             if (!decreaseStorageResult) {
-                log.info("******SeckillController：userId：{}，秒杀失败，库存不足", userId);
+                log.info("******TestController：userId：{}，秒杀失败，库存不足", userId);
                 return GlobalResult.error("秒杀失败，库存不足");
             }
             if (!increaseResult) {
-                log.info("******SeckillController：userId：{}，秒杀失败，已超过个人最大购买量", userId);
+                log.info("******TestController：userId：{}，秒杀失败，已超过个人最大购买量", userId);
                 return GlobalResult.error("秒杀失败，已超过个人最大购买量");
             }
         } catch (Exception e) {
-            log.error("******SeckillController：{}", e.getMessage());
+            log.error("******TestController：{}", e.getMessage());
             return GlobalResult.error("秒杀失败，服务器暂时无法执行操作");
         }
 
@@ -91,7 +89,7 @@ public class TestController {
         orderVO.setPayId(IdUtil.getSnowflakeNextIdStr());
 
         String jsonString = JSON.toJSONString(orderVO);
-        Message message = new Message("order", "create", orderId, jsonString.getBytes());
+        Message message = new Message("order", "test", orderId, jsonString.getBytes());
         asyncMQMessage.sendMessage(orderCreateMQProducer, message);
         log.info("******SeckillController：userId：{}，orderId：{} 预减库存成功", userId, orderId);
         return GlobalResult.success("秒杀成功", orderVO);

@@ -98,10 +98,16 @@ public class PaymentTransactionListener implements TransactionListener {
             }
 
             List<LogUserCredit> logUserCreditList = paidLogUserCreditFuture.get();
-            asyncService.basicTask(() -> userCreditMapper.batchUpdateByIdAndOldMoney(logUserCreditList));
-            asyncService.basicTask(() -> logUserCreditService.saveBatch(logUserCreditList));
-            asyncMQMessage.sendMessage(paymentUpdateMQProducer, paidMessageFuture.get());
-            asyncMQMessage.sendMessage(paymentCancelMQProducer, unpaidMessageFuture.get());
+            List<Message> unpaidMessageList = unpaidMessageFuture.get();
+            if (!logUserCreditList.isEmpty()) {
+                asyncService.basicTask(() -> userCreditMapper.batchUpdateByIdAndOldMoney(logUserCreditList));
+                asyncService.basicTask(() -> logUserCreditService.saveBatch(logUserCreditList));
+                asyncMQMessage.sendMessage(paymentUpdateMQProducer, paidMessageFuture.get());
+            }
+
+            if (!unpaidMessageList.isEmpty()) {
+                asyncMQMessage.sendMessage(paymentCancelMQProducer, unpaidMessageList);
+            }
             asyncService.basicTask(() -> mqMsgCompensationMapper.update(null, Wrappers.<MqMsgCompensation>lambdaUpdate()
                     .eq(MqMsgCompensation::getMsgId, keys)
                     .set(MqMsgCompensation::getStatus, "补偿消息已消费")));

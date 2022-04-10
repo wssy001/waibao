@@ -1,8 +1,8 @@
 package com.waibao.payment.service.mq;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.payment.entity.LogPayment;
@@ -56,8 +56,14 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "request pay")
+        List<String> payIdList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "request pay")
                 .stream()
+                .map(PaymentVO::getPayId)
+                .collect(Collectors.toList());
+
+        List<PaymentVO> paymentVOList = paymentCacheService.batchGet(payIdList)
+                .parallelStream()
+                .map(payment -> BeanUtil.copyProperties(payment, PaymentVO.class))
                 .peek(paymentVO -> log.info("******PaymentRequestPayConsumer：userId：{},orderId：{} 请求支付", paymentVO.getUserId(), paymentVO.getOrderId()))
                 .peek(paymentVO -> paymentVO.setStatus("request pay"))
                 .collect(Collectors.toList());
@@ -71,7 +77,7 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
 
         Message message = new Message("storage", "decrease", IdUtil.objectId(), JSON.toJSONBytes(paymentVOList));
         message.setTransactionId(IdUtil.objectId());
-        asyncMQMessage.sendMessage(paymentPayMQProducer, message);
+        asyncMQMessage.sendMessageInTransaction(paymentPayMQProducer, message);
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 

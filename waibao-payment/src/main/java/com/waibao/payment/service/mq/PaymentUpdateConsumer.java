@@ -73,9 +73,9 @@ public class PaymentUpdateConsumer implements MessageListenerConcurrently {
 
         List<Payment> payments = paymentFuture.get();
         List<LogPayment> logPayments = logPaymentFuture.get();
-        asyncService.basicTask(() -> paymentService.updateBatchById(payments));
+        asyncService.basicTask(() -> paymentService.saveOrUpdateBatch(payments));
         asyncMQMessage.sendMessage(paymentUpdateMQProducer, messageFuture.get());
-        asyncService.basicTask(() -> logPaymentService.updateBatchById(logPayments));
+        asyncService.basicTask(() -> logPaymentService.saveOrUpdateBatch(logPayments));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
@@ -92,6 +92,10 @@ public class PaymentUpdateConsumer implements MessageListenerConcurrently {
     private <T> List<T> convert(List<PaymentVO> msgs, Class<T> clazz) {
         return msgs.parallelStream()
                 .map(paymentVO -> BeanUtil.copyProperties(paymentVO, clazz))
+                .peek(object->{
+                    if (object instanceof LogPayment)
+                        ((LogPayment)object).setOperation("update");
+                })
                 .collect(Collectors.toList());
     }
 

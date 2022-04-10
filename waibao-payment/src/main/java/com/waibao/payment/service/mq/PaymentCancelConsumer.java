@@ -92,7 +92,7 @@ public class PaymentCancelConsumer implements MessageListenerConcurrently {
 
         List<Payment> payments = paymentFuture.get();
         List<LogPayment> logPayments = logPaymentFuture.get();
-        asyncService.basicTask(() -> paymentService.updateBatchById(payments));
+        asyncService.basicTask(() -> paymentService.saveOrUpdateBatch(payments));
         asyncService.basicTask(() -> logPaymentService.saveBatch(logPayments));
         asyncMQMessage.sendMessage(paymentRequestPayMQProducer, messageFuture.get());
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,

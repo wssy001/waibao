@@ -13,6 +13,7 @@ import com.waibao.payment.mapper.UserCreditMapper;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
 import com.waibao.util.vo.order.OrderVO;
+import com.waibao.util.vo.payment.PaymentVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -52,6 +53,7 @@ public class UserCreditCacheService {
     private RedisScript<String> insertUserCredit;
     private RedisScript<String> batchGetUserCredit;
     private RedisScript<String> batchDecreaseCredit;
+    private RedisScript<String> batchIncreaseCredit;
     private Cache<Long, UserCredit> userCreditCache;
     private RedisScript<String> batchInsertUserCredit;
 
@@ -61,6 +63,7 @@ public class UserCreditCacheService {
         canalSync = RedisScript.of(new ClassPathResource("lua/canalSyncUserCreditScript.lua"), String.class);
         insertUserCredit = RedisScript.of(new ClassPathResource("lua/insertUserCreditScript.lua"), String.class);
         batchGetUserCredit = RedisScript.of(new ClassPathResource("lua/batchGetUserCreditScript.lua"), String.class);
+        batchIncreaseCredit = RedisScript.of(new ClassPathResource("lua/batchIncreaseCreditScript.lua"), String.class);
         batchDecreaseCredit = RedisScript.of(new ClassPathResource("lua/batchDecreaseCreditScript.lua"), String.class);
         batchInsertUserCredit = RedisScript.of(new ClassPathResource("lua/batchInsertUserCreditScript.lua"), String.class);
 
@@ -135,6 +138,12 @@ public class UserCreditCacheService {
 
     public List<JSONObject> batchDecreaseUserCredit(List<OrderVO> orderVOList) {
         String execute = userCreditRedisTemplate.execute(batchDecreaseCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(orderVOList));
+        if ("{}".equals(execute)) return new ArrayList<>();
+        return JSONArray.parseArray(execute, JSONObject.class);
+    }
+
+    public List<JSONObject> batchIncreaseUserCredit(List<PaymentVO> paymentVOList) {
+        String execute = userCreditRedisTemplate.execute(batchIncreaseCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(paymentVOList));
         if ("{}".equals(execute)) return new ArrayList<>();
         return JSONArray.parseArray(execute, JSONObject.class);
     }

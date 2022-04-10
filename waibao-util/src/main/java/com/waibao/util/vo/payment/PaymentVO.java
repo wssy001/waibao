@@ -30,4 +30,6 @@ public class PaymentVO implements Serializable {
     private BigDecimal money;
 
     private String status;
+
+    private boolean paid;
 }

@@ -7,12 +7,10 @@ import com.waibao.order.entity.MqMsgCompensation;
 import com.waibao.order.entity.OrderRetailer;
 import com.waibao.order.entity.OrderUser;
 import com.waibao.order.mapper.MqMsgCompensationMapper;
-import com.waibao.order.service.cache.LogOrderGoodsCacheService;
 import com.waibao.order.service.db.LogOrderGoodsService;
 import com.waibao.order.service.db.OrderRetailerService;
 import com.waibao.order.service.db.OrderUserService;
 import com.waibao.util.async.AsyncService;
-import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -44,7 +42,6 @@ public class OrderUpdateConsumer implements MessageListenerConcurrently {
     private final LogOrderGoodsService logOrderGoodsService;
     private final OrderRetailerService orderRetailerService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
-    private final LogOrderGoodsCacheService logOrderGoodsCacheService;
 
     @Override
     @SneakyThrows
@@ -52,11 +49,6 @@ public class OrderUpdateConsumer implements MessageListenerConcurrently {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        convert(messageExtMap.values(), OrderVO.class)
-                .parallelStream()
-                .filter(orderVO -> logOrderGoodsCacheService.checkWhetherConsumedTags(orderVO.getGoodsId(), orderVO.getOrderId(), "update"))
-                .map(OrderVO::getOrderId)
-                .forEach(messageExtMap::remove);
 
         Future<List<OrderUser>> orderUsersFuture = asyncService.basicTask(convert(messageExtMap.values(), OrderUser.class));
         Future<List<OrderRetailer>> orderRetailersFuture = asyncService.basicTask(convert(messageExtMap.values(), OrderRetailer.class));
@@ -71,7 +63,7 @@ public class OrderUpdateConsumer implements MessageListenerConcurrently {
 
         asyncService.basicTask(() -> orderUserService.updateBatchById(orderUsers));
         asyncService.basicTask(() -> orderRetailerService.updateBatchById(orderRetailers));
-        asyncService.basicTask(() -> logOrderGoodsService.saveBatch(logOrderGoods));
+        asyncService.basicTask(() -> logOrderGoodsService.updateBatchById(logOrderGoods));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))

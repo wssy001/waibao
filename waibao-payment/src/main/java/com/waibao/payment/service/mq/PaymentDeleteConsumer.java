@@ -23,6 +23,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
@@ -45,7 +47,10 @@ public class PaymentDeleteConsumer implements MessageListenerConcurrently {
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(msgs, PaymentVO.class), "delete");
+        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
+        msgs.parallelStream()
+                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
+        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "delete");
 
         Future<List<Payment>> paymentFuture = asyncService.basicTask(convert(paymentVOList, Payment.class));
         Future<List<LogPayment>> logPaymentFuture = asyncService.basicTask(convert(paymentVOList, LogPayment.class));

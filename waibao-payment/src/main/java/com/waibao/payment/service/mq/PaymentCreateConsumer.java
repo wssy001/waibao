@@ -22,6 +22,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -42,7 +44,10 @@ public class PaymentCreateConsumer implements MessageListenerConcurrently {
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(msgs, PaymentVO.class), "create");
+        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
+        msgs.parallelStream()
+                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
+        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "create");
 
         asyncService.basicTask(() -> paymentCacheService.batchSet(convert(paymentVOList, Payment.class)));
         asyncService.basicTask(() -> logPaymentService.saveBatch(convert(paymentVOList, LogPayment.class)));

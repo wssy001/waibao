@@ -29,6 +29,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
@@ -55,7 +57,10 @@ public class OrderCancelConsumer implements MessageListenerConcurrently {
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        List<OrderVO> orderVOList = logOrderGoodsCacheService.batchCheckNotConsumedTags(convert(msgs, OrderVO.class), "cancel");
+        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
+        msgs.parallelStream()
+                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
+        List<OrderVO> orderVOList = logOrderGoodsCacheService.batchCheckNotConsumedTags(convert(messageExtMap.values(), OrderVO.class), "cancel");
 
         Future<List<OrderUser>> orderUsersFuture = asyncService.basicTask(convert(orderVOList, OrderUser.class));
         Future<List<OrderRetailer>> orderRetailersFuture = asyncService.basicTask(convert(orderVOList, OrderRetailer.class));

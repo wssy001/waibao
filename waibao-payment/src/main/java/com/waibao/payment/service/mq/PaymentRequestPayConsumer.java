@@ -28,6 +28,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -52,11 +54,14 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(msgs, PaymentVO.class), "requestPay");
+        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
+        msgs.parallelStream()
+                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
+        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "requestPay");
         List<OrderVO> orderVOList = orderUserCacheService.batchGetOrderVO(paymentVOList);
         if (orderVOList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
-        Message message = new Message("storage", "update", JSON.toJSONBytes(orderVOList));
+        Message message = new Message("storage", "update", IdUtil.objectId(), JSON.toJSONBytes(orderVOList));
         message.setTransactionId(IdUtil.objectId());
         asyncMQMessage.sendMessageInTransaction(paymentPayMQProducer, message);
         asyncService.basicTask(() -> logPaymentService.saveBatch(convert(paymentVOList, LogPayment.class)));
@@ -86,15 +91,6 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());
     }
-
-//    private List<OrderVO> batchGetOrderVo(List<PaymentVO> paymentVOList) {
-//        List<String> keyList = paymentVOList.parallelStream()
-//                .map(paymentVO -> "order-user-" + paymentVO.getOrderId())
-//                .collect(Collectors.toList());
-//        return orderUserRedisTemplate.opsForValue()
-//                .multiGet(keyList);
-//    }
-
 
     @Lazy
     @Autowired

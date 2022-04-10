@@ -27,6 +27,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Future;
@@ -147,6 +148,7 @@ public class PaymentTransactionListener implements TransactionListener {
             Future<List<LogUserCredit>> paidLogUserCreditFuture = asyncService.basicTask(paidList.stream().map(jsonObject -> jsonObject.toJavaObject(LogUserCredit.class)).collect(Collectors.toList()));
             Future<List<Message>> paidMessageFuture = asyncService.basicTask(paidList.stream()
                     .map(jsonObject -> jsonObject.toJavaObject(PaymentVO.class))
+                    .peek(paymentVO -> paymentVO.setPurchaseTime(new Date()))
                     .map(paymentVO -> new Message("payment", "update", IdUtil.objectId(), JSON.toJSONBytes(paymentVO)))
                     .collect(Collectors.toList()));
             Future<List<Message>> unpaidMessageFuture = asyncService.basicTask(unpaidList.stream()

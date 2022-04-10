@@ -18,9 +18,5 @@ import java.math.BigDecimal;
 public class PaymentVO extends OrderVO implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private Long id;
-
     private BigDecimal money;
-
-    private String status;
 }

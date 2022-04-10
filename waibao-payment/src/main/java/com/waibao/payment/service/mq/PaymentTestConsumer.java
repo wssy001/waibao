@@ -70,7 +70,6 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
 
         List<JSONObject> collect = paymentVOList.parallelStream()
                 .map(paymentVO -> (JSONObject) JSON.toJSON(paymentVO))
-                .peek(jsonObject -> jsonObject.put("orderPrice", jsonObject.getBigDecimal("money")))
                 .collect(Collectors.toList());
 
         Message message = new Message("storage", "decrease", IdUtil.objectId(), JSON.toJSONBytes(collect));

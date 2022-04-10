@@ -65,7 +65,6 @@ public class PaymentCreateConsumer implements MessageListenerConcurrently {
     private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
         return msgs.parallelStream()
                 .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
-                .peek(jsonObject -> jsonObject.put("money", jsonObject.getBigDecimal("orderPrice")))
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());
     }

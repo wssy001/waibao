@@ -50,16 +50,19 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
 
-        ConcurrentMap<Long, List<OrderVO>> collect = messageExtMap.values()
+        List<OrderVO> collect1 = messageExtMap.values()
                 .parallelStream()
                 .flatMap(messageExt -> JSONArray.parseArray(new String(messageExt.getBody()), OrderVO.class).stream())
+                .collect(Collectors.toList());
+
+
+        ConcurrentMap<Long, List<OrderVO>> collect = collect1.stream()
                 .collect(Collectors.groupingByConcurrent(OrderVO::getGoodsId));
 
         List<OrderVO> cancel = new ArrayList<>();
         List<OrderVO> complete = new ArrayList<>();
 
         collect.forEach((k, v) -> {
-            //TODO null
             v.sort(Comparator.comparingLong(orderVO -> orderVO.getPurchaseTime().getTime()));
             int totalCount = v.parallelStream()
                     .mapToInt(OrderVO::getCount)

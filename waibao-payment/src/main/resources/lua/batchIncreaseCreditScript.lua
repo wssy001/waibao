@@ -1,32 +1,30 @@
 --batchIncreaseCreditScript UserCreditCacheService
 local key = KEYS[1]
 ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
-local paymentVOList = {}
+local orderVOList = {}
 local userId
 local oldMoney
 local orderPrice
 local money
-for _ , paymentVO in pairs(cjson.decode(ARGV[1])) do
-    userId = paymentVO['userId']
-    orderPrice = paymentVO['money'] * 100
-    oldMoney = redis.call('HGET' , key .. userId , 'money') * 100
+for _ , orderVO in pairs(cjson.decode(ARGV[1])) do
+    userId = orderVO['userId']
+    orderPrice = orderVO['orderPrice']
+    oldMoney = string.format("%.2f" , redis.call('HGET' , key .. userId , 'money'))
+    orderVO['paid'] = false
+    orderVO['operation'] = 'cancel'
     if oldMoney then
-        paymentVO['oldMoney'] = math.floor(oldMoney) / 100
-        money = redis.call('HGET' , key .. userId , 'money') * 100
-        money = math.floor(money + orderPrice) / 100
-        redis.call('HSET' , key .. userId , 'money' , money)
-        paymentVO['paid'] = false
-        paymentVO['money'] = math.floor(money) / 100
-        paymentVO['status'] = '用户退款成功'
-        paymentVO['operation'] = 'money back'
+        orderVO['oldMoney'] = oldMoney
+        money = string.format("%.2f" , redis.call('HINCRBYFLOAT' , key .. userId , 'money' , orderPrice))
+        orderVO['paid'] = true
+        orderVO['money'] = money
+        orderVO['status'] = '用户退钱成功'
+        orderVO['operation'] = 'money back'
     else
-        paymentVO['status'] = '用户账户不存在'
-        paymentVO['oldMoney'] = 0
-        paymentVO['money'] = 0
-        paymentVO['paid'] = true
-        paymentVO['operation'] = 'non exist'
+        orderVO['status'] = '用户账户不存在'
+        orderVO['oldMoney'] = 0
+        orderVO['money'] = 0
     end
-    table.insert(paymentVOList , paymentVO)
+    table.insert(orderVOList , orderVO)
 end
 
-return cjson.encode(paymentVOList)
+return cjson.encode(orderVOList)

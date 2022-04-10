@@ -8,22 +8,21 @@ local orderPrice
 local money
 for _ , orderVO in pairs(cjson.decode(ARGV[1])) do
     userId = orderVO['userId']
-    orderPrice = orderVO['orderPrice'] * 100
-    oldMoney = redis.call('HGET' , key .. userId , 'money') * 100
+    orderPrice = orderVO['orderPrice']
+    oldMoney = redis.call('HGET' , key .. userId , 'money')
     orderVO['paid'] = false
     orderVO['operation'] = 'cancel'
     if oldMoney then
-        orderVO['oldMoney'] = math.floor(oldMoney) / 100
-        money = redis.call('HGET' , key .. userId , 'money') * 100
-        if money >= orderPrice then
-            money = math.floor(money - orderPrice) / 100
-            redis.call('HSET' , key .. userId , 'money' , money)
+        orderVO['oldMoney'] = oldMoney
+        money = redis.call('HINCRBYFLOAT' , key .. userId , 'money' , -orderPrice)
+        if money >= 0 then
+            money = string.format("%.2f" , redis.call('HGET' , key .. userId , 'money'))
             orderVO['paid'] = true
-            orderVO['money'] = math.floor(money) / 100
+            orderVO['money'] = money
             orderVO['status'] = '用户付款成功'
             orderVO['operation'] = 'paid'
         else
-            redis.call('HSET' , key .. userId , 'money' , math.floor(money + orderPrice) / 100)
+            money = redis.call('HINCRBYFLOAT' , key .. userId , 'money' , orderPrice)
             orderVO['money'] = oldMoney
             orderVO['status'] = '用户余额不足'
         end

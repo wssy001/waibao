@@ -1,6 +1,7 @@
 package com.waibao.payment.service.cache;
 
 import com.alibaba.fastjson.JSONArray;
+import com.waibao.util.tools.BigDecimalValueFilter;
 import com.waibao.util.vo.order.OrderVO;
 import com.waibao.util.vo.payment.PaymentVO;
 import org.springframework.core.io.ClassPathResource;
@@ -35,7 +36,7 @@ public class OrderUserCacheService {
     }
 
     public List<OrderVO> batchGetOrderVO(List<PaymentVO> paymentVOList) {
-        String execute = orderUserRedisTemplate.execute(batchGetOrderVO, Collections.singletonList(REDIS_ORDER_USER_KEY_PREFIX), JSONArray.toJSONString(paymentVOList));
+        String execute = orderUserRedisTemplate.execute(batchGetOrderVO, Collections.singletonList(REDIS_ORDER_USER_KEY_PREFIX), JSONArray.toJSONString(paymentVOList, new BigDecimalValueFilter()));
         if ("{}".equals(execute)) return new ArrayList<>();
         return JSONArray.parseArray(execute, OrderVO.class);
     }

@@ -13,6 +13,9 @@ for _ , redisCommand in pairs(cjson.decode(ARGV[1])) do
     userId = userCredit['userId']
     if (redisCommand['command'] == 'INSERT' or redisCommand['command'] == 'UPDATE') then
         for index , value in pairs(userCredit) do
+            if index == 'money' then
+                value = string.format("%.2f" , value)
+            end
             redis.call('HSET' , key .. userId , index , value)
         end
     else

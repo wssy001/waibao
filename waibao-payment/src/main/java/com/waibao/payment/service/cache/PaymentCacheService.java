@@ -10,6 +10,7 @@ import com.google.common.hash.Funnels;
 import com.waibao.payment.entity.Payment;
 import com.waibao.payment.mapper.PaymentMapper;
 import com.waibao.util.base.RedisCommand;
+import com.waibao.util.tools.BigDecimalValueFilter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -96,7 +97,7 @@ public class PaymentCacheService {
                 .filter(bloomFilter::mightContain)
                 .collect(Collectors.toList());
 
-        String execute = paymentRedisTemplate.execute(batchGetPayment, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(payIdList));
+        String execute = paymentRedisTemplate.execute(batchGetPayment, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(payIdList, new BigDecimalValueFilter()));
         if (!"{}".equals(execute)) payments.addAll(JSONArray.parseArray(execute, Payment.class));
         return payments;
     }
@@ -109,7 +110,7 @@ public class PaymentCacheService {
         bloomFilter.put(payment.getPayId());
         paymentCache.put(payment.getPayId(), payment);
         if (updateRedis)
-            paymentRedisTemplate.execute(insertPayment, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(payment));
+            paymentRedisTemplate.execute(insertPayment, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(payment, new BigDecimalValueFilter()));
     }
 
     public void batchSet(List<Payment> paymentList) {
@@ -117,12 +118,12 @@ public class PaymentCacheService {
                 .peek(payment -> bloomFilter.put(payment.getPayId()))
                 .collect(Collectors.toMap(Payment::getPayId, Function.identity()));
         paymentCache.asMap()
-                        .putAll(collect);
+                .putAll(collect);
 
-        paymentRedisTemplate.execute(batchInsertPayment, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(paymentList));
+        paymentRedisTemplate.execute(batchInsertPayment, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(paymentList, new BigDecimalValueFilter()));
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        paymentRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
+        paymentRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(redisCommandList, new BigDecimalValueFilter()));
     }
 }

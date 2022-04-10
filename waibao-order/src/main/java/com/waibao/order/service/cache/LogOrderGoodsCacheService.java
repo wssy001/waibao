@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import com.waibao.util.base.RedisCommand;
+import com.waibao.util.tools.BigDecimalValueFilter;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,7 +65,7 @@ public class LogOrderGoodsCacheService {
         });
         if (mightContain.isEmpty()) return result;
 
-        String execute = logOrderUserRedisTemplate.execute(batchCheckLogOrderGoodsOperation, Collections.singletonList(REDIS_LOG_ORDER_GOODS_KEY_PREFIX), JSONArray.toJSONString(mightContain), operation);
+        String execute = logOrderUserRedisTemplate.execute(batchCheckLogOrderGoodsOperation, Collections.singletonList(REDIS_LOG_ORDER_GOODS_KEY_PREFIX), JSONArray.toJSONString(mightContain, new BigDecimalValueFilter()), operation);
         if (!"{}".equals(execute)) result.addAll(JSONArray.parseArray(execute, OrderVO.class));
         return result;
     }
@@ -74,6 +75,6 @@ public class LogOrderGoodsCacheService {
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        logOrderUserRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_LOG_ORDER_GOODS_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
+        logOrderUserRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_LOG_ORDER_GOODS_KEY_PREFIX), JSONArray.toJSONString(redisCommandList, new BigDecimalValueFilter()));
     }
 }

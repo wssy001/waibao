@@ -12,6 +12,7 @@ import com.waibao.payment.entity.UserCredit;
 import com.waibao.payment.mapper.UserCreditMapper;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
+import com.waibao.util.tools.BigDecimalValueFilter;
 import com.waibao.util.vo.order.OrderVO;
 import com.waibao.util.vo.payment.PaymentVO;
 import lombok.RequiredArgsConstructor;
@@ -118,7 +119,7 @@ public class UserCreditCacheService {
         bloomFilter.put(userCredit.getUserId());
         userCreditCache.put(userCredit.getUserId(), userCredit);
         if (updateRedis)
-            userCreditRedisTemplate.execute(insertUserCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(userCredit));
+            userCreditRedisTemplate.execute(insertUserCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(userCredit, new BigDecimalValueFilter()));
     }
 
     public void batchSet(List<UserCredit> userCreditList) {
@@ -129,21 +130,21 @@ public class UserCreditCacheService {
             userCreditCache.asMap()
                     .putAll(collect);
         });
-        asyncService.basicTask(() -> userCreditRedisTemplate.execute(batchInsertUserCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(userCreditList)));
+        asyncService.basicTask(() -> userCreditRedisTemplate.execute(batchInsertUserCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(userCreditList, new BigDecimalValueFilter())));
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        userCreditRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
+        userCreditRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(redisCommandList, new BigDecimalValueFilter()));
     }
 
     public List<JSONObject> batchDecreaseUserCredit(List<OrderVO> orderVOList) {
-        String execute = userCreditRedisTemplate.execute(batchDecreaseCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(orderVOList));
+        String execute = userCreditRedisTemplate.execute(batchDecreaseCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(orderVOList, new BigDecimalValueFilter()));
         if ("{}".equals(execute)) return new ArrayList<>();
         return JSONArray.parseArray(execute, JSONObject.class);
     }
 
     public List<JSONObject> batchIncreaseUserCredit(List<PaymentVO> paymentVOList) {
-        String execute = userCreditRedisTemplate.execute(batchIncreaseCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(paymentVOList));
+        String execute = userCreditRedisTemplate.execute(batchIncreaseCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(paymentVOList, new BigDecimalValueFilter()));
         if ("{}".equals(execute)) return new ArrayList<>();
         return JSONArray.parseArray(execute, JSONObject.class);
     }

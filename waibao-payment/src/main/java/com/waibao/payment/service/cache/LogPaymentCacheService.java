@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import com.waibao.util.base.RedisCommand;
+import com.waibao.util.tools.BigDecimalValueFilter;
 import com.waibao.util.vo.payment.PaymentVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ClassPathResource;
@@ -64,12 +65,12 @@ public class LogPaymentCacheService {
         });
         if (mightContain.isEmpty()) return result;
 
-        String execute = logPaymentRedisTemplate.execute(batchCheckPaymentOperation, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(mightContain), operation);
+        String execute = logPaymentRedisTemplate.execute(batchCheckPaymentOperation, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(mightContain, new BigDecimalValueFilter()), operation);
         if (!"{}".equals(execute)) result.addAll(JSONArray.parseArray(execute, PaymentVO.class));
         return result;
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        logPaymentRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
+        logPaymentRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(redisCommandList, new BigDecimalValueFilter()));
     }
 }

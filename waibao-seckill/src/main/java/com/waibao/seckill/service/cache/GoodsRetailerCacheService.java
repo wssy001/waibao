@@ -7,10 +7,11 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
-import com.waibao.util.async.AsyncService;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
+import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
+import com.waibao.util.tools.BigDecimalValueFilter;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -102,11 +103,11 @@ public class GoodsRetailerCacheService {
     public void insertBatch(List<SeckillGoods> seckillGoodsList) {
         asyncService.basicTask(() -> seckillGoodsList.parallelStream().forEach(seckillGoods -> seckillGoodsCache.put(seckillGoods.getGoodsId(), seckillGoods)));
         asyncService.basicTask(() -> seckillGoodsList.parallelStream().forEach(seckillGoods -> bloomFilter.put(seckillGoods.getGoodsId())));
-        asyncService.basicTask(() -> goodsRedisTemplate.execute(batchInsertGoodsRetailer, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX), JSONArray.toJSONString(seckillGoodsList)));
+        asyncService.basicTask(() -> goodsRedisTemplate.execute(batchInsertGoodsRetailer, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX), JSONArray.toJSONString(seckillGoodsList, new BigDecimalValueFilter())));
     }
 
     public List<OrderVO> batchRollBackStorage(List<OrderVO> orderVOList) {
-        String arrayString = goodsRedisTemplate.execute(batchRollBackGoodsRetailerStorage, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX), JSONArray.toJSONString(orderVOList));
+        String arrayString = goodsRedisTemplate.execute(batchRollBackGoodsRetailerStorage, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX), JSONArray.toJSONString(orderVOList, new BigDecimalValueFilter()));
         return "{}".equals(arrayString) ? new ArrayList<>() : JSONArray.parseArray(arrayString, OrderVO.class);
     }
 
@@ -116,6 +117,6 @@ public class GoodsRetailerCacheService {
 
     public void canalSync(List<RedisCommand> redisCommandList) {
         log.info("******GoodsRetailerCacheService.canalSync：{}", JSONArray.toJSONString(redisCommandList));
-        goodsRedisTemplate.execute(canalSyncGoodsRetailer, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX), JSONArray.toJSONString(redisCommandList));
+        goodsRedisTemplate.execute(canalSyncGoodsRetailer, Collections.singletonList(REDIS_GOODS_RETAILER_KEY_PREFIX), JSONArray.toJSONString(redisCommandList, new BigDecimalValueFilter()));
     }
 }

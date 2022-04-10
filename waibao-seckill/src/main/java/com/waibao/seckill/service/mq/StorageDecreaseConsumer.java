@@ -1,6 +1,7 @@
 package com.waibao.seckill.service.mq;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
@@ -37,8 +38,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class StorageDecreaseConsumer implements MessageListenerConcurrently {
     private final AsyncMQMessage asyncMQMessage;
-    private final SeckillGoodsCacheService goodsCacheService;
     private final SeckillGoodsMapper seckillGoodsMapper;
+    private final SeckillGoodsCacheService goodsCacheService;
 
     private DefaultMQProducer orderUpdateMQProducer;
     private DefaultMQProducer orderCancelMQProducer;
@@ -51,7 +52,7 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
 
         ConcurrentMap<Long, List<OrderVO>> collect = messageExtMap.values()
                 .parallelStream()
-                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), OrderVO.class))
+                .flatMap(messageExt -> JSONArray.parseArray(new String(messageExt.getBody()), OrderVO.class).stream())
                 .collect(Collectors.groupingByConcurrent(OrderVO::getGoodsId));
 
         List<OrderVO> cancel = new ArrayList<>();
@@ -90,12 +91,14 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
 
         asyncMQMessage.sendMessage(orderUpdateMQProducer, complete.parallelStream()
                 .peek(orderVO -> orderVO.setStatus("购买成功"))
+                .peek(orderVO -> log.info("******StorageDecreaseConsumer：userId：{},orderId：{} 购买成功", orderVO.getUserId(), orderVO.getOrderId()))
                 .map(orderVO -> new Message("order", "update", orderVO.getOrderId(), JSON.toJSONBytes(orderVO)))
                 .collect(Collectors.toList())
         );
 
         asyncMQMessage.sendMessage(orderCancelMQProducer, cancel.parallelStream()
                 .peek(orderVO -> orderVO.setStatus("购买失败，库存不足"))
+                .peek(orderVO -> log.info("******StorageDecreaseConsumer：userId：{},orderId：{} 购买失败 原因：库存不足", orderVO.getUserId(), orderVO.getOrderId()))
                 .map(orderVO -> new Message("order", "cancel", orderVO.getOrderId(), JSON.toJSONBytes(orderVO)))
                 .collect(Collectors.toList())
         );

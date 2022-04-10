@@ -77,8 +77,10 @@ public class PaymentTransactionListener implements TransactionListener {
                     .forEach(jsonObject -> {
                         if (jsonObject.getString("operation").equals("paid")) {
                             paidList.add(jsonObject);
+                            log.info("******StorageDecreaseConsumer：userId：{},orderId：{} 付款成功", jsonObject.getString("userId"), jsonObject.getString("orderId"));
                         } else {
                             unpaidList.add(jsonObject);
+                            log.info("******StorageDecreaseConsumer：userId：{},orderId：{} 付款失败，原因：{}", jsonObject.getString("userId"), jsonObject.getString("orderId"), jsonObject.getString("status"));
                         }
                     });
             Future<List<LogUserCredit>> paidLogUserCreditFuture = asyncService.basicTask(paidList.stream().map(jsonObject -> jsonObject.toJavaObject(LogUserCredit.class)).collect(Collectors.toList()));

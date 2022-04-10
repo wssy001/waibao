@@ -63,6 +63,7 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
 
         Message message = new Message("storage", "update", IdUtil.objectId(), JSON.toJSONBytes(orderVOList));
         message.setTransactionId(IdUtil.objectId());
+        asyncService.basicTask(() -> orderVOList.forEach(orderVO -> log.info("******PaymentRequestPayConsumer：userId：{},orderId：{} 请求支付", orderVO.getUserId(), orderVO.getOrderId())));
         asyncMQMessage.sendMessageInTransaction(paymentPayMQProducer, message);
         asyncService.basicTask(() -> logPaymentService.saveBatch(convert(paymentVOList, LogPayment.class)));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,

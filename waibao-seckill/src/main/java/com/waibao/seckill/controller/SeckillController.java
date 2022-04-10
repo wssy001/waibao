@@ -3,8 +3,6 @@ package com.waibao.seckill.controller;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson.JSON;
-import com.anji.captcha.model.vo.CaptchaVO;
-import com.anji.captcha.service.CaptchaService;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -48,7 +46,6 @@ import java.util.stream.Collectors;
 @RequestMapping("/seckill/goods")
 public class SeckillController {
     private final AsyncService asyncService;
-    private final CaptchaService captchaService;
     private final AsyncMQMessage asyncMQMessage;
     private final SeckillGoodsMapper seckillGoodsMapper;
     private final DefaultMQProducer orderCreateMQProducer;
@@ -112,14 +109,10 @@ public class SeckillController {
     @GetMapping("/seckillPath")
     public GlobalResult<KillVO> getSeckillPath(
             @RequestParam("goodsId") Long goodsId,
-            @RequestParam("userId") Long userId,
-            @RequestBody(required = false) CaptchaVO captchaVO
+            @RequestParam("userId") Long userId
     ) {
         if (seckillGoodsCacheService.finished(goodsId))
             return GlobalResult.error("秒杀已结束");
-
-//        ResponseModel verification = captchaService.verification(captchaVO);
-//        if (!verification.isSuccess()) return GlobalResult.error(verification.getRepMsg());
 
         SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         if (seckillGoods.getGoodsId() == null) return GlobalResult.error("秒杀产品不存在");
@@ -147,13 +140,18 @@ public class SeckillController {
             @RequestParam("userId") Long userId
     ) {
         Long goodsId = killVO.getGoodsId();
-        if (seckillGoodsCacheService.finished(goodsId))
+        if (seckillGoodsCacheService.finished(goodsId)) {
+            log.info("******SeckillController：userId：{}，秒杀已结束", userId);
             return GlobalResult.error("秒杀已结束");
+        }
 
         SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         Integer purchaseLimit = seckillGoods.getPurchaseLimit();
         Integer count = killVO.getCount();
-        if (count > purchaseLimit) return GlobalResult.error("秒杀失败，超过最大购买限制");
+        if (count > purchaseLimit) {
+            log.info("******SeckillController：userId：{}，秒杀失败，超过最大购买限制", userId);
+            return GlobalResult.error("秒杀失败，超过最大购买限制");
+        }
 
         try {
             Future<Boolean> decreaseStorage = asyncService.basicTask(seckillGoodsCacheService.decreaseStorage(goodsId, count));
@@ -165,9 +163,16 @@ public class SeckillController {
             log.info("******减库存操作执行完毕");
             Boolean increaseResult = increase.get();
             log.info("******增加用户购买量操作执行完毕");
-            if (!decreaseStorageResult) return GlobalResult.error("秒杀失败，库存不足");
-            if (!increaseResult) return GlobalResult.error("秒杀失败，已超过个人最大购买量");
+            if (!decreaseStorageResult) {
+                log.info("******SeckillController：userId：{}，秒杀失败，库存不足", userId);
+                return GlobalResult.error("秒杀失败，库存不足");
+            }
+            if (!increaseResult) {
+                log.info("******SeckillController：userId：{}，秒杀失败，已超过个人最大购买量", userId);
+                return GlobalResult.error("秒杀失败，已超过个人最大购买量");
+            }
         } catch (Exception e) {
+            log.error("******SeckillController：{}", e.getMessage());
             return GlobalResult.error("秒杀失败，服务器暂时无法执行操作");
         }
 
@@ -186,7 +191,7 @@ public class SeckillController {
         String jsonString = JSON.toJSONString(orderVO);
         Message message = new Message("order", "create", orderId, jsonString.getBytes());
         asyncMQMessage.sendMessage(orderCreateMQProducer, message);
-
+        log.info("******SeckillController：userId：{}，orderId：{} 预减库存成功", userId, orderId);
         return GlobalResult.success("秒杀成功", orderVO);
     }
 

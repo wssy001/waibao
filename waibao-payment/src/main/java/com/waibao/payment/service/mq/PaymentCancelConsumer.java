@@ -71,6 +71,7 @@ public class PaymentCancelConsumer implements MessageListenerConcurrently {
         Future<List<LogPayment>> logPaymentFuture = asyncService.basicTask(convert(paymentVOList, LogPayment.class));
         Future<List<Message>> messageFuture = asyncService.basicTask(orderUserCacheService.batchGetOrderVO(paymentVOList)
                 .stream()
+                .peek(orderVO -> log.info("******PaymentCancelConsumer：userId：{},orderId：{} 订单取消中", orderVO.getUserId(), orderVO.getOrderId()))
                 .map(orderVO -> new Message("order", "cancel", orderVO.getOrderId(), JSON.toJSONBytes(orderVO)))
                 .collect(Collectors.toList()));
         Map<Boolean, List<PaymentVO>> collect = paymentVOList.stream()
@@ -80,6 +81,7 @@ public class PaymentCancelConsumer implements MessageListenerConcurrently {
             List<JSONObject> jsonObjectList = userCreditCacheService.batchIncreaseUserCredit(collect.get(Boolean.TRUE));
             List<LogUserCredit> succeed = jsonObjectList.parallelStream()
                     .filter(jsonObject -> jsonObject.getString("operation").equals("money back"))
+                    .peek(jsonObject -> log.info("******PaymentCancelConsumer：userId：{},payId：{} 退钱中", jsonObject.getString("userId"), jsonObject.getString("payId")))
                     .map(jsonObject -> jsonObject.toJavaObject(LogUserCredit.class))
                     .collect(Collectors.toList());
 

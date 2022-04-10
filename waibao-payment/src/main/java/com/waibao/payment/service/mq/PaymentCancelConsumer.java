@@ -75,7 +75,7 @@ public class PaymentCancelConsumer implements MessageListenerConcurrently {
                 .map(orderVO -> new Message("order", "cancel", orderVO.getOrderId(), JSON.toJSONBytes(orderVO)))
                 .collect(Collectors.toList()));
         Map<Boolean, List<PaymentVO>> collect = paymentVOList.stream()
-                .collect(Collectors.groupingBy(PaymentVO::isPaid));
+                .collect(Collectors.groupingBy(PaymentVO::getPaid));
 
         if (collect.containsKey(Boolean.TRUE)) {
             List<JSONObject> jsonObjectList = userCreditCacheService.batchIncreaseUserCredit(collect.get(Boolean.TRUE));

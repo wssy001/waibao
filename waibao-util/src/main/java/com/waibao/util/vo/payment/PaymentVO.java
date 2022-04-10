@@ -1,38 +1,26 @@
 package com.waibao.util.vo.payment;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.waibao.util.vo.order.OrderVO;
+import lombok.*;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.Date;
 
 /**
  * @Author: wwj
  * @Date: 2022/3/5
  */
-@Data
+@Getter
+@Setter
+@EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class PaymentVO implements Serializable {
+public class PaymentVO extends OrderVO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private Long id;
 
-    private String payId;
-
-    private Long userId;
-
-    private String orderId;
-
-    private Long goodsId;
-
     private BigDecimal money;
 
     private String status;
-
-    private boolean paid;
-
-    private Date purchaseTime;
 }

@@ -5,7 +5,6 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.waibao.payment.entity.LogPayment;
 import com.waibao.payment.entity.LogUserCredit;
 import com.waibao.payment.entity.MqMsgCompensation;
 import com.waibao.payment.mapper.MqMsgCompensationMapper;
@@ -177,12 +176,6 @@ public class PaymentTransactionListener implements TransactionListener {
     }
 
     private <T> List<T> convert(Message message, Class<T> clazz) {
-        if (clazz == LogPayment.class) {
-            return JSONArray.parseArray(new String(message.getBody()), clazz)
-                    .parallelStream()
-                    .peek(logPayment -> ((LogPayment) logPayment).setOperation("paid"))
-                    .collect(Collectors.toList());
-        }
         return JSONArray.parseArray(new String(message.getBody()), clazz);
     }
 

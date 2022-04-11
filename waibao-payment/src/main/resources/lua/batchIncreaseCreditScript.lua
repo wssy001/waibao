@@ -8,13 +8,14 @@ local orderPrice
 local money
 for _ , orderVO in pairs(cjson.decode(ARGV[1])) do
     userId = orderVO['userId']
-    orderPrice = orderVO['orderPrice']
+    orderPrice = tonumber(orderVO['orderPrice'])
     oldMoney = string.format("%.2f" , redis.call('HGET' , key .. userId , 'money'))
     orderVO['paid'] = false
     orderVO['operation'] = 'cancel'
     if oldMoney then
         orderVO['oldMoney'] = oldMoney
         money = string.format("%.2f" , redis.call('HINCRBYFLOAT' , key .. userId , 'money' , orderPrice))
+        redis.call('HSET' , key .. userId , 'money' , money)
         orderVO['paid'] = true
         orderVO['money'] = money
         orderVO['status'] = '用户退钱成功'

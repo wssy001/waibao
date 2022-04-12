@@ -118,8 +118,7 @@ public class RocketMQConfig {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(redisOrderUserCanalConsumer);
         consumer.setConsumerGroup("orderUserCanal");
-        consumer.subscribe("waibao_order_user_order_user_0", "*");
-        consumer.subscribe("waibao_order_user_order_user_1", "*");
+        consumer.subscribe("waibao_v3_order_user", "*");
         consumer.start();
         return consumer;
     }
@@ -130,7 +129,7 @@ public class RocketMQConfig {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(redisLogOrderGoodsCanalConsumer);
         consumer.setConsumerGroup("logOrderGoodsCanal");
-        consumer.subscribe("waibao_v2_log_order_goods", "*");
+        consumer.subscribe("waibao_v3_log_order_goods", "*");
         consumer.start();
         return consumer;
     }
@@ -141,8 +140,7 @@ public class RocketMQConfig {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(redisOrderRetailerCanalConsumer);
         consumer.setConsumerGroup("orderRetailerCanal");
-        consumer.subscribe("waibao_order_retailer_order_retailer_0", "*");
-        consumer.subscribe("waibao_order_retailer_order_retailer_1", "*");
+        consumer.subscribe("waibao_v3_order_retailer", "*");
         consumer.start();
         return consumer;
     }

@@ -66,9 +66,9 @@ public class OrderTestConsumer implements MessageListenerConcurrently {
         List<LogOrderGoods> logOrderGoods = logOrderGoodsFuture.get();
         List<OrderRetailer> orderRetailers = orderRetailersFuture.get();
 
-        asyncService.basicTask(() -> orderUserService.saveBatch(orderUsers));
         asyncService.basicTask(() -> logOrderGoodsService.saveBatch(logOrderGoods));
-        asyncService.basicTask(() -> orderRetailerService.saveBatch(orderRetailers));
+        asyncService.basicTask(() -> orderUserService.saveOrUpdateBatch(orderUsers));
+        asyncService.basicTask(() -> orderRetailerService.saveOrUpdateBatch(orderRetailers));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))

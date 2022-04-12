@@ -148,8 +148,7 @@ public class RocketMQConfig {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(redisPaymentCanalConsumer);
         consumer.setConsumerGroup("paymentCanal");
-        consumer.subscribe("waibao_payment_payment_0", "*");
-        consumer.subscribe("waibao_payment_payment_1", "*");
+        consumer.subscribe("waibao_v3_payment", "*");
         consumer.start();
         return consumer;
     }
@@ -160,7 +159,7 @@ public class RocketMQConfig {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(redisLogPaymentCanalConsumer);
         consumer.setConsumerGroup("logPaymentCanal");
-        consumer.subscribe("waibao_payment_log_payment", "*");
+        consumer.subscribe("waibao_v3_log_payment", "*");
         consumer.start();
         return consumer;
     }

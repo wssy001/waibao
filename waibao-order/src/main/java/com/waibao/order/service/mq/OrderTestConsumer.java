@@ -47,13 +47,15 @@ public class OrderTestConsumer implements MessageListenerConcurrently {
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
     private final LogOrderGoodsCacheService logOrderGoodsCacheService;
 
+    private final Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
+
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
         List<OrderVO> orderVOList = logOrderGoodsCacheService.batchCheckNotConsumedTags(convert(messageExtMap.values(), OrderVO.class), "create");
+        messageExtMap.clear();
 
         Future<List<OrderUser>> orderUsersFuture = asyncService.basicTask(convert(orderVOList, OrderUser.class));
         Future<List<OrderRetailer>> orderRetailersFuture = asyncService.basicTask(convert(orderVOList, OrderRetailer.class));
@@ -66,15 +68,18 @@ public class OrderTestConsumer implements MessageListenerConcurrently {
         List<LogOrderGoods> logOrderGoods = logOrderGoodsFuture.get();
         List<OrderRetailer> orderRetailers = orderRetailersFuture.get();
 
-        asyncService.basicTask(() -> logOrderGoodsService.saveBatch(logOrderGoods));
-        asyncService.basicTask(() -> orderUserService.saveOrUpdateBatch(orderUsers));
-        asyncService.basicTask(() -> orderRetailerService.saveOrUpdateBatch(orderRetailers));
-        asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
+        Future<Boolean> task = asyncService.basicTask(logOrderGoodsService.saveBatch(logOrderGoods));
+        Future<Boolean> task1 = asyncService.basicTask(orderUserService.saveOrUpdateBatch(orderUsers));
+        Future<Boolean> task2 = asyncService.basicTask(orderRetailerService.saveOrUpdateBatch(orderRetailers));
+        asyncService.basicTask(mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
                         .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
 
         asyncService.basicTask(() -> orderUsers.forEach(orderUser -> log.info("******OrderTestConsumer：userId：{}，orderId：{} 订单创建成功", orderUser.getUserId(), orderUser.getOrderId())));
+        while (true) {
+            if (task.isDone() && task1.isDone() && task2.isDone()) break;
+        }
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 

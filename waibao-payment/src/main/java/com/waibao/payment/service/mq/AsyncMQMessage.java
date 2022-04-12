@@ -6,9 +6,10 @@ import com.waibao.payment.service.db.MqMsgCompensationService;
 import com.waibao.util.mq.SelectSingleMessageQueue;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.producer.*;
+import org.apache.rocketmq.client.producer.DefaultMQProducer;
+import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.client.producer.SendStatus;
 import org.apache.rocketmq.common.message.Message;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -37,7 +38,7 @@ public class AsyncMQMessage {
         try {
             send = producer.send(message, SelectSingleMessageQueue.selectFirst(producer, message.getTopic()));
         } catch (Exception e) {
-            log.error("******AsyncMQMessage.sendMessage：消息id：{} 原因：{} 处理:{}", msgId, "producer发送失败", "等待延迟补偿结果");
+            log.error("******AsyncMQMessage.sendMessage：消息id：{} 原因：{} 处理:{}", msgId, e.getMessage(), "等待延迟补偿结果");
             sendMqMsgCompensation(message, e.getMessage());
             return;
         }
@@ -51,7 +52,6 @@ public class AsyncMQMessage {
         }
     }
 
-    //    1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h
     public void sendDelayedMessage(DefaultMQProducer producer, Message message, int delayedLevel) {
         message.setTags(message.getTags() + "Check");
         message.setDelayTimeLevel(delayedLevel);
@@ -60,7 +60,7 @@ public class AsyncMQMessage {
         try {
             send = producer.send(message, SelectSingleMessageQueue.selectFirst(producer, message.getTopic()));
         } catch (Exception e) {
-            log.error("******AsyncMQMessage.sendDelayedMessage：消息id：{} 原因：{} 处理:{}", msgId, "producer发送失败", "等待延迟补偿结果");
+            log.error("******AsyncMQMessage.sendDelayedMessage：消息id：{} 原因：{} 处理:{}", msgId, e.getMessage(), "等待延迟补偿结果");
             sendMqMsgCompensation(message, e.getMessage());
             return;
         }
@@ -84,7 +84,7 @@ public class AsyncMQMessage {
                     } catch (Exception e) {
                         sendMqMsgCompensation(v, e.getMessage());
                         v.parallelStream()
-                                .forEach(message -> log.error("******AsyncMQMessage.sendMessage：消息id：{} 原因：{} 处理:{}", message.getKeys(), "producer发送失败", "等待延迟补偿结果"));
+                                .forEach(message -> log.error("******AsyncMQMessage.sendMessage：消息id：{} 原因：{} 处理:{}", message.getKeys(), e.getMessage(), "等待延迟补偿结果"));
                         return;
                     }
                     if (!send.getSendStatus().equals(SendStatus.SEND_OK)) {
@@ -148,7 +148,7 @@ public class AsyncMQMessage {
                     .forEach(message -> log.info("******AsyncMQMessage.sendMqMsgCompensation：补偿消息存储成功，消息id：{}", message.getKeys()));
         } catch (Exception e) {
             messages.parallelStream()
-                    .forEach(message -> log.info("******AsyncMQMessage.sendMqMsgCompensation：补偿消息存储失败，消息id：{}", message.getKeys()));
+                    .forEach(message -> log.info("******AsyncMQMessage.sendMqMsgCompensation：补偿消息存储失败，消息id：{} 原因：{}", message.getKeys(), e.getMessage()));
         }
     }
 
@@ -164,7 +164,7 @@ public class AsyncMQMessage {
             mqMsgCompensationService.saveOrUpdate(mqMsgCompensation);
             log.info("******AsyncMQMessage.sendMqMsgCompensation：补偿消息存储成功，消息id：{}", msgId);
         } catch (Exception e) {
-            log.info("******AsyncMQMessage.sendMqMsgCompensation：补偿消息存储失败，消息id：{}", msgId);
+            log.info("******AsyncMQMessage.sendMqMsgCompensation：补偿消息存储失败，消息id：{}，原因：{}", msgId, e.getMessage());
         }
     }
 }

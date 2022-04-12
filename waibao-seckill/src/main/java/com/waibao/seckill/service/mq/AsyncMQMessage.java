@@ -10,7 +10,6 @@ import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.producer.SendStatus;
 import org.apache.rocketmq.common.message.Message;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -61,7 +60,7 @@ public class AsyncMQMessage {
         try {
             send = producer.send(message, SelectSingleMessageQueue.selectFirst(producer, message.getTopic()));
         } catch (Exception e) {
-            log.error("******AsyncMQMessage.sendDelayedMessage：消息id：{} 原因：{} 处理:{}", msgId, "producer发送失败", "等待延迟补偿结果");
+            log.error("******AsyncMQMessage.sendDelayedMessage：消息id：{} 原因：{} 处理:{}", msgId, e.getMessage(), "等待延迟补偿结果");
             sendMqMsgCompensation(message, e.getMessage());
             return;
         }
@@ -85,7 +84,7 @@ public class AsyncMQMessage {
                     } catch (Exception e) {
                         sendMqMsgCompensation(v, e.getMessage());
                         v.parallelStream()
-                                .forEach(message -> log.error("******AsyncMQMessage.sendMessage：消息id：{} 原因：{} 处理:{}", message.getKeys(), "producer发送失败", "等待延迟补偿结果"));
+                                .forEach(message -> log.error("******AsyncMQMessage.sendMessage：消息id：{} 原因：{} 处理:{}", message.getKeys(), e.getMessage(), "等待延迟补偿结果"));
                         return;
                     }
                     if (!send.getSendStatus().equals(SendStatus.SEND_OK)) {
@@ -149,7 +148,7 @@ public class AsyncMQMessage {
                     .forEach(message -> log.info("******AsyncMQMessage.sendMqMsgCompensation：补偿消息存储成功，消息id：{}", message.getKeys()));
         } catch (Exception e) {
             messages.parallelStream()
-                    .forEach(message -> log.info("******AsyncMQMessage.sendMqMsgCompensation：补偿消息存储失败，消息id：{}", message.getKeys()));
+                    .forEach(message -> log.info("******AsyncMQMessage.sendMqMsgCompensation：补偿消息存储失败，消息id：{} 原因：{}", message.getKeys(), e.getMessage()));
         }
     }
 

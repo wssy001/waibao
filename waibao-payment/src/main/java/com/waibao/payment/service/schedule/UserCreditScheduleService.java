@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.LongAdder;
  * @since 2022/4/6
  */
 @Slf4j
-@Service
+//@Service
 @RequiredArgsConstructor
 public class UserCreditScheduleService {
     private final UserCreditMapper userCreditMapper;

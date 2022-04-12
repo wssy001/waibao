@@ -151,9 +151,9 @@ public class RocketMQConfig {
         consumer.setPullInterval(1000);
         consumer.setConsumeThreadMax(1);
         consumer.setConsumeThreadMin(1);
-        consumer.setPullBatchSize(760);
+        consumer.setPullBatchSize(500);
         consumer.setMaxReconsumeTimes(3);
-        consumer.setConsumeMessageBatchMaxSize(760);
+        consumer.setConsumeMessageBatchMaxSize(500);
         return consumer;
     }
 

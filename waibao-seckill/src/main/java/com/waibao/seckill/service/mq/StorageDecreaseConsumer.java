@@ -48,7 +48,6 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
 
-        //TODO 过滤付款成功的
         List<OrderVO> collect1 = messageExtMap.values()
                 .parallelStream()
                 .flatMap(messageExt -> JSONArray.parseArray(new String(messageExt.getBody()), OrderVO.class).stream())

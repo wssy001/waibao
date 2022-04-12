@@ -2,6 +2,7 @@ package com.waibao.payment.service.mq;
 
 import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.payment.entity.LogPayment;
@@ -23,6 +24,7 @@ import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
+import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -109,9 +111,12 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
         paidList.clear();
         unpaidList.clear();
 
-        asyncMQMessage.sendMessage(paymentRequestPayMQProducer, paidMessageFuture.get());
-        asyncMQMessage.sendMessage(paymentRequestPayMQProducer, unpaidMessageFuture.get());
         asyncMQMessage.sendMessage(paymentRequestPayMQProducer, message);
+        log.info("已发送至storageDecrease");
+        List<Message> paid = paidMessageFuture.get();
+        if (!paid.isEmpty()) asyncMQMessage.sendMessage(paymentRequestPayMQProducer, paid);
+        List<Message> unpaid = unpaidMessageFuture.get();
+        if (!unpaid.isEmpty()) asyncMQMessage.sendMessage(paymentRequestPayMQProducer, unpaid);
         asyncService.basicTask(() -> logPaymentService.saveBatch(convert(paymentVOList, LogPayment.class)));
         Future<Integer> task = asyncService.basicTask(mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
@@ -123,7 +128,8 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
 
     private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
         return msgs.stream()
-                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), clazz))
+                .map(messageExt -> (JSONArray) JSONArray.parse(messageExt.getBody()))
+                .flatMap(jsonArray -> jsonArray.toJavaList(clazz).stream())
                 .collect(Collectors.toList());
     }
 

@@ -155,12 +155,12 @@ public class RocketMQConfig {
     private DefaultMQPushConsumer getSingleThreadBatchConsumer() {
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer();
         consumer.setNamesrvAddr(rocketMQProperties.getNameServer());
-        consumer.setPullInterval(2000);
+        consumer.setPullInterval(1000);
         consumer.setConsumeThreadMax(1);
         consumer.setConsumeThreadMin(1);
-        consumer.setPullBatchSize(400);
+        consumer.setPullBatchSize(500);
         consumer.setMaxReconsumeTimes(3);
-        consumer.setConsumeMessageBatchMaxSize(400);
+        consumer.setConsumeMessageBatchMaxSize(500);
         return consumer;
     }
 

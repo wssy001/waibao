@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
 public class AsyncMQMessage {
     private final MqMsgCompensationService mqMsgCompensationService;
 
-    @Async
     public void sendMessage(DefaultMQProducer producer, Message message) {
         String msgId = message.getKeys();
         if (msgId == null) {
@@ -52,7 +51,6 @@ public class AsyncMQMessage {
         }
     }
 
-    @Async
     //    1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h
     public void sendDelayedMessage(DefaultMQProducer producer, Message message, int delayedLevel) {
         message.setTags(message.getTags() + "Check");
@@ -76,8 +74,6 @@ public class AsyncMQMessage {
         }
     }
 
-
-    @Async
     public void sendMessage(DefaultMQProducer producer, List<Message> messages) {
         messages.parallelStream()
                 .collect(Collectors.groupingBy(Message::getTopic))
@@ -103,7 +99,6 @@ public class AsyncMQMessage {
                 });
     }
 
-    @Async
     //    1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h
     public void sendDelayedMessage(DefaultMQProducer producer, List<Message> messages, int delayedLevel) {
         messages.parallelStream()

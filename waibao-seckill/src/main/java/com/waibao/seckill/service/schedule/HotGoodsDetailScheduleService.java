@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
  * @since 2022/4/02
  */
 @Slf4j
-@Service
+//@Service
 @RequiredArgsConstructor
 public class HotGoodsDetailScheduleService {
     private final GoodsMapper goodsMapper;

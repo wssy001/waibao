@@ -4,13 +4,10 @@
 
     <update id="batchUpdateByIdAndOldMoney">
         <foreach collection="list" item="logUserCredit">
-            begin;
-            select user_id from user_credit for update;
             update user_credit
             set money= #{logUserCredit.money}
             where user_id = #{logUserCredit.userId}
             and money = #{logUserCredit.oldMoney};
-            commit;
         </foreach>
     </update>
 </mapper>

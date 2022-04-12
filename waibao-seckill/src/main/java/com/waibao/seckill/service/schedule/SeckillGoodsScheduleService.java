@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.LongAdder;
  * @since 2022/3/13
  */
 @Slf4j
-@Service
+//@Service
 @RequiredArgsConstructor
 public class SeckillGoodsScheduleService {
     private final SeckillGoodsMapper seckillGoodsMapper;
@@ -33,7 +33,6 @@ public class SeckillGoodsScheduleService {
 
     @PostConstruct
     public void init() {
-        List<SeckillGoods> seckillGoods = seckillGoodsMapper.selectList(null);
         Long count = seckillGoodsMapper.selectCount(null);
         longAdder = new LongAdder();
         longAdder.add(count / 1000 + 1);

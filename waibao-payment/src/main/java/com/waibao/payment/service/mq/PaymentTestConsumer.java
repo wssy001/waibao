@@ -77,7 +77,7 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
 
         message.setKeys(IdUtil.objectId());
         message.setBody(JSON.toJSONBytes(collect));
-        asyncMQMessage.sendMessageInTransaction(paymentRequestPayMQProducer, message);
+        asyncMQMessage.sendMessage(paymentRequestPayMQProducer, message);
 
         if (task.isDone()) messageExtMap.clear();
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;

@@ -76,35 +76,6 @@ public class AsyncMQMessage {
         }
     }
 
-    @Async
-    public void sendMessageInTransaction(DefaultMQProducer producer, Message message) {
-        String msgId = message.getKeys();
-        TransactionSendResult send;
-        try {
-            send = producer.sendMessageInTransaction(message, null);
-        } catch (Exception e) {
-            log.error("******AsyncMQMessage.sendMessageInTransaction：消息id：{} 原因：{} 处理:{}", msgId, "producer发送失败", "等待延迟补偿结果");
-            sendMqMsgCompensation(message, e.getMessage());
-            return;
-        }
-
-        if (!send.getSendStatus().equals(SendStatus.SEND_OK)) {
-            String name = send.getSendStatus().name();
-            log.error("******AsyncMQMessage.sendMessageInTransaction：消息id：{} 原因：{} 处理:{}", msgId, name, "等待延迟补偿结果");
-            sendMqMsgCompensation(message, name);
-            return;
-        }
-
-        LocalTransactionState localTransactionState = send.getLocalTransactionState();
-        if (localTransactionState.equals(LocalTransactionState.COMMIT_MESSAGE)) {
-            log.info("******AsyncMQMessage.sendMessageInTransaction：消息id：{} 发送成功", msgId);
-        } else if (localTransactionState.equals(LocalTransactionState.ROLLBACK_MESSAGE)) {
-            log.info("******AsyncMQMessage.sendMessageInTransaction：消息id：{} 发送失败，处理：{}", msgId, "回滚");
-        } else {
-            log.info("******AsyncMQMessage.sendMessageInTransaction：消息id：{} 发送失败，处理：{}", msgId, "等待回查");
-        }
-
-    }
 
     @Async
     public void sendMessage(DefaultMQProducer producer, List<Message> messages) {

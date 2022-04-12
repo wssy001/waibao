@@ -63,7 +63,7 @@ public class RedisLogPaymentCanalConsumer implements MessageListenerConcurrently
                             break;
                         case "UPDATE":
                             redisCommand.setCommand("UPDATE");
-                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(LogPayment.class));
+                            redisCommand.setOldValue(jsonObject.getJSONArray("old").getJSONObject(0).toJavaObject(LogPayment.class));
                             logPaymentCacheService.putToBloomFilter(((JSONObject) v).getString("payId"), ((JSONObject) v).getString("operation"));
                             break;
                         case "DELETE":

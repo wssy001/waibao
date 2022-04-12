@@ -5,7 +5,7 @@
     <update id="batchUpdateByIdAndOldMoney">
         <foreach collection="list" item="logUserCredit">
             begin;
-            select user_if from user_credit for update;
+            select user_id from user_credit for update;
             update user_credit
             set money= #{logUserCredit.money}
             where user_id = #{logUserCredit.userId}

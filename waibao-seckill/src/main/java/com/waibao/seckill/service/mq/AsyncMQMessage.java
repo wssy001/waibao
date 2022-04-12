@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 public class AsyncMQMessage {
     private final MqMsgCompensationService mqMsgCompensationService;
 
-    @Async
     public void sendMessage(DefaultMQProducer producer, Message message) {
         String msgId = message.getKeys();
         if (msgId == null) {
@@ -40,7 +39,7 @@ public class AsyncMQMessage {
         try {
             send = producer.send(message, SelectSingleMessageQueue.selectFirst(producer, message.getTopic()));
         } catch (Exception e) {
-            log.error("******AsyncMQMessage.sendMessage：消息id：{} 原因：{} 处理:{}", msgId, "producer发送失败", "等待延迟补偿结果");
+            log.error("******AsyncMQMessage.sendMessage：消息id：{} 原因：{} 处理:{}", msgId, e.getMessage(), "等待延迟补偿结果");
             sendMqMsgCompensation(message, e.getMessage());
             return;
         }
@@ -54,7 +53,6 @@ public class AsyncMQMessage {
         }
     }
 
-    @Async
     public void sendDelayedMessage(DefaultMQProducer producer, Message message, int delayedLevel) {
         message.setTags(message.getTags() + "Check");
         message.setDelayTimeLevel(delayedLevel);
@@ -77,7 +75,6 @@ public class AsyncMQMessage {
         }
     }
 
-    @Async
     public void sendMessage(DefaultMQProducer producer, List<Message> messages) {
         messages.parallelStream()
                 .collect(Collectors.groupingBy(Message::getTopic))
@@ -168,7 +165,7 @@ public class AsyncMQMessage {
             mqMsgCompensationService.saveOrUpdate(mqMsgCompensation);
             log.info("******AsyncMQMessage.sendMqMsgCompensation：补偿消息存储成功，消息id：{}", msgId);
         } catch (Exception e) {
-            log.info("******AsyncMQMessage.sendMqMsgCompensation：补偿消息存储失败，消息id：{}", msgId);
+            log.info("******AsyncMQMessage.sendMqMsgCompensation：补偿消息存储失败，消息id：{}，原因：{}", msgId, e.getMessage());
         }
     }
 }

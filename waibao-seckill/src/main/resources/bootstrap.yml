@@ -2,7 +2,7 @@ server:
   port: 33381
   tomcat:
     threads:
-      max: 400
+      max: 300
       min-spare: 75
     accept-count: 750
     max-connections: 7500

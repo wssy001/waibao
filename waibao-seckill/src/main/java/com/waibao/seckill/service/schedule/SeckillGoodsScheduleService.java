@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.LongAdder;
  * @since 2022/3/13
  */
 @Slf4j
-//@Service
+@Service
 @RequiredArgsConstructor
 public class SeckillGoodsScheduleService {
     private final SeckillGoodsMapper seckillGoodsMapper;

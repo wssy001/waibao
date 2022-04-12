@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
@@ -47,32 +48,42 @@ public class OrderCreateConsumer implements MessageListenerConcurrently {
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
     private final LogOrderGoodsCacheService logOrderGoodsCacheService;
 
+    private final Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
+    private final List<OrderVO> orderVOList = new CopyOnWriteArrayList<>();
+    private final List<OrderUser> orderUsers = new CopyOnWriteArrayList<>();
+    private final List<LogOrderGoods> logOrderGoods = new CopyOnWriteArrayList<>();
+    private final List<OrderRetailer> orderRetailers = new CopyOnWriteArrayList<>();
+
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        List<OrderVO> orderVOList = logOrderGoodsCacheService.batchCheckNotConsumedTags(convert(messageExtMap.values(), OrderVO.class), "create");
+        orderVOList.addAll(logOrderGoodsCacheService.batchCheckNotConsumedTags(convert(messageExtMap.values(), OrderVO.class), "create"));
+        messageExtMap.clear();
 
-        Future<List<OrderUser>> orderUsersFuture = asyncService.basicTask(convert(orderVOList, OrderUser.class));
-        Future<List<OrderRetailer>> orderRetailersFuture = asyncService.basicTask(convert(orderVOList, OrderRetailer.class));
-        Future<List<LogOrderGoods>> logOrderGoodsFuture = asyncService.basicTask(convert(orderVOList, LogOrderGoods.class));
+        Future<Boolean> task = asyncService.basicTask(orderUsers.addAll(convert(orderVOList, OrderUser.class)));
+        Future<Boolean> task2 = asyncService.basicTask(logOrderGoods.addAll(convert(orderVOList, LogOrderGoods.class)));
+        Future<Boolean> task3 = asyncService.basicTask(orderRetailers.addAll(convert(orderVOList, OrderRetailer.class)));
         while (true) {
-            if (orderRetailersFuture.isDone() && orderUsersFuture.isDone() && logOrderGoodsFuture.isDone()) break;
+            if (task.isDone() && task2.isDone() && task3.isDone()) break;
         }
 
-        List<OrderUser> orderUsers = orderUsersFuture.get();
-        List<LogOrderGoods> logOrderGoods = logOrderGoodsFuture.get();
-        List<OrderRetailer> orderRetailers = orderRetailersFuture.get();
-
-        asyncService.basicTask(() -> orderUserService.saveBatch(orderUsers));
-        asyncService.basicTask(() -> logOrderGoodsService.saveBatch(logOrderGoods));
-        asyncService.basicTask(() -> orderRetailerService.saveBatch(orderRetailers));
+        orderVOList.clear();
+        task = asyncService.basicTask(orderUserService.saveBatch(orderUsers));
+        task2 = asyncService.basicTask(logOrderGoodsService.saveBatch(logOrderGoods));
+        task3 = asyncService.basicTask(orderRetailerService.saveBatch(orderRetailers));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
                         .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
+
+        while (true) {
+            if (task.isDone() && task2.isDone() && task3.isDone()) break;
+        }
+        orderUsers.clear();
+        logOrderGoods.clear();
+        orderRetailers.clear();
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 

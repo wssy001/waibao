@@ -31,7 +31,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 /**
@@ -53,6 +52,9 @@ public class SeckillController {
     private final SeckillGoodsCacheService seckillGoodsCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;
 
+    private final KillVO killVO = new KillVO();
+    private final OrderVO orderVO = new OrderVO();
+    private final Message message = new Message("order", "test", "", null);
 
     @PostMapping(value = "/control", produces = MediaType.APPLICATION_JSON_VALUE)
     public GlobalResult<String> seckillControl(
@@ -127,7 +129,6 @@ public class SeckillController {
             GlobalResult.error("您已达到最大秒杀次数");
 
         String path = seckillPathCacheService.generate(goodsId);
-        KillVO killVO = new KillVO();
         killVO.setSeckillPath(path);
         killVO.setUserId(userId);
         killVO.setGoodsId(goodsId);
@@ -141,42 +142,26 @@ public class SeckillController {
     ) {
         Long goodsId = killVO.getGoodsId();
         if (seckillGoodsCacheService.finished(goodsId)) {
-            log.info("******SeckillController：userId：{}，秒杀已结束", userId);
+            log.error("******SeckillController：userId：{}，秒杀已结束", userId);
             return GlobalResult.error("秒杀已结束");
         }
 
         SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         Integer purchaseLimit = seckillGoods.getPurchaseLimit();
         Integer count = killVO.getCount();
-        if (count > purchaseLimit) {
-            log.info("******SeckillController：userId：{}，秒杀失败，超过最大购买限制", userId);
-            return GlobalResult.error("秒杀失败，超过最大购买限制");
+
+        boolean decreaseStorageResult = seckillGoodsCacheService.decreaseStorage(goodsId, count);
+        boolean increaseResult = purchasedUserCacheService.increase(goodsId, userId, count, purchaseLimit);
+        if (!decreaseStorageResult) {
+            log.error("******SeckillController：userId：{}，秒杀失败，库存不足", userId);
+            seckillGoodsCacheService.updateGoodsStatus(goodsId, false);
+            return GlobalResult.error("秒杀失败，库存不足");
+        }
+        if (!increaseResult) {
+            log.error("******SeckillController：userId：{}，秒杀失败，已超过个人最大购买量", userId);
+            return GlobalResult.error("秒杀失败，已超过个人最大购买量");
         }
 
-        try {
-            Future<Boolean> decreaseStorage = asyncService.basicTask(seckillGoodsCacheService.decreaseStorage(goodsId, count));
-            Future<Boolean> increase = asyncService.basicTask(purchasedUserCacheService.increase(goodsId, userId, count, purchaseLimit));
-            while (true) {
-                if (decreaseStorage.isDone() && increase.isDone()) break;
-            }
-            Boolean decreaseStorageResult = decreaseStorage.get();
-            log.info("******减库存操作执行完毕");
-            Boolean increaseResult = increase.get();
-            log.info("******增加用户购买量操作执行完毕");
-            if (!decreaseStorageResult) {
-                log.info("******SeckillController：userId：{}，秒杀失败，库存不足", userId);
-                return GlobalResult.error("秒杀失败，库存不足");
-            }
-            if (!increaseResult) {
-                log.info("******SeckillController：userId：{}，秒杀失败，已超过个人最大购买量", userId);
-                return GlobalResult.error("秒杀失败，已超过个人最大购买量");
-            }
-        } catch (Exception e) {
-            log.error("******SeckillController：{}", e.getMessage());
-            return GlobalResult.error("秒杀失败，服务器暂时无法执行操作");
-        }
-
-        OrderVO orderVO = new OrderVO();
         String orderId = goodsId + IdUtil.getSnowflakeNextIdStr();
         orderVO.setOrderId(orderId);
         orderVO.setRetailerId(seckillGoods.getRetailerId());
@@ -188,8 +173,8 @@ public class SeckillController {
         orderVO.setOrderPrice(seckillGoods.getSeckillPrice().multiply(new BigDecimal(count)));
         orderVO.setPayId(IdUtil.getSnowflakeNextIdStr());
 
-        String jsonString = JSON.toJSONString(orderVO);
-        Message message = new Message("order", "create", orderId, jsonString.getBytes());
+        message.setKeys(orderId);
+        message.setBody(JSON.toJSONBytes(orderVO));
         asyncMQMessage.sendMessage(orderCreateMQProducer, message);
         log.info("******SeckillController：userId：{}，orderId：{} 预减库存成功", userId, orderId);
         return GlobalResult.success("秒杀成功", orderVO);

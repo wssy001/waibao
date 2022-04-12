@@ -3,11 +3,9 @@ package com.waibao.seckill.controller;
 import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson.JSON;
 import com.waibao.seckill.entity.SeckillGoods;
-import com.waibao.seckill.mapper.SeckillGoodsMapper;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
 import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.mq.AsyncMQMessage;
-import com.waibao.util.async.AsyncService;
 import com.waibao.util.vo.GlobalResult;
 import com.waibao.util.vo.order.OrderVO;
 import com.waibao.util.vo.seckill.KillVO;
@@ -18,7 +16,6 @@ import org.apache.rocketmq.common.message.Message;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.util.concurrent.Future;
 
 /**
  * TestController
@@ -31,13 +28,13 @@ import java.util.concurrent.Future;
 @RequiredArgsConstructor
 @RequestMapping("/test/seckill/goods")
 public class TestController {
-    private final AsyncService asyncService;
     private final AsyncMQMessage asyncMQMessage;
-    private final SeckillGoodsMapper seckillGoodsMapper;
     private final DefaultMQProducer orderCreateMQProducer;
     private final SeckillGoodsCacheService seckillGoodsCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;
 
+    private final OrderVO orderVO = new OrderVO();
+    private final Message message = new Message("order", "test", "", null);
 
     @PostMapping("/kill")
     public GlobalResult<OrderVO> seckill(
@@ -46,40 +43,26 @@ public class TestController {
     ) {
         Long goodsId = killVO.getGoodsId();
         if (seckillGoodsCacheService.finished(goodsId)) {
-            log.info("******SeckillController：userId：{}，秒杀已结束", userId);
+            log.error("******TestController：userId：{}，秒杀已结束", userId);
             return GlobalResult.error("秒杀已结束");
         }
 
         SeckillGoods seckillGoods = seckillGoodsCacheService.get(goodsId);
         Integer purchaseLimit = seckillGoods.getPurchaseLimit();
         Integer count = killVO.getCount();
-        if (count > purchaseLimit) {
-            log.info("******SeckillController：userId：{}，秒杀失败，超过最大购买限制", userId);
-            return GlobalResult.error("秒杀失败，超过最大购买限制");
+
+        boolean decreaseStorageResult = seckillGoodsCacheService.decreaseStorage(goodsId, count);
+        boolean increaseResult = purchasedUserCacheService.increase(goodsId, userId, count, purchaseLimit);
+        if (!decreaseStorageResult) {
+            log.error("******TestController：userId：{}，秒杀失败，库存不足", userId);
+            seckillGoodsCacheService.updateGoodsStatus(goodsId, false);
+            return GlobalResult.error("秒杀失败，库存不足");
+        }
+        if (!increaseResult) {
+            log.error("******TestController：userId：{}，秒杀失败，已超过个人最大购买量", userId);
+            return GlobalResult.error("秒杀失败，已超过个人最大购买量");
         }
 
-        try {
-            Future<Boolean> decreaseStorage = asyncService.basicTask(seckillGoodsCacheService.decreaseStorage(goodsId, count));
-            Future<Boolean> increase = asyncService.basicTask(purchasedUserCacheService.increase(goodsId, userId, count, purchaseLimit));
-            while (true) {
-                if (decreaseStorage.isDone() && increase.isDone()) break;
-            }
-            Boolean decreaseStorageResult = decreaseStorage.get();
-            Boolean increaseResult = increase.get();
-            if (!decreaseStorageResult) {
-                log.info("******TestController：userId：{}，秒杀失败，库存不足", userId);
-                return GlobalResult.error("秒杀失败，库存不足");
-            }
-            if (!increaseResult) {
-                log.info("******TestController：userId：{}，秒杀失败，已超过个人最大购买量", userId);
-                return GlobalResult.error("秒杀失败，已超过个人最大购买量");
-            }
-        } catch (Exception e) {
-            log.error("******TestController：{}", e.getMessage());
-            return GlobalResult.error("秒杀失败，服务器暂时无法执行操作");
-        }
-
-        OrderVO orderVO = new OrderVO();
         String orderId = goodsId + IdUtil.getSnowflakeNextIdStr();
         orderVO.setOrderId(orderId);
         orderVO.setRetailerId(seckillGoods.getRetailerId());
@@ -91,10 +74,10 @@ public class TestController {
         orderVO.setOrderPrice(seckillGoods.getSeckillPrice().multiply(new BigDecimal(count)));
         orderVO.setPayId(IdUtil.getSnowflakeNextIdStr());
 
-        String jsonString = JSON.toJSONString(orderVO);
-        Message message = new Message("order", "test", orderId, jsonString.getBytes());
+        message.setKeys(orderId);
+        message.setBody(JSON.toJSONBytes(orderVO));
         asyncMQMessage.sendMessage(orderCreateMQProducer, message);
-        log.info("******SeckillController：userId：{}，orderId：{} 预减库存成功", userId, orderId);
+        log.info("******TestController：userId：{}，orderId：{} 预减库存成功", userId, orderId);
         return GlobalResult.success("秒杀成功", orderVO);
     }
 }

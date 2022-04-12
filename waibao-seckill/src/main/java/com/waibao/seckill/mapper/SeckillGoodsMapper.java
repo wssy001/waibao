@@ -21,6 +21,11 @@ public interface SeckillGoodsMapper extends BaseMapper<SeckillGoods> {
             "COMMIT;")
     int decreaseStorage(@Param("goodsId") Long goodsId, @Param("totalStorage") Integer totalStorage);
 
+    @Update("BEGIN;" + "SELECT goods_id FROM seckill_goods WHERE goods_id = #{goodsId} FOR UPDATE;" +
+            "UPDATE seckill_goods SET storage = storage + #{totalStorage} WHERE goods_id = #{goodsId};" +
+            "COMMIT;")
+    void increaseStorage(@Param("goodsId") Long goodsId, @Param("totalStorage") Integer totalStorage);
+
     @Select("SELECT storage FROM seckill_goods WHERE goods_id = #{goodsId}")
     int selectTrueStorage(@Param("goodsId") Long goodsId);
 }

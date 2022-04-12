@@ -60,18 +60,7 @@ public class PurchasedUserCacheService {
 
     public List<OrderVO> decreaseBatch(List<OrderVO> orderVOList) {
         String jsonArray = userRedisTemplate.execute(decreasePurchased, Collections.singletonList(REDIS_PURCHASED_USER_KEY), JSON.toJSONString(orderVOList));
-        List<OrderVO> undoList = "{}".equals(jsonArray) ? new ArrayList<>() : JSONArray.parseArray(jsonArray, OrderVO.class);
-        orderVOList.parallelStream()
-                .forEach(orderVO -> {
-                    if (undoList.contains(orderVO)) {
-                        purchasedUserCache.put(orderVO.getUserId(), 0L);
-                    } else {
-                        purchasedUserCache.asMap()
-                                .computeIfPresent(orderVO.getUserId(), (k, v) -> v -= orderVO.getCount());
-                    }
-                });
-
-        return undoList;
+        return "{}".equals(jsonArray) ? new ArrayList<>() : JSONArray.parseArray(jsonArray, OrderVO.class);
     }
 
     public boolean reachLimit(Long goodsId, Long userId, int limit) {

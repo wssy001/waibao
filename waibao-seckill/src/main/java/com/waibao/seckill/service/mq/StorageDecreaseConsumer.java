@@ -61,7 +61,12 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
         List<OrderVO> complete = new ArrayList<>();
 
         collect.forEach((k, v) -> {
-//            if (goodsCacheService.finished(k)) return;
+            int trueStorage = seckillGoodsMapper.selectTrueStorage(k);
+            if (trueStorage == 0) {
+                log.error("******StorageRollbackConsumer：goodsId：{} 商品售罄", k);
+                cancel.addAll(v);
+                return;
+            }
 
             v.sort(Comparator.comparingLong(orderVO -> orderVO.getPurchaseTime().getTime()));
             int totalCount = v.parallelStream()
@@ -71,7 +76,7 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
             if (update == 1) {
                 complete.addAll(v);
             } else {
-                log.info("******StorageRollbackConsumer：goodsId：{} 库存售罄，停止售卖", k);
+                log.info("******StorageRollbackConsumer：goodsId：{} 库存告急，单个扣减", k);
                 goodsCacheService.updateGoodsStatus(k, false);
                 for (OrderVO orderVO : v) {
                     update = seckillGoodsMapper.decreaseStorage(k, orderVO.getCount());
@@ -84,14 +89,14 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
             }
         });
 
-        asyncMQMessage.sendMessage(orderUpdateMQProducer, complete.parallelStream()
+        if (!complete.isEmpty()) asyncMQMessage.sendMessage(orderUpdateMQProducer, complete.stream()
                 .peek(orderVO -> orderVO.setStatus("购买成功"))
                 .peek(orderVO -> log.info("******StorageDecreaseConsumer：userId：{},orderId：{} 购买成功", orderVO.getUserId(), orderVO.getOrderId()))
                 .map(orderVO -> new Message("order", "update", orderVO.getOrderId(), JSON.toJSONBytes(orderVO)))
                 .collect(Collectors.toList())
         );
 
-        asyncMQMessage.sendMessage(orderCancelMQProducer, cancel.parallelStream()
+        if (!cancel.isEmpty()) asyncMQMessage.sendMessage(orderCancelMQProducer, cancel.stream()
                 .peek(orderVO -> orderVO.setStatus("购买失败，库存不足"))
                 .peek(orderVO -> log.info("******StorageDecreaseConsumer：userId：{},orderId：{} 购买失败 原因：库存不足", orderVO.getUserId(), orderVO.getOrderId()))
                 .map(orderVO -> new Message("order", "cancel", orderVO.getOrderId(), JSON.toJSONBytes(orderVO)))

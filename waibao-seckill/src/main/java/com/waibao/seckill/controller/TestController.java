@@ -36,6 +36,7 @@ public class TestController {
     private final OrderVO orderVO = new OrderVO();
     private final Message message = new Message("order", "test", "", null);
 
+
     @PostMapping("/kill")
     public GlobalResult<OrderVO> seckill(
             @RequestBody KillVO killVO,

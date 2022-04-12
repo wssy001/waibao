@@ -49,20 +49,25 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
     private final LogPaymentCacheService logPaymentCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
 
+    private final Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
+    private final Message message = new Message("storage", "decrease", "", null);
+
     private TransactionMQProducer paymentPayMQProducer;
 
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "requestPay");
         List<OrderVO> orderVOList = orderUserCacheService.batchGetOrderVO(paymentVOList);
+        messageExtMap.clear();
         if (orderVOList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
-        Message message = new Message("storage", "decrease", IdUtil.objectId(), JSON.toJSONBytes(orderVOList));
-        message.setTransactionId(IdUtil.objectId());
+        String transactionId = IdUtil.objectId();
+        message.setKeys(transactionId);
+        message.setTransactionId(transactionId);
+        message.setBody(JSON.toJSONBytes(orderVOList));
         asyncService.basicTask(() -> orderVOList.forEach(orderVO -> log.info("******PaymentRequestPayConsumer：userId：{},orderId：{} 请求支付", orderVO.getUserId(), orderVO.getOrderId())));
         asyncMQMessage.sendMessageInTransaction(paymentPayMQProducer, message);
         asyncService.basicTask(() -> logPaymentService.saveOrUpdateBatch(convert(paymentVOList, LogPayment.class)));
@@ -74,21 +79,19 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
     }
 
     private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
-        return msgs.parallelStream()
+        return msgs.stream()
                 .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), clazz))
                 .collect(Collectors.toList());
     }
 
     private <T> List<T> convert(List<PaymentVO> paymentVOList, Class<T> clazz) {
-        return paymentVOList.parallelStream()
-                .map(paymentVO -> (JSONObject) JSON.toJSON(paymentVO))
-                .peek(jsonObject -> jsonObject.put("status", "请求支付"))
-                .peek(jsonObject -> {
-                    if (clazz == LogPayment.class) {
-                        jsonObject.put("topic", "payment");
-                        jsonObject.put("operation", "request pay");
-                    }
+        return paymentVOList.stream()
+                .peek(paymentVO -> {
+                    paymentVO.setOperation("request pay");
+                    paymentVO.setStatus("请求支付");
                 })
+                .map(paymentVO -> (JSONObject) JSON.toJSON(paymentVO))
+                .peek(jsonObject -> jsonObject.put("topic", "payment"))
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());
     }

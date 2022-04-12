@@ -48,6 +48,10 @@ public class PaymentTransactionListener implements TransactionListener {
     private final UserCreditCacheService userCreditCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
 
+    private final List<JSONObject> jsonObjectList = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<JSONObject> paidList = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<JSONObject> unpaidList = new CopyOnWriteArrayList<>();
+
     @Resource
     private RedisTemplate<String, String> transactionRedisTemplate;
 
@@ -62,17 +66,13 @@ public class PaymentTransactionListener implements TransactionListener {
                 .isMember("payment-transaction", transactionId + "-" + keys);
 
         if (Boolean.TRUE.equals(exist)) {
-            log.warn("******PaymentTransactionListener.executeLocalTransaction：事务Id：{}，key：{} 重复消费", transactionId, keys);
+            log.warn("******executeLocalTransaction：事务Id：{}，key：{} 重复消费", transactionId, keys);
             return LocalTransactionState.COMMIT_MESSAGE;
         }
 
         try {
-            List<JSONObject> jsonObjectList = userCreditCacheService.batchDecreaseUserCredit(convert(msg, OrderVO.class));
-
-            CopyOnWriteArrayList<JSONObject> paidList = new CopyOnWriteArrayList<>();
-            CopyOnWriteArrayList<JSONObject> unpaidList = new CopyOnWriteArrayList<>();
-            jsonObjectList.parallelStream()
-                    .forEach(jsonObject -> {
+            jsonObjectList.addAll(userCreditCacheService.batchDecreaseUserCredit(convert(msg, OrderVO.class)));
+            jsonObjectList.forEach(jsonObject -> {
                         if (jsonObject.getString("operation").equals("paid")) {
                             paidList.add(jsonObject);
                             log.info("******executeLocalTransaction：userId：{},orderId：{} 付款成功", jsonObject.getString("userId"), jsonObject.getString("orderId"));
@@ -81,6 +81,8 @@ public class PaymentTransactionListener implements TransactionListener {
                             log.info("******executeLocalTransaction：userId：{},orderId：{} 付款失败，原因：{}", jsonObject.getString("userId"), jsonObject.getString("orderId"), jsonObject.getString("status"));
                         }
                     });
+            jsonObjectList.clear();
+
             Future<List<LogUserCredit>> paidLogUserCreditFuture = asyncService.basicTask(paidList.stream().map(jsonObject -> jsonObject.toJavaObject(LogUserCredit.class)).collect(Collectors.toList()));
             Future<List<Message>> paidMessageFuture = asyncService.basicTask(paidList.stream()
                     .map(jsonObject -> jsonObject.toJavaObject(PaymentVO.class))
@@ -95,6 +97,8 @@ public class PaymentTransactionListener implements TransactionListener {
                     break;
             }
 
+            paidList.clear();
+            unpaidList.clear();
             List<LogUserCredit> logUserCreditList = paidLogUserCreditFuture.get();
             List<Message> unpaidMessageList = unpaidMessageFuture.get();
             if (!logUserCreditList.isEmpty()) {
@@ -113,7 +117,7 @@ public class PaymentTransactionListener implements TransactionListener {
                     .add("payment-transaction", transactionId + "-" + keys);
             return LocalTransactionState.COMMIT_MESSAGE;
         } catch (Exception e) {
-            log.error("******PaymentTransactionListener.executeLocalTransaction：消息id：{} 事务id：{} 出错 原因：{} 处理：回查", keys, transactionId, e.getMessage());
+            log.error("******executeLocalTransaction：消息id：{} 事务id：{} 出错 原因：{} 处理：回查", keys, transactionId, e.getMessage());
             return LocalTransactionState.UNKNOW;
         }
     }
@@ -126,7 +130,7 @@ public class PaymentTransactionListener implements TransactionListener {
                 .isMember("payment-transaction", transactionId + "-" + keys);
 
         if (Boolean.TRUE.equals(exist)) {
-            log.warn("******PaymentTransactionListener.checkLocalTransaction：事务Id：{}，key：{} 重复消费", transactionId, keys);
+            log.warn("******checkLocalTransaction：事务Id：{}，key：{} 重复消费", transactionId, keys);
             return LocalTransactionState.COMMIT_MESSAGE;
         }
 
@@ -177,7 +181,7 @@ public class PaymentTransactionListener implements TransactionListener {
                     .add("payment-transaction", transactionId + "-" + keys);
             return LocalTransactionState.COMMIT_MESSAGE;
         } catch (Exception e) {
-            log.error("******PaymentTransactionListener.checkLocalTransaction：消息id：{} 事务id：{} 出错 原因：{} 处理：回滚", keys, transactionId, e.getMessage());
+            log.error("******checkLocalTransaction：消息id：{} 事务id：{} 出错 原因：{} 处理：回滚", keys, transactionId, e.getMessage());
             return LocalTransactionState.ROLLBACK_MESSAGE;
         }
     }

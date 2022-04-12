@@ -60,7 +60,7 @@ public class SeckillController {
     ) {
         Long goodsId = seckillControlVO.getGoodsId();
         if (goodsId == null) return GlobalResult.error("请传入goodsId");
-        asyncService.basicTask(() -> seckillGoodsCacheService.updateGoodsStatus(goodsId, seckillControlVO.getFinished()));
+        asyncService.basicTask(() -> seckillGoodsCacheService.updateGoodsStatus(goodsId, !seckillControlVO.getFinished()));
         asyncService.basicTask(() -> seckillGoodsMapper.update(null, Wrappers.<SeckillGoods>lambdaUpdate()
                 .eq(SeckillGoods::getGoodsId, goodsId)
                 .set(SeckillGoods::getStorage, 0)
@@ -119,7 +119,7 @@ public class SeckillController {
         Date date = new Date();
         if (date.before(seckillGoods.getSeckillStartTime())) return GlobalResult.error("秒杀还未开始");
         if (date.after(seckillGoods.getSeckillEndTime())) {
-            seckillGoodsCacheService.updateGoodsStatus(goodsId, true);
+            seckillGoodsCacheService.updateGoodsStatus(goodsId, false);
             return GlobalResult.error("秒杀已结束");
         }
 

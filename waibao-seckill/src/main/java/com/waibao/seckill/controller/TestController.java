@@ -3,6 +3,7 @@ package com.waibao.seckill.controller;
 import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson.JSON;
 import com.waibao.seckill.entity.SeckillGoods;
+import com.waibao.seckill.mapper.SeckillGoodsMapper;
 import com.waibao.seckill.service.cache.PurchasedUserCacheService;
 import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.seckill.service.mq.AsyncMQMessage;
@@ -32,9 +33,11 @@ import java.util.concurrent.Future;
 public class TestController {
     private final AsyncService asyncService;
     private final AsyncMQMessage asyncMQMessage;
+    private final SeckillGoodsMapper seckillGoodsMapper;
     private final DefaultMQProducer orderCreateMQProducer;
     private final SeckillGoodsCacheService seckillGoodsCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;
+
 
     @PostMapping("/kill")
     public GlobalResult<OrderVO> seckill(

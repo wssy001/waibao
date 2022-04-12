@@ -2,8 +2,6 @@ package com.waibao.seckill.service.mq;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
 import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.util.vo.order.OrderVO;
@@ -50,11 +48,11 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
 
+        //TODO 过滤付款成功的
         List<OrderVO> collect1 = messageExtMap.values()
                 .parallelStream()
                 .flatMap(messageExt -> JSONArray.parseArray(new String(messageExt.getBody()), OrderVO.class).stream())
                 .collect(Collectors.toList());
-
 
         ConcurrentMap<Long, List<OrderVO>> collect = collect1.stream()
                 .collect(Collectors.groupingByConcurrent(OrderVO::getGoodsId));
@@ -63,28 +61,20 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
         List<OrderVO> complete = new ArrayList<>();
 
         collect.forEach((k, v) -> {
+            if (goodsCacheService.finished(k)) return;
+
             v.sort(Comparator.comparingLong(orderVO -> orderVO.getPurchaseTime().getTime()));
             int totalCount = v.parallelStream()
                     .mapToInt(OrderVO::getCount)
                     .sum();
-            SeckillGoods seckillGoods = seckillGoodsMapper.selectOne(Wrappers.<SeckillGoods>lambdaQuery().eq(SeckillGoods::getGoodsId, k));
-            Integer currentStorage = seckillGoods.getStorage();
-            if (currentStorage >= totalCount) {
-                seckillGoodsMapper.update(null, Wrappers.<SeckillGoods>lambdaUpdate()
-                        .eq(SeckillGoods::getGoodsId, k)
-                        .eq(SeckillGoods::getStorage, currentStorage)
-                        .set(SeckillGoods::getStorage, currentStorage - totalCount)
-                );
+            int update = seckillGoodsMapper.decreaseStorage(k, totalCount);
+            if (update == 1) {
                 complete.addAll(v);
             } else {
                 log.info("******StorageRollbackConsumer：goodsId：{} 库存售罄，停止售卖", k);
-                goodsCacheService.updateGoodsStatus(k, true);
+                goodsCacheService.updateGoodsStatus(k, false);
                 for (OrderVO orderVO : v) {
-                    int update = seckillGoodsMapper.update(null, Wrappers.<SeckillGoods>lambdaUpdate()
-                            .eq(SeckillGoods::getGoodsId, k)
-                            .ge(SeckillGoods::getStorage, orderVO.getCount())
-                            .set(SeckillGoods::getStorage, currentStorage - orderVO.getCount())
-                    );
+                    update = seckillGoodsMapper.decreaseStorage(k, orderVO.getCount());
                     if (update == 0) {
                         cancel.add(orderVO);
                     } else {

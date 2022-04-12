@@ -81,9 +81,9 @@ public class SeckillGoodsCacheService {
                 .build();
     }
 
-    public void updateGoodsStatus(Long goodsId, boolean finished) {
-        goodsStatusCache.put(goodsId, finished);
-        goodsRedisTemplate.execute(updateGoodsStatus, Collections.singletonList(REDIS_SECKILL_GOODS_STATUS_KEY), goodsId + "", finished + "");
+    public void updateGoodsStatus(Long goodsId, boolean status) {
+        goodsStatusCache.put(goodsId, status);
+        goodsRedisTemplate.execute(updateGoodsStatus, Collections.singletonList(REDIS_SECKILL_GOODS_STATUS_KEY), goodsId + "", status + "");
     }
 
     public void updateBatchGoodsStatus(List<SeckillGoods> seckillGoodsList) {

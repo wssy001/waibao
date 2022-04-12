@@ -1,9 +1,10 @@
-local arg = ngx.req.get_uri_args()
-
 local result = table.new(0 , 4)
 result['code'] = -200
 result['time'] = ngx.localtime()
 result['timestamp'] = ngx.time()
+
+ngx.req.read_body()
+local arg = cjson.decode(ngx.req.get_body_data())
 
 local redisKey = table.new(2 , 0)
 redisKey[1] = 'seckill-goods'
@@ -30,6 +31,8 @@ end
 
 local res , err = goodsCache:get(redisKey[2] , nil , checkSeckillFinished , temp)
 
+ngx.log(ngx.ERR , "checkSeckillFinished：" , res)
+
 if err or res == nil then
     if err then
         ngx.log(ngx.ERR , "获取商品状态失败：" , err)
@@ -39,7 +42,7 @@ if err or res == nil then
     return
 end
 
-if not res then
+if res == 'false' then
     result['msg'] = '秒杀已结束'
     ngx.say(cjson.encode(result))
     return ngx.exit(200)

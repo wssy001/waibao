@@ -56,13 +56,13 @@ public class PaymentCancelConsumer implements MessageListenerConcurrently {
     private final LogPaymentCacheService logPaymentCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
 
+    private final Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
+
     private DefaultMQProducer paymentRequestPayMQProducer;
 
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        //TODO 检查
-        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "cancel");
@@ -97,10 +97,11 @@ public class PaymentCancelConsumer implements MessageListenerConcurrently {
         asyncService.basicTask(() -> paymentService.saveOrUpdateBatch(payments));
         asyncService.basicTask(() -> logPaymentService.saveBatch(logPayments));
         asyncMQMessage.sendMessage(paymentRequestPayMQProducer, messageFuture.get());
-        asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
+        Future<Integer> task = asyncService.basicTask(mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
-                        .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
+                        .in(MqMsgCompensation::getMsgId, messageExtMap.keySet())
                         .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
+        if (task.isDone()) messageExtMap.clear();
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 

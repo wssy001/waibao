@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
-import org.apache.rocketmq.client.producer.TransactionMQProducer;
+import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +29,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 /**
@@ -48,11 +49,13 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
     private final LogPaymentCacheService logPaymentCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
 
-    private TransactionMQProducer paymentPayMQProducer;
+    private final Message message = new Message("payment", "requestPay", "", null);
+    private final Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
+
+    private DefaultMQProducer paymentRequestPayMQProducer;
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "request pay")
@@ -63,18 +66,20 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
 
         asyncService.basicTask(() -> paymentCacheService.batchSet(convert(paymentVOList, Payment.class)));
         asyncService.basicTask(() -> logPaymentService.saveBatch(convert(paymentVOList, LogPayment.class)));
-        asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
+        Future<Integer> task = asyncService.basicTask(mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
-                        .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
+                        .in(MqMsgCompensation::getMsgId, messageExtMap.keySet())
                         .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
 
         List<JSONObject> collect = paymentVOList.parallelStream()
                 .map(paymentVO -> (JSONObject) JSON.toJSON(paymentVO))
                 .collect(Collectors.toList());
 
-        Message message = new Message("storage", "decrease", IdUtil.objectId(), JSON.toJSONBytes(collect));
-        message.setTransactionId(IdUtil.objectId());
-        asyncMQMessage.sendMessageInTransaction(paymentPayMQProducer, message);
+        message.setKeys(IdUtil.objectId());
+        message.setBody(JSON.toJSONBytes(collect));
+        asyncMQMessage.sendMessageInTransaction(paymentRequestPayMQProducer, message);
+
+        if (task.isDone()) messageExtMap.clear();
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
@@ -102,7 +107,7 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
 
     @Lazy
     @Autowired
-    public void setPaymentPayMQProducer(TransactionMQProducer paymentPayMQProducer) {
-        this.paymentPayMQProducer = paymentPayMQProducer;
+    public void setPaymentRequestPayMQProducer(DefaultMQProducer paymentRequestPayMQProducer) {
+        this.paymentRequestPayMQProducer = paymentRequestPayMQProducer;
     }
 }

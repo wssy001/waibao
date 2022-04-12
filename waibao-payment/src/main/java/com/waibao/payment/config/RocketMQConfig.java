@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
-import org.apache.rocketmq.client.producer.TransactionMQProducer;
 import org.apache.rocketmq.spring.autoconfigure.RocketMQProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,7 +26,6 @@ public class RocketMQConfig {
     private final PaymentUpdateConsumer paymentUpdateConsumer;
     private final PaymentRequestPayConsumer paymentRequestPayConsumer;
     private final RedisPaymentCanalConsumer redisPaymentCanalConsumer;
-    private final PaymentTransactionListener paymentTransactionListener;
     private final RedisLogPaymentCanalConsumer redisLogPaymentCanalConsumer;
 
     @Bean
@@ -46,16 +44,6 @@ public class RocketMQConfig {
         paymentRequestPayMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
         paymentRequestPayMQProducer.start();
         return paymentRequestPayMQProducer;
-    }
-
-    @Bean
-    @SneakyThrows
-    public TransactionMQProducer paymentPayMQProducer() {
-        TransactionMQProducer paymentPayMQProducer = new TransactionMQProducer("paymentPayTransaction");
-        paymentPayMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
-        paymentPayMQProducer.setTransactionListener(paymentTransactionListener);
-        paymentPayMQProducer.start();
-        return paymentPayMQProducer;
     }
 
     @Bean

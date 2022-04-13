@@ -61,7 +61,7 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         log.info("******PaymentRequestPayConsumer：本轮消息数量：{}", msgs.size());
         Map<String, MessageExt> messageExtMap = msgs.parallelStream()
-                .collect(Collectors.toMap(Message::getKeys, Function.identity()));
+                .collect(Collectors.toMap(Message::getKeys, Function.identity(), (prev, next) -> next));
         log.info("******PaymentRequestPayConsumer：处理后消息数量：{}", messageExtMap.size());
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "paid");
         log.info("******PaymentRequestPayConsumer：过滤后消息数量：{}", paymentVOList.size());

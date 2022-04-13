@@ -53,7 +53,7 @@ public class OrderTestConsumer implements MessageListenerConcurrently {
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         log.info("******OrderTestConsumer：本轮消息数量：{}", msgs.size());
         Map<String, MessageExt> messageExtMap = msgs.parallelStream()
-                .collect(Collectors.toMap(Message::getKeys, Function.identity()));
+                .collect(Collectors.toMap(Message::getKeys, Function.identity(), (prev, next) -> next));
         log.info("******OrderTestConsumer：处理后消息数量：{}", messageExtMap.size());
         List<OrderVO> orderVOList = logOrderGoodsCacheService.batchCheckNotConsumedTags(convert(messageExtMap.values(), OrderVO.class), "create");
 

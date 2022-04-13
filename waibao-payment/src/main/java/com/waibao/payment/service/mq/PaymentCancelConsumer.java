@@ -32,8 +32,8 @@ import org.springframework.stereotype.Component;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -56,15 +56,13 @@ public class PaymentCancelConsumer implements MessageListenerConcurrently {
     private final LogPaymentCacheService logPaymentCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
 
-    private final Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
-
     private DefaultMQProducer paymentRequestPayMQProducer;
 
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
+        Map<String, MessageExt> messageExtMap = msgs.parallelStream()
+                .collect(Collectors.toMap(Message::getKeys, Function.identity(), (prev, next) -> next));
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "cancel");
 
         Future<List<Payment>> paymentFuture = asyncService.basicTask(convert(paymentVOList, Payment.class));

@@ -20,15 +20,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
+import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -48,19 +49,16 @@ public class OrderCreateConsumer implements MessageListenerConcurrently {
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
     private final LogOrderGoodsCacheService logOrderGoodsCacheService;
 
-    private final Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
-    private final List<OrderVO> orderVOList = new CopyOnWriteArrayList<>();
-    private final List<OrderUser> orderUsers = new CopyOnWriteArrayList<>();
-    private final List<LogOrderGoods> logOrderGoods = new CopyOnWriteArrayList<>();
-    private final List<OrderRetailer> orderRetailers = new CopyOnWriteArrayList<>();
-
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        orderVOList.addAll(logOrderGoodsCacheService.batchCheckNotConsumedTags(convert(messageExtMap.values(), OrderVO.class), "create"));
-        messageExtMap.clear();
+        Map<String, MessageExt> messageExtMap = msgs.parallelStream()
+                .collect(Collectors.toMap(Message::getKeys, Function.identity(), (prev, next) -> next));
+
+        List<OrderUser> orderUsers = new CopyOnWriteArrayList<>();
+        List<LogOrderGoods> logOrderGoods = new CopyOnWriteArrayList<>();
+        List<OrderRetailer> orderRetailers = new CopyOnWriteArrayList<>();
+        List<OrderVO> orderVOList = new CopyOnWriteArrayList<>(logOrderGoodsCacheService.batchCheckNotConsumedTags(convert(messageExtMap.values(), OrderVO.class), "create"));
 
         Future<Boolean> task = asyncService.basicTask(orderUsers.addAll(convert(orderVOList, OrderUser.class)));
         Future<Boolean> task2 = asyncService.basicTask(logOrderGoods.addAll(convert(orderVOList, LogOrderGoods.class)));
@@ -69,7 +67,6 @@ public class OrderCreateConsumer implements MessageListenerConcurrently {
             if (task.isDone() && task2.isDone() && task3.isDone()) break;
         }
 
-        orderVOList.clear();
         task = asyncService.basicTask(orderUserService.saveBatch(orderUsers));
         task2 = asyncService.basicTask(logOrderGoodsService.saveBatch(logOrderGoods));
         task3 = asyncService.basicTask(orderRetailerService.saveBatch(orderRetailers));

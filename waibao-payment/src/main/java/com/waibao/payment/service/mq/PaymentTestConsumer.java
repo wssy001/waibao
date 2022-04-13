@@ -53,7 +53,7 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         log.info("******PaymentTestConsumer：本轮消息数量：{}", msgs.size());
         Map<String, MessageExt> messageExtMap = msgs.parallelStream()
-                .collect(Collectors.toMap(Message::getKeys, Function.identity()));
+                .collect(Collectors.toMap(Message::getKeys, Function.identity(), (prev, next) -> next));
         log.info("******PaymentTestConsumer：处理后消息数量：{}", messageExtMap.size());
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "create")
                 .stream()
@@ -89,9 +89,7 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
         return paymentVOList.parallelStream()
                 .map(paymentVO -> (JSONObject) JSON.toJSON(paymentVO))
                 .peek(jsonObject -> {
-                    if (clazz == LogPayment.class) {
-                        jsonObject.put("topic", "payment");
-                    }
+                    if (clazz == LogPayment.class) jsonObject.put("topic", "payment");
                 })
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());

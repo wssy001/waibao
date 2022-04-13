@@ -157,8 +157,10 @@ public class RocketMQConfig {
         consumer.setNamesrvAddr(rocketMQProperties.getNameServer());
         consumer.setConsumeThreadMax(1);
         consumer.setConsumeThreadMin(1);
+        consumer.setPullBatchSize(100);
+        consumer.setConsumeTimeout(1);
         consumer.setMaxReconsumeTimes(3);
-        consumer.setConsumeMessageBatchMaxSize(32);
+        consumer.setConsumeMessageBatchMaxSize(100);
         return consumer;
     }
 

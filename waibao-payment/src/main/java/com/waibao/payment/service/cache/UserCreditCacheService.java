@@ -137,7 +137,7 @@ public class UserCreditCacheService {
         userCreditRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(redisCommandList, new BigDecimalValueFilter()));
     }
 
-    public List<JSONObject> batchDecreaseUserCredit(List<OrderVO> orderVOList) {
+    public List<JSONObject> batchDecreaseUserCredit(List<? extends OrderVO> orderVOList) {
         String execute = userCreditRedisTemplate.execute(batchDecreaseCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(orderVOList, new BigDecimalValueFilter()));
         if ("{}".equals(execute)) return new ArrayList<>();
         return JSONArray.parseArray(execute, JSONObject.class);

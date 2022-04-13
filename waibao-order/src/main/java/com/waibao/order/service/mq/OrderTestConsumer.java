@@ -54,9 +54,8 @@ public class OrderTestConsumer implements MessageListenerConcurrently {
         log.info("******OrderTestConsumer：本轮消息数量：{}", msgs.size());
         Map<String, MessageExt> messageExtMap = msgs.parallelStream()
                 .collect(Collectors.toMap(Message::getKeys, Function.identity()));
-        log.info("******OrderTestConsumer：处理后消息数量：{}", messageExtMap.keySet().size());
+        log.info("******OrderTestConsumer：处理后消息数量：{}", messageExtMap.size());
         List<OrderVO> orderVOList = logOrderGoodsCacheService.batchCheckNotConsumedTags(convert(messageExtMap.values(), OrderVO.class), "create");
-        messageExtMap.clear();
 
         Future<List<OrderUser>> orderUsersFuture = asyncService.basicTask(convert(orderVOList, OrderUser.class));
         Future<List<OrderRetailer>> orderRetailersFuture = asyncService.basicTask(convert(orderVOList, OrderRetailer.class));

@@ -1,6 +1,5 @@
 package com.waibao.payment.service.mq;
 
-import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -28,7 +27,6 @@ import org.springframework.stereotype.Component;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -56,38 +54,32 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
         log.info("******PaymentTestConsumer：本轮消息数量：{}", msgs.size());
         Map<String, MessageExt> messageExtMap = msgs.parallelStream()
                 .collect(Collectors.toMap(Message::getKeys, Function.identity()));
-        log.info("******PaymentTestConsumer：处理后消息数量：{}", messageExtMap.keySet().size());
+        log.info("******PaymentTestConsumer：处理后消息数量：{}", messageExtMap.size());
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "request pay")
                 .stream()
-                .peek(paymentVO -> log.info("******PaymentRequestPayConsumer：userId：{},orderId：{} 请求支付", paymentVO.getUserId(), paymentVO.getOrderId()))
                 .peek(paymentVO -> {
                     paymentVO.setOperation("request pay");
                     paymentVO.setStatus("请求支付");
                 })
                 .collect(Collectors.toList());
+        List<Message> messageList = paymentVOList.parallelStream()
+                .map(paymentVO -> new Message("payment", "requestPay", paymentVO.getOrderId(), JSON.toJSONBytes(paymentVO)))
+                .collect(Collectors.toList());
+        log.info("******PaymentTestConsumer：发往requestPay消息数量：{}", messageList.size());
 
+        asyncMQMessage.sendMessage(paymentRequestPayMQProducer, messageList);
         asyncService.basicTask(() -> paymentCacheService.batchSet(convert(paymentVOList, Payment.class)));
         asyncService.basicTask(() -> logPaymentService.saveBatch(convert(paymentVOList, LogPayment.class)));
-        Future<Integer> task = asyncService.basicTask(mqMsgCompensationMapper.update(null,
+        asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, messageExtMap.keySet())
                         .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
-
-        List<JSONObject> collect = paymentVOList.parallelStream()
-                .map(paymentVO -> (JSONObject) JSON.toJSON(paymentVO))
-                .collect(Collectors.toList());
-
-        log.info("******PaymentTestConsumer：发往requestPay消息数量：{}", collect.size());
-        Message message = new Message("payment", "requestPay", IdUtil.objectId(), JSON.toJSONBytes(collect));
-        asyncMQMessage.sendMessage(paymentRequestPayMQProducer, message);
-
-        if (task.isDone()) messageExtMap.clear();
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
     private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
         return msgs.parallelStream()
-                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
+                .map(messageExt -> (JSONObject) JSON.parse(messageExt.getBody()))
                 .peek(jsonObject -> jsonObject.put("money", jsonObject.getBigDecimal("orderPrice")))
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());

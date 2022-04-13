@@ -54,20 +54,9 @@ public class LogPaymentCacheService {
     }
 
     public List<PaymentVO> batchCheckNotConsumeTags(List<PaymentVO> paymentVOList, String operation) {
-        List<PaymentVO> mightContain = new ArrayList<>();
-        List<PaymentVO> result = new ArrayList<>();
-        paymentVOList.forEach(paymentVO -> {
-            if (bloomFilter.mightContain(paymentVO.getPayId() + operation)) {
-                mightContain.add(paymentVO);
-            } else {
-                result.add(paymentVO);
-            }
-        });
-        if (mightContain.isEmpty()) return result;
-
-        String execute = logPaymentRedisTemplate.execute(batchCheckPaymentOperation, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(mightContain, new BigDecimalValueFilter()), operation);
-        if (!"{}".equals(execute)) result.addAll(JSONArray.parseArray(execute, PaymentVO.class));
-        return result;
+        String execute = logPaymentRedisTemplate.execute(batchCheckPaymentOperation, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(paymentVOList, new BigDecimalValueFilter()), operation);
+        if ("{}".equals(execute)) return new ArrayList<>();
+        return JSONArray.parseArray(execute, PaymentVO.class);
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {

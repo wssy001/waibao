@@ -1,8 +1,6 @@
 package com.waibao.payment.service.mq;
 
-import cn.hutool.core.util.IdUtil;
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.payment.entity.LogPayment;
@@ -15,7 +13,6 @@ import com.waibao.payment.service.cache.UserCreditCacheService;
 import com.waibao.payment.service.db.LogPaymentService;
 import com.waibao.payment.service.db.LogUserCreditService;
 import com.waibao.util.async.AsyncService;
-import com.waibao.util.vo.order.OrderVO;
 import com.waibao.util.vo.payment.PaymentVO;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -65,25 +62,30 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
         log.info("******PaymentRequestPayConsumer：本轮消息数量：{}", msgs.size());
         Map<String, MessageExt> messageExtMap = msgs.parallelStream()
                 .collect(Collectors.toMap(Message::getKeys, Function.identity()));
-        log.info("******PaymentRequestPayConsumer：处理后消息数量：{}", messageExtMap.keySet().size());
-        List<PaymentVO> convert = convert(messageExtMap.values(), PaymentVO.class);
-        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert, "request pay");
+        log.info("******PaymentRequestPayConsumer：处理后消息数量：{}", messageExtMap.size());
+        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "request pay");
         log.info("******PaymentRequestPayConsumer：过滤后消息数量：{}", paymentVOList.size());
         if (paymentVOList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
         CopyOnWriteArrayList<JSONObject> paidList = new CopyOnWriteArrayList<>();
         CopyOnWriteArrayList<JSONObject> unpaidList = new CopyOnWriteArrayList<>();
-        List<JSONObject> jsonObjectList = userCreditCacheService.batchDecreaseUserCredit(convert(paymentVOList, OrderVO.class));
-        jsonObjectList.forEach(jsonObject -> {
-            if (jsonObject.getString("operation").equals("paid")) {
-                paidList.add(jsonObject);
-                log.info("******executeLocalTransaction：userId：{},orderId：{} 付款成功", jsonObject.getString("userId"), jsonObject.getString("orderId"));
-            } else {
-                unpaidList.add(jsonObject);
-                log.info("******executeLocalTransaction：userId：{},orderId：{} 付款失败，原因：{}", jsonObject.getString("userId"), jsonObject.getString("orderId"), jsonObject.getString("status"));
-            }
-        });
-        jsonObjectList.clear();
+        try {
+            //FIXME 重复扣费
+            List<JSONObject> jsonObjectList = userCreditCacheService.batchDecreaseUserCredit(paymentVOList);
+            jsonObjectList.forEach(jsonObject -> {
+                if (jsonObject.getString("operation").equals("paid")) {
+                    paidList.add(jsonObject);
+                    log.info("******executeLocalTransaction：userId：{},orderId：{} 付款成功", jsonObject.getString("userId"), jsonObject.getString("orderId"));
+                } else {
+                    unpaidList.add(jsonObject);
+                    log.info("******executeLocalTransaction：userId：{},orderId：{} 付款失败，原因：{}", jsonObject.getString("userId"), jsonObject.getString("orderId"), jsonObject.getString("status"));
+                }
+            });
+        } catch (Exception e) {
+            log.error("******PaymentRequestPayConsumer.consumeMessage：{}", e.getMessage());
+        }
+        log.info("******PaymentRequestPayConsumer：本轮支付成功的数量：{}", paidList.size());
+        log.info("******PaymentRequestPayConsumer：本轮支付失败的数量：{}", unpaidList.size());
 
         Future<List<LogUserCredit>> paidLogUserCreditFuture = asyncService.basicTask(paidList.stream()
                 .map(jsonObject -> jsonObject.toJavaObject(LogUserCredit.class))
@@ -92,44 +94,45 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
                 .map(jsonObject -> jsonObject.toJavaObject(PaymentVO.class))
                 .map(paymentVO -> new Message("payment", "update", paymentVO.getOrderId(), JSON.toJSONBytes(paymentVO)))
                 .collect(Collectors.toList()));
+        Future<List<Message>> storageMessageListFuture = asyncService.basicTask(paidList.stream()
+                .map(jsonObject -> jsonObject.toJavaObject(PaymentVO.class))
+                .map(paymentVO -> new Message("storage", "decrease", paymentVO.getOrderId(), JSON.toJSONBytes(paymentVO)))
+                .collect(Collectors.toList()));
         Future<List<Message>> unpaidMessageFuture = asyncService.basicTask(unpaidList.stream()
                 .map(jsonObject -> jsonObject.toJavaObject(PaymentVO.class))
                 .map(paymentVO -> new Message("payment", "cancel", paymentVO.getOrderId(), JSON.toJSONBytes(paymentVO)))
                 .collect(Collectors.toList()));
         while (true) {
-            if (paidLogUserCreditFuture.isDone() && paidMessageFuture.isDone() && unpaidMessageFuture.isDone())
+            if (paidLogUserCreditFuture.isDone() && paidMessageFuture.isDone() && unpaidMessageFuture.isDone() && storageMessageListFuture.isDone())
                 break;
         }
 
         List<LogUserCredit> logUserCreditList = paidLogUserCreditFuture.get();
-        logUserCreditService.saveBatch(logUserCreditList);
-        userCreditMapper.batchUpdateByIdAndOldMoney(logUserCreditList);
+        try {
+            logUserCreditService.saveBatch(logUserCreditList);
+            userCreditMapper.batchUpdateByIdAndOldMoney(logUserCreditList);
+        } catch (Exception e) {
+            log.error("******PaymentRequestPayConsumer.consumeMessage：{}", e.getMessage());
+        }
 
-        Message message=new Message("storage", "decrease", IdUtil.objectId(), JSON.toJSONBytes(paidList));
-        log.info("******PaymentRequestPayConsumer：本轮支付成功的数量：{}", paidList.size());
-        log.info("******PaymentRequestPayConsumer：本轮支付失败的数量：{}", unpaidList.size());
-        paidList.clear();
-        unpaidList.clear();
-
-        asyncMQMessage.sendMessage(paymentRequestPayMQProducer, message);
+        asyncService.basicTask(() -> logPaymentService.saveBatch(convert(paymentVOList, LogPayment.class)));
+        asyncMQMessage.sendMessage(paymentRequestPayMQProducer, storageMessageListFuture.get());
         log.info("已发送至storageDecrease");
         List<Message> paid = paidMessageFuture.get();
         if (!paid.isEmpty()) asyncMQMessage.sendMessage(paymentRequestPayMQProducer, paid);
         List<Message> unpaid = unpaidMessageFuture.get();
         if (!unpaid.isEmpty()) asyncMQMessage.sendMessage(paymentRequestPayMQProducer, unpaid);
-        asyncService.basicTask(() -> logPaymentService.saveBatch(convert(paymentVOList, LogPayment.class)));
-        Future<Integer> task = asyncService.basicTask(mqMsgCompensationMapper.update(null,
+        mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, messageExtMap.keySet())
-                        .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
-        if (task.isDone()) messageExtMap.clear();
+                        .set(MqMsgCompensation::getStatus, "补偿消息已消费"));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
     private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
         return msgs.stream()
-                .map(messageExt -> (JSONArray) JSONArray.parse(messageExt.getBody()))
-                .flatMap(jsonArray -> jsonArray.toJavaList(clazz).stream())
+                .map(messageExt -> (JSONObject) JSON.parse(messageExt.getBody()))
+                .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());
     }
 

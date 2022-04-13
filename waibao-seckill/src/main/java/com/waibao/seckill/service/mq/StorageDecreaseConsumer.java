@@ -1,7 +1,6 @@
 package com.waibao.seckill.service.mq;
 
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
 import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.util.vo.order.OrderVO;
@@ -21,8 +20,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -45,16 +44,12 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         log.info("******StorageDecreaseConsumer：本轮收到消息：{}", msgs.size());
-        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
-        msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        log.info("******PaymentTestConsumer：处理后消息数量：{}", messageExtMap.keySet().size());
-        List<OrderVO> collect1 = messageExtMap.values()
+        Map<String, MessageExt> messageExtMap = msgs.parallelStream()
+                .collect(Collectors.toMap(MessageExt::getMsgId, Function.identity()));
+        log.info("******PaymentTestConsumer：处理后消息数量：{}", messageExtMap.size());
+        ConcurrentMap<Long, List<OrderVO>> collect = messageExtMap.values()
                 .parallelStream()
-                .flatMap(messageExt -> JSONArray.parseArray(new String(messageExt.getBody()), OrderVO.class).stream())
-                .collect(Collectors.toList());
-
-        ConcurrentMap<Long, List<OrderVO>> collect = collect1.stream()
+                .map(messageExt -> (OrderVO) JSON.parseObject(messageExt.getBody(), OrderVO.class))
                 .collect(Collectors.groupingByConcurrent(OrderVO::getGoodsId));
 
         List<OrderVO> cancel = new ArrayList<>();
@@ -76,6 +71,7 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
             int update = seckillGoodsMapper.decreaseStorage(k, totalCount);
             if (update == 1) {
                 complete.addAll(v);
+                log.info("******StorageDecreaseConsumer：goodsId{} 已批量扣减库存 {}个", k, v.size());
             } else {
                 log.info("******StorageRollbackConsumer：goodsId：{} 库存告急，单个扣减", k);
                 seckillGoodsCacheService.updateGoodsStatus(k, false);

@@ -33,9 +33,9 @@ import org.springframework.stereotype.Component;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -57,27 +57,23 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
     private final LogPaymentCacheService logPaymentCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
 
-    private final List<JSONObject> jsonObjectList = new CopyOnWriteArrayList<>();
-    private final CopyOnWriteArrayList<JSONObject> paidList = new CopyOnWriteArrayList<>();
-    private final CopyOnWriteArrayList<JSONObject> unpaidList = new CopyOnWriteArrayList<>();
-    private final Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
-    private final Message message = new Message("storage", "decrease", "", null);
-
     private DefaultMQProducer paymentRequestPayMQProducer;
 
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        log.info("******PaymentRequestPayConsumer：本轮收到消息：{}", msgs.size());
-        msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
+        log.info("******PaymentRequestPayConsumer：本轮消息数量：{}", msgs.size());
+        Map<String, MessageExt> messageExtMap = msgs.parallelStream()
+                .collect(Collectors.toMap(Message::getKeys, Function.identity()));
         log.info("******PaymentRequestPayConsumer：处理后消息数量：{}", messageExtMap.keySet().size());
         List<PaymentVO> convert = convert(messageExtMap.values(), PaymentVO.class);
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert, "request pay");
         log.info("******PaymentRequestPayConsumer：过滤后消息数量：{}", paymentVOList.size());
         if (paymentVOList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
-        jsonObjectList.addAll(userCreditCacheService.batchDecreaseUserCredit(convert(paymentVOList, OrderVO.class)));
+        CopyOnWriteArrayList<JSONObject> paidList = new CopyOnWriteArrayList<>();
+        CopyOnWriteArrayList<JSONObject> unpaidList = new CopyOnWriteArrayList<>();
+        List<JSONObject> jsonObjectList = userCreditCacheService.batchDecreaseUserCredit(convert(paymentVOList, OrderVO.class));
         jsonObjectList.forEach(jsonObject -> {
             if (jsonObject.getString("operation").equals("paid")) {
                 paidList.add(jsonObject);
@@ -108,8 +104,8 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
         List<LogUserCredit> logUserCreditList = paidLogUserCreditFuture.get();
         logUserCreditService.saveBatch(logUserCreditList);
         userCreditMapper.batchUpdateByIdAndOldMoney(logUserCreditList);
-        message.setBody(JSON.toJSONBytes(paidList));
-        message.setKeys(IdUtil.objectId());
+
+        Message message=new Message("storage", "decrease", IdUtil.objectId(), JSON.toJSONBytes(paidList));
         log.info("******PaymentRequestPayConsumer：本轮支付成功的数量：{}", paidList.size());
         log.info("******PaymentRequestPayConsumer：本轮支付失败的数量：{}", unpaidList.size());
         paidList.clear();

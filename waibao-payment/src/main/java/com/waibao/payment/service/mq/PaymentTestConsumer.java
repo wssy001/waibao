@@ -28,8 +28,8 @@ import org.springframework.stereotype.Component;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -49,16 +49,13 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
     private final LogPaymentCacheService logPaymentCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
 
-    private final Message message = new Message("payment", "requestPay", "", null);
-    private final Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
-
     private DefaultMQProducer paymentRequestPayMQProducer;
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         log.info("******PaymentTestConsumer：本轮消息数量：{}", msgs.size());
-        msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
+        Map<String, MessageExt> messageExtMap = msgs.parallelStream()
+                .collect(Collectors.toMap(Message::getKeys, Function.identity()));
         log.info("******PaymentTestConsumer：处理后消息数量：{}", messageExtMap.keySet().size());
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "request pay")
                 .stream()
@@ -81,8 +78,7 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
                 .collect(Collectors.toList());
 
         log.info("******PaymentTestConsumer：发往requestPay消息数量：{}", collect.size());
-        message.setKeys(IdUtil.objectId());
-        message.setBody(JSON.toJSONBytes(collect));
+        Message message = new Message("payment", "requestPay", IdUtil.objectId(), JSON.toJSONBytes(collect));
         asyncMQMessage.sendMessage(paymentRequestPayMQProducer, message);
 
         if (task.isDone()) messageExtMap.clear();

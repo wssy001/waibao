@@ -33,8 +33,6 @@ public class TestController {
     private final SeckillGoodsCacheService seckillGoodsCacheService;
     private final PurchasedUserCacheService purchasedUserCacheService;
 
-    private final OrderVO orderVO = new OrderVO();
-    private final Message message = new Message("order", "test", "", null);
 
     @PostMapping("/kill")
     public GlobalResult<OrderVO> seckill(
@@ -64,6 +62,7 @@ public class TestController {
         }
 
         String orderId = goodsId + IdUtil.getSnowflakeNextIdStr();
+        OrderVO orderVO = new OrderVO();
         orderVO.setOrderId(orderId);
         orderVO.setRetailerId(seckillGoods.getRetailerId());
         orderVO.setCount(count);
@@ -74,9 +73,13 @@ public class TestController {
         orderVO.setOrderPrice(seckillGoods.getSeckillPrice().multiply(new BigDecimal(count)));
         orderVO.setPayId(IdUtil.getSnowflakeNextIdStr());
 
-        message.setKeys(orderId);
-        message.setBody(JSON.toJSONBytes(orderVO));
-        asyncMQMessage.sendMessage(orderCreateMQProducer, message);
+        Message message = new Message("order", "test", orderId, JSON.toJSONBytes(orderVO));
+        try {
+            asyncMQMessage.sendMessage(orderCreateMQProducer, message);
+        } catch (Exception e) {
+            log.error("******TestController.seckill：{}", e.getMessage());
+            return GlobalResult.error("秒杀失败", null);
+        }
         log.info("******TestController：userId：{}，orderId：{} 预减库存成功", userId, orderId);
         return GlobalResult.success("秒杀成功", orderVO);
     }

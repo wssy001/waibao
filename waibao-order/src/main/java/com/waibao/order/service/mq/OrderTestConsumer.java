@@ -20,14 +20,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
+import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -47,14 +48,12 @@ public class OrderTestConsumer implements MessageListenerConcurrently {
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
     private final LogOrderGoodsCacheService logOrderGoodsCacheService;
 
-    private final Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
-
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         log.info("******OrderTestConsumer：本轮消息数量：{}", msgs.size());
-        msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
+        Map<String, MessageExt> messageExtMap = msgs.parallelStream()
+                .collect(Collectors.toMap(Message::getKeys, Function.identity()));
         log.info("******OrderTestConsumer：处理后消息数量：{}", messageExtMap.keySet().size());
         List<OrderVO> orderVOList = logOrderGoodsCacheService.batchCheckNotConsumedTags(convert(messageExtMap.values(), OrderVO.class), "create");
         messageExtMap.clear();

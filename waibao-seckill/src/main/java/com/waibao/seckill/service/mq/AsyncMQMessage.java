@@ -129,7 +129,7 @@ public class AsyncMQMessage {
                 });
     }
 
-    private void sendMqMsgCompensation(List<Message> messages, String exceptionMsg) {
+    public void sendMqMsgCompensation(List<Message> messages, String exceptionMsg) {
         List<MqMsgCompensation> collect = messages.parallelStream()
                 .map(message -> {
                     MqMsgCompensation mqMsgCompensation = new MqMsgCompensation();
@@ -152,7 +152,7 @@ public class AsyncMQMessage {
         }
     }
 
-    private void sendMqMsgCompensation(Message message, String exceptionMsg) {
+    public void sendMqMsgCompensation(Message message, String exceptionMsg) {
         MqMsgCompensation mqMsgCompensation = new MqMsgCompensation();
         mqMsgCompensation.setTags(message.getTags());
         mqMsgCompensation.setTopic(message.getTopic());

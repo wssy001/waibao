@@ -56,12 +56,16 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
+        log.info("******PaymentTestConsumer：本轮消息数量：{}", msgs.size());
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "request pay")
                 .stream()
                 .peek(paymentVO -> log.info("******PaymentRequestPayConsumer：userId：{},orderId：{} 请求支付", paymentVO.getUserId(), paymentVO.getOrderId()))
-                .peek(paymentVO -> paymentVO.setStatus("request pay"))
+                .peek(paymentVO -> {
+                    paymentVO.setOperation("request pay");
+                    paymentVO.setStatus("请求支付");
+                })
                 .collect(Collectors.toList());
 
         asyncService.basicTask(() -> paymentCacheService.batchSet(convert(paymentVOList, Payment.class)));
@@ -75,6 +79,7 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
                 .map(paymentVO -> (JSONObject) JSON.toJSON(paymentVO))
                 .collect(Collectors.toList());
 
+        log.info("******PaymentTestConsumer：发往requestPay消息数量：{}", collect.size());
         message.setKeys(IdUtil.objectId());
         message.setBody(JSON.toJSONBytes(collect));
         asyncMQMessage.sendMessage(paymentRequestPayMQProducer, message);
@@ -94,11 +99,9 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
     private <T> List<T> convert(List<PaymentVO> paymentVOList, Class<T> clazz) {
         return paymentVOList.parallelStream()
                 .map(paymentVO -> (JSONObject) JSON.toJSON(paymentVO))
-                .peek(jsonObject -> jsonObject.put("status", "请求支付"))
                 .peek(jsonObject -> {
                     if (clazz == LogPayment.class) {
                         jsonObject.put("topic", "payment");
-                        jsonObject.put("operation", "request pay");
                     }
                 })
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))

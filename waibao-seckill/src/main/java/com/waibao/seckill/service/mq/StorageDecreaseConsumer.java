@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 public class StorageDecreaseConsumer implements MessageListenerConcurrently {
     private final AsyncMQMessage asyncMQMessage;
     private final SeckillGoodsMapper seckillGoodsMapper;
-    private final SeckillGoodsCacheService goodsCacheService;
+    private final SeckillGoodsCacheService seckillGoodsCacheService;
 
     private DefaultMQProducer orderUpdateMQProducer;
     private DefaultMQProducer orderCancelMQProducer;
@@ -52,6 +52,7 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
                 .parallelStream()
                 .flatMap(messageExt -> JSONArray.parseArray(new String(messageExt.getBody()), OrderVO.class).stream())
                 .collect(Collectors.toList());
+        log.info("******StorageDecreaseConsumer：本轮收到消息：{}", collect1.size());
 
         ConcurrentMap<Long, List<OrderVO>> collect = collect1.stream()
                 .collect(Collectors.groupingByConcurrent(OrderVO::getGoodsId));
@@ -64,6 +65,7 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
             if (trueStorage == 0) {
                 log.error("******StorageRollbackConsumer：goodsId：{} 商品售罄", k);
                 cancel.addAll(v);
+                seckillGoodsCacheService.updateGoodsStatus(k, false);
                 return;
             }
 
@@ -76,7 +78,7 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
                 complete.addAll(v);
             } else {
                 log.info("******StorageRollbackConsumer：goodsId：{} 库存告急，单个扣减", k);
-                goodsCacheService.updateGoodsStatus(k, false);
+                seckillGoodsCacheService.updateGoodsStatus(k, false);
                 for (OrderVO orderVO : v) {
                     update = seckillGoodsMapper.decreaseStorage(k, orderVO.getCount());
                     if (update == 0) {

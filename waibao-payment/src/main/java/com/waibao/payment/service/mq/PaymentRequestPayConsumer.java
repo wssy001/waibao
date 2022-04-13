@@ -24,7 +24,6 @@ import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
-import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,7 +70,9 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "requestPay");
+        List<PaymentVO> convert = convert(messageExtMap.values(), PaymentVO.class);
+        log.info("******PaymentRequestPayConsumer：本轮收到消息：{}", convert.size());
+        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert, "request pay");
 
         if (paymentVOList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
@@ -108,6 +109,8 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
         userCreditMapper.batchUpdateByIdAndOldMoney(logUserCreditList);
         message.setBody(JSON.toJSONBytes(paidList));
         message.setKeys(IdUtil.objectId());
+        log.info("******PaymentRequestPayConsumer：本轮支付成功的数量：{}", paidList.size());
+        log.info("******PaymentRequestPayConsumer：本轮支付失败的数量：{}", unpaidList.size());
         paidList.clear();
         unpaidList.clear();
 

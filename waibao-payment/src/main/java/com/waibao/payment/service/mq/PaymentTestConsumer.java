@@ -59,6 +59,7 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
         log.info("******PaymentTestConsumer：本轮消息数量：{}", msgs.size());
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
+        log.info("******PaymentTestConsumer：处理后消息数量：{}", messageExtMap.keySet().size());
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "request pay")
                 .stream()
                 .peek(paymentVO -> log.info("******PaymentRequestPayConsumer：userId：{},orderId：{} 请求支付", paymentVO.getUserId(), paymentVO.getOrderId()))

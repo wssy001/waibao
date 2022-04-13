@@ -68,12 +68,13 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
+        log.info("******PaymentRequestPayConsumer：本轮收到消息：{}", msgs.size());
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
+        log.info("******PaymentRequestPayConsumer：处理后消息数量：{}", messageExtMap.keySet().size());
         List<PaymentVO> convert = convert(messageExtMap.values(), PaymentVO.class);
-        log.info("******PaymentRequestPayConsumer：本轮收到消息：{}", convert.size());
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert, "request pay");
-
+        log.info("******PaymentRequestPayConsumer：过滤后消息数量：{}", paymentVOList.size());
         if (paymentVOList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
         jsonObjectList.addAll(userCreditCacheService.batchDecreaseUserCredit(convert(paymentVOList, OrderVO.class)));

@@ -44,15 +44,15 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
+        log.info("******StorageDecreaseConsumer：本轮收到消息：{}", msgs.size());
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-
+        log.info("******PaymentTestConsumer：处理后消息数量：{}", messageExtMap.keySet().size());
         List<OrderVO> collect1 = messageExtMap.values()
                 .parallelStream()
                 .flatMap(messageExt -> JSONArray.parseArray(new String(messageExt.getBody()), OrderVO.class).stream())
                 .collect(Collectors.toList());
-        log.info("******StorageDecreaseConsumer：本轮收到消息：{}", collect1.size());
 
         ConcurrentMap<Long, List<OrderVO>> collect = collect1.stream()
                 .collect(Collectors.groupingByConcurrent(OrderVO::getGoodsId));

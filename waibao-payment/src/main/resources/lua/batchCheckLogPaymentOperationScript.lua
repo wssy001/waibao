@@ -5,11 +5,11 @@
 ---
 -- batchCheckLogPaymentOperationScript LogPaymentCacheService
 local key = KEYS[1]
-local operation = ARGV[2]
 ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
+local operation = ARGV[2]
 local payId
 local userId
-local paymentVOList
+local paymentVOList = {}
 for _ , paymentVO in pairs(cjson.decode(ARGV[1])) do
     payId = paymentVO['payId']
     userId = paymentVO['userId']

@@ -58,7 +58,7 @@ public class PaymentUpdateConsumer implements MessageListenerConcurrently {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "update");
+        List<PaymentVO> paymentVOList = convert(messageExtMap.values(), PaymentVO.class);
 
         Future<List<Payment>> paymentFuture = asyncService.basicTask(convert(paymentVOList, Payment.class));
         Future<List<LogPayment>> logPaymentFuture = asyncService.basicTask(convert(paymentVOList, LogPayment.class));
@@ -74,7 +74,7 @@ public class PaymentUpdateConsumer implements MessageListenerConcurrently {
         List<LogPayment> logPayments = logPaymentFuture.get();
         asyncService.basicTask(() -> paymentService.updateBatchById(payments));
         asyncMQMessage.sendMessage(paymentUpdateMQProducer, messageFuture.get());
-        asyncService.basicTask(() -> logPaymentService.saveOrUpdateBatch(logPayments));
+        asyncService.basicTask(() -> logPaymentService.saveBatch(logPayments));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))

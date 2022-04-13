@@ -55,11 +55,11 @@ public class PaymentTestConsumer implements MessageListenerConcurrently {
         Map<String, MessageExt> messageExtMap = msgs.parallelStream()
                 .collect(Collectors.toMap(Message::getKeys, Function.identity()));
         log.info("******PaymentTestConsumer：处理后消息数量：{}", messageExtMap.size());
-        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "request pay")
+        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "create")
                 .stream()
                 .peek(paymentVO -> {
-                    paymentVO.setOperation("request pay");
-                    paymentVO.setStatus("请求支付");
+                    paymentVO.setOperation("create");
+                    paymentVO.setStatus("订单创建");
                 })
                 .collect(Collectors.toList());
         List<Message> messageList = paymentVOList.parallelStream()

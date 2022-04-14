@@ -64,7 +64,6 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
                 .collect(Collectors.toMap(Message::getKeys, Function.identity(), (prev, next) -> next));
         log.info("******PaymentRequestPayConsumer：处理后消息数量：{}", messageExtMap.size());
         List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "paid");
-        log.info("******PaymentRequestPayConsumer：过滤后消息数量：{}", paymentVOList.size());
         if (paymentVOList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
         CopyOnWriteArrayList<JSONObject> paidList = new CopyOnWriteArrayList<>();

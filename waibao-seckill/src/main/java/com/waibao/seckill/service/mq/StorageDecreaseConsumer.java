@@ -1,7 +1,9 @@
 package com.waibao.seckill.service.mq;
 
 import com.alibaba.fastjson.JSON;
+import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
+import com.waibao.seckill.service.cache.GoodsRetailerCacheService;
 import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +39,7 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
     private final AsyncMQMessage asyncMQMessage;
     private final SeckillGoodsMapper seckillGoodsMapper;
     private final SeckillGoodsCacheService seckillGoodsCacheService;
+    private final GoodsRetailerCacheService goodsRetailerCacheService;
 
     private DefaultMQProducer orderUpdateMQProducer;
     private DefaultMQProducer orderCancelMQProducer;
@@ -56,9 +59,13 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
         List<OrderVO> complete = new ArrayList<>();
 
         collect.forEach((k, v) -> {
-            int trueStorage = seckillGoodsMapper.selectTrueStorage(k);
-            if (trueStorage == 0) {
+            log.info("******StorageDecreaseConsumer：尝试批量扣减的商品Id：{}，数量：{}", k, v.size());
+            SeckillGoods seckillGoods = goodsRetailerCacheService.get(v.get(0).getRetailerId(), k);
+            if (seckillGoods.getStorage() == 0) {
                 log.error("******StorageDecreaseConsumer：goodsId：{} 商品售罄", k);
+                v = v.stream()
+                        .peek(orderVO -> orderVO.setStatus("商品售罄"))
+                        .collect(Collectors.toList());
                 cancel.addAll(v);
                 seckillGoodsCacheService.updateGoodsStatus(k, false);
                 return;
@@ -78,6 +85,7 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
                 for (OrderVO orderVO : v) {
                     update = seckillGoodsMapper.decreaseStorage(k, orderVO.getCount());
                     if (update == 0) {
+                        orderVO.setStatus("库存不足");
                         cancel.add(orderVO);
                     } else {
                         complete.add(orderVO);
@@ -87,15 +95,13 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
         });
 
         if (!complete.isEmpty()) asyncMQMessage.sendMessage(orderUpdateMQProducer, complete.stream()
-                .peek(orderVO -> orderVO.setStatus("购买成功"))
                 .peek(orderVO -> log.info("******StorageDecreaseConsumer：userId：{},orderId：{} 购买成功", orderVO.getUserId(), orderVO.getOrderId()))
                 .map(orderVO -> new Message("order", "update", orderVO.getOrderId(), JSON.toJSONBytes(orderVO)))
                 .collect(Collectors.toList())
         );
 
         if (!cancel.isEmpty()) asyncMQMessage.sendMessage(orderCancelMQProducer, cancel.stream()
-                .peek(orderVO -> orderVO.setStatus("购买失败，库存不足"))
-                .peek(orderVO -> log.info("******StorageDecreaseConsumer：userId：{},orderId：{} 购买失败 原因：库存不足", orderVO.getUserId(), orderVO.getOrderId()))
+                .peek(orderVO -> log.info("******StorageDecreaseConsumer：userId：{},orderId：{} 购买失败 原因：{}", orderVO.getUserId(), orderVO.getOrderId(), orderVO.getStatus()))
                 .map(orderVO -> new Message("order", "cancel", orderVO.getOrderId(), JSON.toJSONBytes(orderVO)))
                 .collect(Collectors.toList())
         );

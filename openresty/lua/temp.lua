@@ -140,3 +140,8 @@ function checkFromBloomFilter()
 
     return false
 end
+
+function checkSeckillPath()
+    redis.call('SELECT' , 5)
+    return tonumber(redis.call('DEL' , KEYS[1])) == 1
+end

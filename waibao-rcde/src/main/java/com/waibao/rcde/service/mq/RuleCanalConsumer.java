@@ -60,7 +60,7 @@ public class RuleCanalConsumer implements MessageListenerConcurrently {
                             break;
                         case "UPDATE":
                             redisCommand.setCommand("UPDATE");
-                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(Rule.class));
+                            redisCommand.setOldValue(jsonObject.getJSONArray("old").getJSONObject(0).toJavaObject(Rule.class));
                             break;
                         case "DELETE":
                             redisCommand.setCommand("DELETE");

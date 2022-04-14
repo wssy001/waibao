@@ -11,6 +11,6 @@ for _ , seckillGoods in pairs(cjson.decode(ARGV[1])) do
     goodsId = tostring(seckillGoods['goodsId'])
     retailerId = tostring(seckillGoods['retailerId'])
     for index , value in pairs(seckillGoods) do
-        redis.call('HSET' , key .. retailerId .. '-' .. goodsId , index , tostring(value))
+        redis.call('HSET' , key .. retailerId .. goodsId , index , tostring(value))
     end
 end

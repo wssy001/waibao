@@ -42,18 +42,4 @@ public class HotGoodsDetailScheduleService {
         log.info("******GoodsDetailScheduleService：读取数据库放入缓存结束");
     }
 
-//    @Scheduled(fixedDelay = 2000L)
-//    public void storeAdmin() {
-//        long l = longAdder.longValue();
-//        if (l > 0) {
-//            log.info("******GoodsDetailScheduleService：开始读取数据库放入缓存");
-//            IPage<SeckillGoods> seckillGoodsPage = new Page<>(l, 1000);
-//            seckillGoodsPage = seckillGoodsMapper.selectPage(seckillGoodsPage, null);
-//            List<SeckillGoods> seckillGoodsList = seckillGoodsPage.getRecords();
-//            asyncService.basicTask(() -> goodsCacheService.insertBatch(seckillGoodsList));
-//            asyncService.basicTask(() -> goodsRetailerCacheService.insertBatch(seckillGoodsList));
-//            longAdder.decrement();
-//            log.info("******GoodsDetailScheduleService：读取数据库放入缓存结束");
-//        }
-//    }
 }

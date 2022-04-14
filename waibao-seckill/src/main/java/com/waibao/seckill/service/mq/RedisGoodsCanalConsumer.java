@@ -2,10 +2,10 @@ package com.waibao.seckill.service.mq;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.waibao.util.async.AsyncService;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.service.cache.GoodsRetailerCacheService;
 import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
+import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,7 +64,7 @@ public class RedisGoodsCanalConsumer implements MessageListenerConcurrently {
                             break;
                         case "UPDATE":
                             redisCommand.setCommand("UPDATE");
-                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(SeckillGoods.class));
+                            redisCommand.setOldValue(jsonObject.getJSONArray("old").getJSONObject(0).toJavaObject(SeckillGoods.class));
                             break;
                         case "DELETE":
                             redisCommand.setCommand("DELETE");

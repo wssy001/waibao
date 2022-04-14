@@ -2,15 +2,16 @@ package com.waibao.payment.service.mq;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.payment.entity.LogPayment;
+import com.waibao.payment.entity.MqMsgCompensation;
 import com.waibao.payment.entity.Payment;
-import com.waibao.payment.entity.UserCredit;
-import com.waibao.payment.mapper.UserCreditMapper;
+import com.waibao.payment.mapper.MqMsgCompensationMapper;
 import com.waibao.payment.service.cache.LogPaymentCacheService;
-import com.waibao.payment.service.cache.UserCreditCacheService;
+import com.waibao.payment.service.cache.PaymentCacheService;
 import com.waibao.payment.service.db.LogPaymentService;
-import com.waibao.payment.service.db.PaymentService;
 import com.waibao.util.async.AsyncService;
+import com.waibao.util.vo.payment.PaymentVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -35,51 +37,50 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PaymentCreateConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
-    private final PaymentService paymentService;
-    private final UserCreditMapper userCreditMapper;
     private final LogPaymentService logPaymentService;
+    private final PaymentCacheService paymentCacheService;
     private final LogPaymentCacheService logPaymentCacheService;
-    private final UserCreditCacheService userCreditCacheService;
+    private final MqMsgCompensationMapper mqMsgCompensationMapper;
 
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        ConcurrentHashMap<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
+        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-
-        List<Payment> paymentList = convert(messageExtMap.values(), Payment.class)
+        List<PaymentVO> paymentVOList = logPaymentCacheService.batchCheckNotConsumeTags(convert(messageExtMap.values(), PaymentVO.class), "create")
                 .stream()
-                .filter(payment -> logPaymentCacheService.hasConsumeTags(payment.getUserId(), payment.getPayId(), "create"))
+                .peek(paymentVO -> log.info("******PaymentRequestPayConsumer：userId：{},orderId：{} 请求支付", paymentVO.getUserId(), paymentVO.getOrderId()))
+                .peek(paymentVO -> paymentVO.setStatus("create"))
                 .collect(Collectors.toList());
 
-        asyncService.basicTask(() -> paymentService.saveBatch(paymentList));
-        asyncService.basicTask(() -> logPaymentService.saveBatch(convert(messageExtMap.values(), LogPayment.class)));
-        asyncService.basicTask(() -> {
-            List<Long> userIdList = paymentList.stream()
-                    .map(Payment::getUserId)
-                    .collect(Collectors.toList());
-            batchStoreCache(userCreditMapper.selectBatchIds(userIdList));
-        });
+        asyncService.basicTask(() -> paymentCacheService.batchSet(convert(paymentVOList, Payment.class)));
+        asyncService.basicTask(() -> logPaymentService.saveBatch(convert(paymentVOList, LogPayment.class)));
+        asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
+                Wrappers.<MqMsgCompensation>lambdaUpdate()
+                        .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
+                        .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
     private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
         return msgs.parallelStream()
-                .map(messageExt -> {
-                    JSONObject jsonObject = (JSONObject) JSON.toJSON(new String(messageExt.getBody()));
-                    jsonObject.put("money", jsonObject.getBigDecimal("orderPrice"));
-                    return jsonObject;
-                })
-                .peek(jsonObject -> {
-                    if (clazz == LogPayment.class) jsonObject.put("operation", "create");
-                })
+                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());
     }
 
-    private void batchStoreCache(List<UserCredit> userCredits) {
-        userCredits.parallelStream()
-                .forEach(userCreditCacheService::set);
+    private <T> List<T> convert(List<PaymentVO> paymentVOList, Class<T> clazz) {
+        return paymentVOList.parallelStream()
+                .map(paymentVO -> (JSONObject) JSON.toJSON(paymentVO))
+                .peek(jsonObject -> jsonObject.put("status", "支付创建"))
+                .peek(jsonObject -> {
+                    if (clazz == LogPayment.class) {
+                        jsonObject.put("topic", "payment");
+                        jsonObject.put("operation", "create");
+                    }
+                })
+                .map(jsonObject -> jsonObject.toJavaObject(clazz))
+                .collect(Collectors.toList());
     }
 
 }

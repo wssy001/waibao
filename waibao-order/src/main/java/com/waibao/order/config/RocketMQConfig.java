@@ -20,13 +20,14 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @RequiredArgsConstructor
 public class RocketMQConfig {
+    private final OrderTestConsumer orderTestConsumer;
     private final RocketMQProperties rocketMQProperties;
     private final OrderCreateConsumer orderCreateConsumer;
     private final OrderUpdateConsumer orderUpdateConsumer;
     private final OrderCancelConsumer orderCancelConsumer;
     private final OrderDeleteConsumer orderDeleteConsumer;
     private final RedisOrderUserCanalConsumer redisOrderUserCanalConsumer;
-    private final RedisLogOrderGoodsCanalConsumer redisLogOrderUserCanalConsumer;
+    private final RedisLogOrderGoodsCanalConsumer redisLogOrderGoodsCanalConsumer;
     private final RedisOrderRetailerCanalConsumer redisOrderRetailerCanalConsumer;
 
     @Bean
@@ -63,6 +64,17 @@ public class RocketMQConfig {
         consumer.registerMessageListener(orderCreateConsumer);
         consumer.setConsumerGroup("orderCreate");
         consumer.subscribe("order", "create");
+        consumer.start();
+        return consumer;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer orderTestDBBatchConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(orderTestConsumer);
+        consumer.setConsumerGroup("orderTest");
+        consumer.subscribe("order", "test");
         consumer.start();
         return consumer;
     }
@@ -106,20 +118,18 @@ public class RocketMQConfig {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(redisOrderUserCanalConsumer);
         consumer.setConsumerGroup("orderUserCanal");
-        consumer.subscribe("waibao_order_user_order_user_0", "*");
-        consumer.subscribe("waibao_order_user_order_user_1", "*");
+        consumer.subscribe("waibao_v3_order_user", "*");
         consumer.start();
         return consumer;
     }
 
     @Bean
     @SneakyThrows
-    public DefaultMQPushConsumer logOrderUserCanalConsumer() {
+    public DefaultMQPushConsumer logOrderGoodsCanalConsumer() {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
-        consumer.registerMessageListener(redisLogOrderUserCanalConsumer);
-        consumer.setConsumerGroup("logOrderUserCanal");
-        consumer.subscribe("waibao_order_user_order_user_0", "*");
-        consumer.subscribe("waibao_order_user_order_user_1", "*");
+        consumer.registerMessageListener(redisLogOrderGoodsCanalConsumer);
+        consumer.setConsumerGroup("logOrderGoodsCanal");
+        consumer.subscribe("waibao_v3_log_order_goods", "*");
         consumer.start();
         return consumer;
     }
@@ -130,8 +140,7 @@ public class RocketMQConfig {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(redisOrderRetailerCanalConsumer);
         consumer.setConsumerGroup("orderRetailerCanal");
-        consumer.subscribe("waibao_order_retailer_order_retailer_0", "*");
-        consumer.subscribe("waibao_order_retailer_order_retailer_1", "*");
+        consumer.subscribe("waibao_v3_order_retailer", "*");
         consumer.start();
         return consumer;
     }
@@ -139,12 +148,12 @@ public class RocketMQConfig {
     private DefaultMQPushConsumer getSingleThreadBatchConsumer() {
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer();
         consumer.setNamesrvAddr(rocketMQProperties.getNameServer());
-        consumer.setPullInterval(1000);
         consumer.setConsumeThreadMax(1);
         consumer.setConsumeThreadMin(1);
-        consumer.setPullBatchSize(760);
+        consumer.setPullBatchSize(100);
+        consumer.setConsumeTimeout(1);
         consumer.setMaxReconsumeTimes(3);
-        consumer.setConsumeMessageBatchMaxSize(760);
+        consumer.setConsumeMessageBatchMaxSize(100);
         return consumer;
     }
 

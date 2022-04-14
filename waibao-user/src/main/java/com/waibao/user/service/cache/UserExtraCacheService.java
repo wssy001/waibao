@@ -84,9 +84,9 @@ public class UserExtraCacheService {
     }
 
     public List<UserExtra> get(List<Long> userIdList) {
-        Map<Long, UserExtra> allPresent = userExtraCache.getAllPresent(userIdList);
-        userIdList.removeAll(allPresent.keySet());
-        if (userIdList.isEmpty()) return new ArrayList<>(allPresent.values());
+//        Map<Long, UserExtra> allPresent = userExtraCache.getAllPresent(userIdList);
+//        userIdList.removeAll(allPresent.keySet());
+//        if (userIdList.isEmpty()) return new ArrayList<>(allPresent.values());
 
         List<String> collect = userIdList.parallelStream()
                 .map(userId -> userId + "")

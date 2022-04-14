@@ -5,9 +5,9 @@
 ---
 -- checkLogPaymentOperationScript LogPaymentCacheService
 local key = KEYS[1]
-local count = tonumber(redis.call('LREM' , key , 0 , ARGV[1] .. '-' .. ARGV[2]))
+local count = tonumber(redis.call('LREM' , key .. ARGV[1] , 0 , ARGV[2] .. '-' .. ARGV[2]))
 if count > 0 then
-    redis.call('LPUSH' , key , ARGV[1] .. '-' .. ARGV[2])
+    redis.call('LPUSH' , key .. ARGV[1] , ARGV[2] .. '-' .. ARGV[3])
     return true
 else
     return false

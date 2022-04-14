@@ -16,6 +16,7 @@ import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -42,38 +43,36 @@ public class RedisStorageRollbackConsumer implements MessageListenerConcurrently
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        List<OrderVO> orderVOList = convert(messageExtMap.values()).parallelStream()
-//                .filter(orderVO -> !logSeckillGoodsCacheService.checkOperation(orderVO.getGoodsId(), orderVO.getOrderId(), "rollback"))
-                .collect(Collectors.toList());
+        List<OrderVO> orderVOList = new ArrayList<>(convert(messageExtMap.values()));
         if (orderVOList.isEmpty()) return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
 
-        asyncService.basicTask(() -> goodsCacheService.batchRollBackStorage(orderVOList)
-                .forEach(orderVO -> goodsStorageCacheServiceLog(orderVO, orderVOList)));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
                         .in(MqMsgCompensation::getMsgId, orderVOList.parallelStream()
                                 .map(OrderVO::getOrderId)
                                 .collect(Collectors.toList()))
                         .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
-        asyncService.basicTask(() -> purchasedUserCacheService.decreaseBatch(orderVOList)
-                .forEach(orderVO -> purchasedUserCacheServiceLog(orderVO, orderVOList)));
+        asyncService.basicTask(() -> goodsStorageCacheServiceLog(goodsCacheService.batchRollBackStorage(orderVOList), orderVOList));
+        asyncService.basicTask(() -> purchasedUserCacheServiceLog(purchasedUserCacheService.decreaseBatch(orderVOList), orderVOList));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
-    private void goodsStorageCacheServiceLog(OrderVO orderVO, List<OrderVO> orderVOList) {
-        if (!orderVOList.contains(orderVO)) {
-            log.info("******RedisStorageRollbackConsumer.goodsStorageCacheServiceLog：订单id：{} Redis库存回滚成功", orderVO.getOrderId());
-        } else {
-            log.error("******RedisStorageRollbackConsumer.goodsStorageCacheServiceLog：订单id：{} Redis库存回滚失败，原因：{} 处理：{}", orderVO.getOrderId(), "商品ID不存在", "人工处理");
+    private void goodsStorageCacheServiceLog(List<OrderVO> failedList, List<OrderVO> orderVOList) {
+        if (!failedList.isEmpty()) {
+            orderVOList.removeIf(failedList::contains);
+            failedList.forEach(orderVO -> log.error("******goodsStorageCacheServiceLog：订单id：{} Redis库存回滚失败，原因：{} 处理：{}", orderVO.getOrderId(), "商品ID不存在", "人工处理"));
         }
+
+        orderVOList.forEach(orderVO -> log.error("******goodsStorageCacheServiceLog：订单id：{} Redis库存回滚成功", orderVO.getOrderId()));
     }
 
-    private void purchasedUserCacheServiceLog(OrderVO orderVO, List<OrderVO> orderVOList) {
-        if (!orderVOList.contains(orderVO)) {
-            log.info("******RedisStorageRollbackConsumer.purchasedUserCacheServiceLog：订单id：{} Redis用户已购买数回滚成功", orderVO.getOrderId());
-        } else {
-            log.error("******RedisStorageRollbackConsumer.purchasedUserCacheServiceLog：订单id：{} Redis用户已购买数回滚失败，原因：{} 处理：{}", orderVO.getOrderId(), "商品ID不存在", "人工处理");
+    private void purchasedUserCacheServiceLog(List<OrderVO> failedList, List<OrderVO> orderVOList) {
+        if (!failedList.isEmpty()) {
+            orderVOList.removeIf(failedList::contains);
+            failedList.forEach(orderVO -> log.error("******RedisStorageRollbackConsumer.purchasedUserCacheServiceLog：订单id：{} 用户已购买数回滚失败，原因：{} 处理：{}", orderVO.getOrderId(), "商品ID不存在", "人工处理"));
         }
+
+        orderVOList.forEach(orderVO -> log.info("******RedisStorageRollbackConsumer.purchasedUserCacheServiceLog：订单id：{} 用户已购买数回滚成功", orderVO.getOrderId()));
     }
 
     private List<OrderVO> convert(Collection<MessageExt> msgs) {

@@ -100,12 +100,6 @@
 <!--                <artifactId>velocity-engine-core</artifactId>-->
 <!--                <version>${velocity.version}</version>-->
 <!--            </dependency>-->
-            <!--shardingsphere-jdbc-->
-            <dependency>
-                <groupId>org.apache.shardingsphere</groupId>
-                <artifactId>sharding-jdbc-spring-boot-starter</artifactId>
-                <version>${shardingsphere.version}</version>
-            </dependency>
             <!-- lambok  -->
             <dependency>
                 <groupId>org.projectlombok</groupId>
@@ -129,12 +123,6 @@
                 <groupId>com.example.waibao</groupId>
                 <artifactId>waibao-util</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-            <!--AJ Captcha            -->
-            <dependency>
-                <groupId>com.anji-plus</groupId>
-                <artifactId>spring-boot-starter-captcha</artifactId>
-                <version>${aj-captcha.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

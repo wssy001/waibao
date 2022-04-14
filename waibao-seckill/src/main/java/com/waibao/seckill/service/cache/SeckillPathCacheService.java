@@ -24,14 +24,14 @@ import java.util.Collections;
 @RequiredArgsConstructor
 public class SeckillPathCacheService {
     @Resource
-    private RedisTemplate<String, Long> goodsRetailerRedisTemplate;
+    private RedisTemplate<String, Long> goodsRedisTemplate;
 
     private RedisScript<Boolean> deleteSeckillPath;
     private ValueOperations<String, Long> valueOperations;
 
     @PostConstruct
     public void init() {
-        valueOperations = goodsRetailerRedisTemplate.opsForValue();
+        valueOperations = goodsRedisTemplate.opsForValue();
         deleteSeckillPath = RedisScript.of(new ClassPathResource("lua/deleteSeckillPath.lua"), Boolean.class);
     }
 
@@ -40,7 +40,7 @@ public class SeckillPathCacheService {
                 .execute(deleteSeckillPath, Collections.singletonList(seckillPath), goodsId + ""));
     }
 
-    public String set(Long goodsId) {
+    public String generate(Long goodsId) {
         String key = RandomUtil.randomString(20);
         valueOperations.set(key, goodsId);
         return key;

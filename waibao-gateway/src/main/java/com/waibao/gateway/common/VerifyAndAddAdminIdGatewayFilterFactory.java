@@ -37,11 +37,10 @@ public class VerifyAndAddAdminIdGatewayFilterFactory extends AbstractNameValueGa
             URI uri = request.getURI();
             String rawQuery = uri.getQuery();
             Map<String, String> paramMap = new HashMap<>();
-            if (StrUtil.isBlank(rawQuery)) {
-                paramMap.put("userId", adminVO.getId() + "");
-            } else {
+            if (StrUtil.isNotBlank(rawQuery)) {
                 paramMap.putAll(HttpUtil.decodeParamMap(rawQuery, StandardCharsets.UTF_8));
             }
+            paramMap.put("adminId", adminVO.getId() + "");
 
             URI newUri = UriComponentsBuilder.fromUri(uri).replaceQuery(HttpUtil.toParams(paramMap)).build(true).toUri();
             request = exchange.getRequest().mutate().uri(newUri).build();

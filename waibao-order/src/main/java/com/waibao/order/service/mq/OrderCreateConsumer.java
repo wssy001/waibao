@@ -1,6 +1,7 @@
 package com.waibao.order.service.mq;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.order.entity.LogOrderGoods;
 import com.waibao.order.entity.MqMsgCompensation;
@@ -12,20 +13,23 @@ import com.waibao.order.service.db.LogOrderGoodsService;
 import com.waibao.order.service.db.OrderRetailerService;
 import com.waibao.order.service.db.OrderUserService;
 import com.waibao.util.async.AsyncService;
+import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
+import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -48,42 +52,50 @@ public class OrderCreateConsumer implements MessageListenerConcurrently {
     @Override
     @SneakyThrows
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
-        msgs.parallelStream()
-                .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        convert(messageExtMap.values(), OrderUser.class)
-                .parallelStream()
-                .filter(orderUser -> logOrderGoodsCacheService.hasConsumedTags(orderUser.getGoodsId(), orderUser.getOrderId(), "create"))
-                .map(OrderUser::getOrderId)
-                .forEach(messageExtMap::remove);
+        Map<String, MessageExt> messageExtMap = msgs.parallelStream()
+                .collect(Collectors.toMap(Message::getKeys, Function.identity(), (prev, next) -> next));
 
-        Future<List<OrderUser>> orderUsersFuture = asyncService.basicTask(convert(messageExtMap.values(), OrderUser.class));
-        Future<List<OrderRetailer>> orderRetailersFuture = asyncService.basicTask(convert(messageExtMap.values(), OrderRetailer.class));
-        Future<List<LogOrderGoods>> logOrderGoodsFuture = asyncService.basicTask(convert(messageExtMap.values(), LogOrderGoods.class));
+        List<OrderUser> orderUsers = new CopyOnWriteArrayList<>();
+        List<LogOrderGoods> logOrderGoods = new CopyOnWriteArrayList<>();
+        List<OrderRetailer> orderRetailers = new CopyOnWriteArrayList<>();
+        List<OrderVO> orderVOList = new CopyOnWriteArrayList<>(logOrderGoodsCacheService.batchCheckNotConsumedTags(convert(messageExtMap.values(), OrderVO.class), "create"));
+
+        Future<Boolean> task = asyncService.basicTask(orderUsers.addAll(convert(orderVOList, OrderUser.class)));
+        Future<Boolean> task2 = asyncService.basicTask(logOrderGoods.addAll(convert(orderVOList, LogOrderGoods.class)));
+        Future<Boolean> task3 = asyncService.basicTask(orderRetailers.addAll(convert(orderVOList, OrderRetailer.class)));
         while (true) {
-            if (orderRetailersFuture.isDone() && orderUsersFuture.isDone() && logOrderGoodsFuture.isDone()) break;
+            if (task.isDone() && task2.isDone() && task3.isDone()) break;
         }
 
-        List<OrderUser> orderUsers = orderUsersFuture.get();
-        List<OrderRetailer> orderRetailers = orderRetailersFuture.get();
-        List<LogOrderGoods> logOrderGoods = logOrderGoodsFuture.get();
-
-        asyncService.basicTask(() -> orderUserService.saveBatch(orderUsers));
-        asyncService.basicTask(() -> logOrderGoodsService.saveBatch(logOrderGoods));
-        asyncService.basicTask(() -> orderRetailerService.saveBatch(orderRetailers));
+        task = asyncService.basicTask(orderUserService.saveBatch(orderUsers));
+        task2 = asyncService.basicTask(logOrderGoodsService.saveBatch(logOrderGoods));
+        task3 = asyncService.basicTask(orderRetailerService.saveBatch(orderRetailers));
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
-                        .in(MqMsgCompensation::getMsgId, messageExtMap.keySet())
+                        .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
                         .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
+
+        while (true) {
+            if (task.isDone() && task2.isDone() && task3.isDone()) break;
+        }
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
     private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
         return msgs.parallelStream()
-                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
+                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), clazz))
+                .collect(Collectors.toList());
+    }
+
+    private <T> List<T> convert(List<OrderVO> orderVOList, Class<T> clazz) {
+        return orderVOList.parallelStream()
+                .map(orderVO -> (JSONObject) JSON.toJSON(orderVO))
                 .peek(jsonObject -> jsonObject.put("status", "订单创建"))
                 .peek(jsonObject -> {
-                    if (clazz == LogOrderGoods.class) jsonObject.put("topic", "create");
+                    if (clazz == LogOrderGoods.class) {
+                        jsonObject.put("topic", "order");
+                        jsonObject.put("operation", "create");
+                    }
                 })
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());

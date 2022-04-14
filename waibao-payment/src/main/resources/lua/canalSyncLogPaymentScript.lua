@@ -4,6 +4,7 @@
 --- DateTime: 2022/3/18 23:29
 ---
 -- canalSyncLogPaymentScript.lua PaymentCacheService
+ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
 local key = KEYS[1]
 local logPayment
 local goodsId
@@ -19,6 +20,6 @@ for _ , redisCommand in pairs(cjson.decode(ARGV[1])) do
             redis.call('LREM' , key .. goodsId , 0 , logPayment['payId'] .. '-' .. oldLogPayment['operation'])
         end
     else
-        redis.call('LREM' , key .. goodsId , 0 , logPayment['orderId'] .. '-' .. logPayment['operation'])
+        redis.call('LREM' , key .. goodsId , 0 , logPayment['payId'] .. '-' .. logPayment['operation'])
     end
 end

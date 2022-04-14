@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.waibao.order.entity.OrderUser;
 import com.waibao.util.base.RedisCommand;
+import com.waibao.util.tools.BigDecimalValueFilter;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ClassPathResource;
@@ -48,12 +49,12 @@ public class OrderUserCacheService {
     }
 
     public List<OrderUser> getBatch(List<OrderVO> orderVOList) {
-        String execute = orderUserRedisTemplate.execute(batchGetOrderUser, Collections.singletonList(REDIS_ORDER_USER_KEY_PREFIX), JSONArray.toJSONString(orderVOList));
+        String execute = orderUserRedisTemplate.execute(batchGetOrderUser, Collections.singletonList(REDIS_ORDER_USER_KEY_PREFIX), JSONArray.toJSONString(orderVOList, new BigDecimalValueFilter()));
         if ("{}".equals(execute)) return new ArrayList<>();
         return JSONArray.parseArray(execute, OrderUser.class);
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        orderUserRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_ORDER_USER_KEY_PREFIX), redisCommandList.toArray());
+        orderUserRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_ORDER_USER_KEY_PREFIX), JSONArray.toJSONString(redisCommandList, new BigDecimalValueFilter()));
     }
 }

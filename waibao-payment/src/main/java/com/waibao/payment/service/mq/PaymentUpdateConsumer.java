@@ -1,6 +1,7 @@
 package com.waibao.payment.service.mq;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.payment.entity.LogPayment;
 import com.waibao.payment.entity.MqMsgCompensation;
@@ -10,13 +11,19 @@ import com.waibao.payment.service.cache.LogPaymentCacheService;
 import com.waibao.payment.service.db.LogPaymentService;
 import com.waibao.payment.service.db.PaymentService;
 import com.waibao.util.async.AsyncService;
+import com.waibao.util.vo.order.OrderVO;
+import com.waibao.util.vo.payment.PaymentVO;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
+import org.apache.rocketmq.client.producer.DefaultMQProducer;
+import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -37,44 +44,60 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PaymentUpdateConsumer implements MessageListenerConcurrently {
     private final AsyncService asyncService;
-    private final AsyncMQMessage asyncMQMessage;
-    private final LogPaymentCacheService logPaymentCacheService;
     private final PaymentService paymentService;
+    private final AsyncMQMessage asyncMQMessage;
     private final LogPaymentService logPaymentService;
+    private final LogPaymentCacheService logPaymentCacheService;
     private final MqMsgCompensationMapper mqMsgCompensationMapper;
+
+    private DefaultMQProducer paymentUpdateMQProducer;
 
     @SneakyThrows
     @Override
     public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        convert(messageExtMap.values(), Payment.class)
-                .parallelStream()
-                .filter(payment -> logPaymentCacheService.hasConsumeTags(payment.getUserId(), payment.getPayId(), "update"))
-                .map(Payment::getOrderId)
-                .forEach(messageExtMap::remove);
-        Future<List<Payment>> paymentFuture = asyncService.basicTask(convert(messageExtMap.values(), Payment.class));
-        Future<List<LogPayment>> logPaymentFuture = asyncService.basicTask(convert(messageExtMap.values(), LogPayment.class));
+        List<PaymentVO> paymentVOList = convert(messageExtMap.values(), PaymentVO.class);
 
+        Future<List<Payment>> paymentFuture = asyncService.basicTask(convert(paymentVOList, Payment.class));
+        Future<List<LogPayment>> logPaymentFuture = asyncService.basicTask(convert(paymentVOList, LogPayment.class));
+        Future<List<Message>> messageFuture = asyncService.basicTask(convert(paymentVOList, OrderVO.class)
+                .stream()
+                .map(orderVO -> new Message("order", "update", orderVO.getOrderId(), JSON.toJSONBytes(orderVO)))
+                .collect(Collectors.toList()));
         while (true) {
-            if (paymentFuture.isDone() && logPaymentFuture.isDone()) break;
+            if (paymentFuture.isDone() && logPaymentFuture.isDone() && messageFuture.isDone()) break;
         }
 
         List<Payment> payments = paymentFuture.get();
         List<LogPayment> logPayments = logPaymentFuture.get();
         asyncService.basicTask(() -> paymentService.updateBatchById(payments));
-        asyncService.basicTask(()->logPaymentService.saveBatch(logPayments));
+        asyncMQMessage.sendMessage(paymentUpdateMQProducer, messageFuture.get());
+        asyncService.basicTask(() -> logPaymentService.saveBatch(logPayments));
+        asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
+                Wrappers.<MqMsgCompensation>lambdaUpdate()
+                        .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
+                        .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
+
     private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
         return msgs.parallelStream()
-                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
-                .peek(jsonObject -> {
-                    if (clazz == LogPayment.class) jsonObject.put("topic", "update");
-                })
+                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()), clazz))
+                .collect(Collectors.toList());
+    }
+
+    private <T> List<T> convert(List<PaymentVO> msgs, Class<T> clazz) {
+        return msgs.parallelStream()
+                .map(paymentVO -> (JSONObject) JSON.toJSON(paymentVO))
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());
+    }
+
+    @Lazy
+    @Autowired
+    public void setPaymentUpdateMQProducer(DefaultMQProducer paymentUpdateMQProducer) {
+        this.paymentUpdateMQProducer = paymentUpdateMQProducer;
     }
 }

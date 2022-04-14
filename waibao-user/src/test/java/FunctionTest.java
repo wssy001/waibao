@@ -1,4 +1,8 @@
+import cn.hutool.core.lang.PatternPool;
+import cn.hutool.core.util.ReUtil;
 import cn.hutool.http.HttpUtil;
+import com.waibao.util.tools.JWTUtil;
+import com.waibao.util.vo.user.UserVO;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 
@@ -26,7 +30,19 @@ public class FunctionTest {
     }
 
     @Test
-    void test3(){
+    void test3() {
+        UserVO userVO = new UserVO();
+        userVO.setNickname("test");
+        userVO.setPassword("saaskhhkaskjsjkahjha");
+        userVO.setId(111L);
+        log.info("******FunctionTest.test3：{}", JWTUtil.create(userVO));
+    }
 
+    @Test
+    void test4(){
+//        log.info("******{}：开始读取数据库放入缓存", this.getClass().getSimpleName());
+
+        String sajkhasjkh099898899898 = ReUtil.get(PatternPool.NUMBERS, "sajkhasjkh099898899898", 0);
+        log.info("******FunctionTest.test4：");
     }
 }

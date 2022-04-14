@@ -3,18 +3,22 @@
 --- Created by alexpetertyler.
 --- DateTime: 2022/3/18 23:29
 ---
--- canalSyncPaymentScript PaymentCacheService
+-- canalSyncUserCreditScript UserCreditCacheService
 local key = KEYS[1]
-local redisCommand
 local userCredit
+local userId
 ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
-for _ , value in pairs(cjson.decode(ARGV[1])) do
-    redisCommand = cjson.decode(value)
+for _ , redisCommand in pairs(cjson.decode(ARGV[1])) do
     userCredit = redisCommand['value']
-    key = '"' .. string.gsub(key , '"' , '') .. userCredit['payId'] .. '"'
+    userId = userCredit['userId']
     if (redisCommand['command'] == 'INSERT' or redisCommand['command'] == 'UPDATE') then
-        redis.call('SET' , key , cjson.encode(userCredit))
+        for index , value in pairs(userCredit) do
+            if index == 'money' then
+                value = string.format("%.2f" , value)
+            end
+            redis.call('HSET' , key .. userId , index , value)
+        end
     else
-        redis.call('DEL' , key)
+        redis.call('DEL' , key .. userId)
     end
 end

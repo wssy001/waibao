@@ -33,7 +33,6 @@ public class SeckillGoodsScheduleService {
 
     @PostConstruct
     public void init() {
-        List<SeckillGoods> seckillGoods = seckillGoodsMapper.selectList(null);
         Long count = seckillGoodsMapper.selectCount(null);
         longAdder = new LongAdder();
         longAdder.add(count / 1000 + 1);

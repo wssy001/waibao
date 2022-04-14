@@ -60,7 +60,7 @@ public class DepositCanalConsumer implements MessageListenerConcurrently {
                             break;
                         case "UPDATE":
                             redisCommand.setCommand("UPDATE");
-                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(Deposit.class));
+                            redisCommand.setOldValue(jsonObject.getJSONArray("old").getJSONObject(0).toJavaObject(Deposit.class));
                             break;
                         case "DELETE":
                             redisCommand.setCommand("DELETE");

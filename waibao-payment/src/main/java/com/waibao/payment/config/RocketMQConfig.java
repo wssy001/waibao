@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
-import org.apache.rocketmq.client.producer.TransactionMQProducer;
 import org.apache.rocketmq.spring.autoconfigure.RocketMQProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,13 +19,15 @@ import org.springframework.context.annotation.Configuration;
 @RequiredArgsConstructor
 public class RocketMQConfig {
     private final RocketMQProperties rocketMQProperties;
+    private final PaymentTestConsumer paymentTestConsumer;
     private final PaymentCancelConsumer paymentCancelConsumer;
     private final PaymentCreateConsumer paymentCreateConsumer;
     private final PaymentDeleteConsumer paymentDeleteConsumer;
     private final PaymentUpdateConsumer paymentUpdateConsumer;
+    private final PaymentRequestPayConsumer paymentRequestPayConsumer;
     private final RedisPaymentCanalConsumer redisPaymentCanalConsumer;
-    private final PaymentTransactionListener paymentTransactionListener;
-
+    private final LogUserCreditCanalConsumer logUserCreditCanalConsumer;
+    private final RedisLogPaymentCanalConsumer redisLogPaymentCanalConsumer;
 
     @Bean
     @SneakyThrows
@@ -44,16 +45,6 @@ public class RocketMQConfig {
         paymentRequestPayMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
         paymentRequestPayMQProducer.start();
         return paymentRequestPayMQProducer;
-    }
-
-    @Bean
-    @SneakyThrows
-    public DefaultMQProducer paymentPayMQProducer() {
-        TransactionMQProducer paymentPayMQProducer = new TransactionMQProducer("paymentPayTransaction");
-        paymentPayMQProducer.setNamesrvAddr(rocketMQProperties.getNameServer());
-        paymentPayMQProducer.setTransactionListener(paymentTransactionListener);
-        paymentPayMQProducer.start();
-        return paymentPayMQProducer;
     }
 
     @Bean
@@ -91,7 +82,18 @@ public class RocketMQConfig {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(paymentCreateConsumer);
         consumer.setConsumerGroup("paymentCreate");
-        consumer.subscribe("payment", "create");
+        consumer.subscribe("order", "create");
+        consumer.start();
+        return consumer;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer paymentTestBatchConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(paymentTestConsumer);
+        consumer.setConsumerGroup("paymentTest");
+        consumer.subscribe("order", "test");
         consumer.start();
         return consumer;
     }
@@ -118,6 +120,16 @@ public class RocketMQConfig {
         return consumer;
     }
 
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer paymentRequestPayBatchConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(paymentRequestPayConsumer);
+        consumer.setConsumerGroup("paymentRequestPay");
+        consumer.subscribe("payment", "requestPay");
+        consumer.start();
+        return consumer;
+    }
 
     @Bean
     @SneakyThrows
@@ -125,8 +137,30 @@ public class RocketMQConfig {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(redisPaymentCanalConsumer);
         consumer.setConsumerGroup("paymentCanal");
-        consumer.subscribe("waibao_payment_payment_0", "*");
-        consumer.subscribe("waibao_payment_payment_1", "*");
+        consumer.subscribe("waibao_v3_payment", "*");
+        consumer.start();
+        return consumer;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer logUserCreditCanalBatchConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(logUserCreditCanalConsumer);
+        consumer.setConsumerGroup("logUserCreditCanal");
+        consumer.subscribe("waibao_v3_log_user_credit", "*");
+        consumer.setPullInterval(5000);
+        consumer.start();
+        return consumer;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer logPaymentCanalBatchConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(redisLogPaymentCanalConsumer);
+        consumer.setConsumerGroup("logPaymentCanal");
+        consumer.subscribe("waibao_v3_log_payment", "*");
         consumer.start();
         return consumer;
     }
@@ -134,12 +168,12 @@ public class RocketMQConfig {
     private DefaultMQPushConsumer getSingleThreadBatchConsumer() {
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer();
         consumer.setNamesrvAddr(rocketMQProperties.getNameServer());
-        consumer.setPullInterval(1000);
         consumer.setConsumeThreadMax(1);
         consumer.setConsumeThreadMin(1);
-        consumer.setPullBatchSize(760);
+        consumer.setPullBatchSize(100);
+        consumer.setConsumeTimeout(1);
         consumer.setMaxReconsumeTimes(3);
-        consumer.setConsumeMessageBatchMaxSize(760);
+        consumer.setConsumeMessageBatchMaxSize(100);
         return consumer;
     }
 

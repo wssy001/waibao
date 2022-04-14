@@ -46,7 +46,7 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
         log.info("******StorageDecreaseConsumer：本轮收到消息：{}", msgs.size());
         Map<String, MessageExt> messageExtMap = msgs.parallelStream()
                 .collect(Collectors.toMap(MessageExt::getMsgId, Function.identity()));
-        log.info("******PaymentTestConsumer：处理后消息数量：{}", messageExtMap.size());
+        log.info("******StorageDecreaseConsumer：处理后消息数量：{}", messageExtMap.size());
         ConcurrentMap<Long, List<OrderVO>> collect = messageExtMap.values()
                 .parallelStream()
                 .map(messageExt -> (OrderVO) JSON.parseObject(messageExt.getBody(), OrderVO.class))
@@ -58,7 +58,7 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
         collect.forEach((k, v) -> {
             int trueStorage = seckillGoodsMapper.selectTrueStorage(k);
             if (trueStorage == 0) {
-                log.error("******StorageRollbackConsumer：goodsId：{} 商品售罄", k);
+                log.error("******StorageDecreaseConsumer：goodsId：{} 商品售罄", k);
                 cancel.addAll(v);
                 seckillGoodsCacheService.updateGoodsStatus(k, false);
                 return;
@@ -73,7 +73,7 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
                 complete.addAll(v);
                 log.info("******StorageDecreaseConsumer：goodsId{} 已批量扣减库存 {}个", k, v.size());
             } else {
-                log.info("******StorageRollbackConsumer：goodsId：{} 库存告急，单个扣减", k);
+                log.info("******StorageDecreaseConsumer：goodsId：{} 库存告急，单个扣减", k);
                 seckillGoodsCacheService.updateGoodsStatus(k, false);
                 for (OrderVO orderVO : v) {
                     update = seckillGoodsMapper.decreaseStorage(k, orderVO.getCount());

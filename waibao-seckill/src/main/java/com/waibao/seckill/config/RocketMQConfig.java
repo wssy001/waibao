@@ -92,6 +92,7 @@ public class RocketMQConfig {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(redisGoodsCanalConsumer);
         consumer.setConsumerGroup("redisGoodsCanal");
+        consumer.setPullInterval(20000);
         consumer.subscribe("waibao_v3_seckill_goods", "*");
         consumer.start();
         return consumer;

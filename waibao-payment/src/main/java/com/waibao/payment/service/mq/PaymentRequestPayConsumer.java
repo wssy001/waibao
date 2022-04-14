@@ -69,8 +69,8 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
 
         CopyOnWriteArrayList<JSONObject> paidList = new CopyOnWriteArrayList<>();
         CopyOnWriteArrayList<JSONObject> unpaidList = new CopyOnWriteArrayList<>();
+
         try {
-            //FIXME 重复扣费
             List<JSONObject> jsonObjectList = userCreditCacheService.batchDecreaseUserCredit(paymentVOList);
             jsonObjectList.forEach(jsonObject -> {
                 if (jsonObject.getString("operation").equals("paid")) {
@@ -82,7 +82,7 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
                 }
             });
         } catch (Exception e) {
-            log.error("******PaymentRequestPayConsumer.consumeMessage：{}", e.getMessage());
+            log.error("******PaymentRequestPayConsumer：{}", e.getMessage());
         }
         log.info("******PaymentRequestPayConsumer：本轮支付成功的数量：{}", paidList.size());
         log.info("******PaymentRequestPayConsumer：本轮支付失败的数量：{}", unpaidList.size());
@@ -112,7 +112,7 @@ public class PaymentRequestPayConsumer implements MessageListenerConcurrently {
             logUserCreditService.saveBatch(logUserCreditList);
             userCreditMapper.batchUpdateByIdAndOldMoney(logUserCreditList);
         } catch (Exception e) {
-            log.error("******PaymentRequestPayConsumer.consumeMessage：{}", e.getMessage());
+            log.error("******PaymentRequestPayConsumer：{}", e.getMessage());
         }
 
         asyncService.basicTask(() -> logPaymentService.saveBatch(convert(paymentVOList, LogPayment.class)));

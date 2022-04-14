@@ -26,6 +26,7 @@ public class RocketMQConfig {
     private final PaymentUpdateConsumer paymentUpdateConsumer;
     private final PaymentRequestPayConsumer paymentRequestPayConsumer;
     private final RedisPaymentCanalConsumer redisPaymentCanalConsumer;
+    private final LogUserCreditCanalConsumer logUserCreditCanalConsumer;
     private final RedisLogPaymentCanalConsumer redisLogPaymentCanalConsumer;
 
     @Bean
@@ -137,6 +138,18 @@ public class RocketMQConfig {
         consumer.registerMessageListener(redisPaymentCanalConsumer);
         consumer.setConsumerGroup("paymentCanal");
         consumer.subscribe("waibao_v3_payment", "*");
+        consumer.start();
+        return consumer;
+    }
+
+    @Bean
+    @SneakyThrows
+    public DefaultMQPushConsumer logUserCreditCanalBatchConsumer() {
+        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
+        consumer.registerMessageListener(logUserCreditCanalConsumer);
+        consumer.setConsumerGroup("logUserCreditCanal");
+        consumer.subscribe("waibao_v3_log_user_credit", "*");
+        consumer.setPullInterval(5000);
         consumer.start();
         return consumer;
     }

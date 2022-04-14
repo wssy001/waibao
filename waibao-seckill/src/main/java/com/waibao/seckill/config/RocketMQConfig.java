@@ -22,7 +22,6 @@ import org.springframework.context.annotation.Configuration;
 public class RocketMQConfig {
     private final RocketMQProperties rocketMQProperties;
     private final RedisGoodsCanalConsumer redisGoodsCanalConsumer;
-    private final StorageDecreaseConsumer storageDecreaseConsumer;
     private final StorageRollbackConsumer storageRollbackConsumer;
     private final RedisStorageRollbackConsumer redisStorageRollbackConsumer;
 
@@ -94,17 +93,6 @@ public class RocketMQConfig {
         consumer.setConsumerGroup("redisGoodsCanal");
         consumer.setPullInterval(20000);
         consumer.subscribe("waibao_v3_seckill_goods", "*");
-        consumer.start();
-        return consumer;
-    }
-
-    @Bean
-    @SneakyThrows
-    public DefaultMQPushConsumer storageDecreaseBatchConsumer() {
-        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
-        consumer.registerMessageListener(storageDecreaseConsumer);
-        consumer.setConsumerGroup("storageDecrease");
-        consumer.subscribe("storage", "decrease");
         consumer.start();
         return consumer;
     }

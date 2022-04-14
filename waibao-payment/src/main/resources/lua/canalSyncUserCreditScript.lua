@@ -3,7 +3,7 @@
 --- Created by alexpetertyler.
 --- DateTime: 2022/3/18 23:29
 ---
--- canalSyncPaymentScript PaymentCacheService
+-- canalSyncUserCreditScript UserCreditCacheService
 local key = KEYS[1]
 local userCredit
 local userId

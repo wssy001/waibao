@@ -78,9 +78,6 @@ public class OrderCreateConsumer implements MessageListenerConcurrently {
         while (true) {
             if (task.isDone() && task2.isDone() && task3.isDone()) break;
         }
-        orderUsers.clear();
-        logOrderGoods.clear();
-        orderRetailers.clear();
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 

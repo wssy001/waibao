@@ -1,58 +1,77 @@
-package com.waibao.seckill.service.mq;
+package com.waibao.seckill.service.schedule;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
 import com.waibao.seckill.service.cache.GoodsRetailerCacheService;
 import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
+import com.waibao.seckill.service.mq.AsyncMQMessage;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
-import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
-import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.common.message.Message;
-import org.apache.rocketmq.common.message.MessageExt;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.stereotype.Component;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import javax.annotation.PostConstruct;
+import javax.annotation.Resource;
+import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * StorageDecreaseConsumer
+ * StorageDecreaseScheduleService
  *
  * @author alexpetertyler
- * @since 2022/3/18
+ * @since 2022/4/14
  */
 @Slf4j
-@Component
+@Service
 @RequiredArgsConstructor
-public class StorageDecreaseConsumer implements MessageListenerConcurrently {
+public class StorageDecreaseScheduleService {
     private final AsyncMQMessage asyncMQMessage;
     private final SeckillGoodsMapper seckillGoodsMapper;
+    private final DefaultMQProducer orderUpdateMQProducer;
+    private final DefaultMQProducer orderCancelMQProducer;
     private final SeckillGoodsCacheService seckillGoodsCacheService;
     private final GoodsRetailerCacheService goodsRetailerCacheService;
 
-    private DefaultMQProducer orderUpdateMQProducer;
-    private DefaultMQProducer orderCancelMQProducer;
+    @Resource
+    private RedisTemplate<String, String> orderUserRedisTemplate;
+    @Resource
+    private RedisTemplate<String, String> logUserCreditRedisTemplate;
 
-    @Override
-    public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-        log.info("******StorageDecreaseConsumer：本轮收到消息：{}", msgs.size());
-        Map<String, MessageExt> messageExtMap = msgs.parallelStream()
-                .collect(Collectors.toMap(MessageExt::getMsgId, Function.identity()));
-        log.info("******StorageDecreaseConsumer：处理后消息数量：{}", messageExtMap.size());
-        ConcurrentMap<Long, List<OrderVO>> collect = messageExtMap.values()
+    private RedisScript<String> batchGetOrderUser;
+    private RedisScript<String> batchGetLogUserCredit;
+
+    @PostConstruct
+    public void init() {
+        batchGetOrderUser = RedisScript.of(new ClassPathResource("lua/batchGetOrderUserScript.lua"), String.class);
+        batchGetLogUserCredit = RedisScript.of(new ClassPathResource("lua/batchGetLogUserCreditScript.lua"), String.class);
+    }
+
+    @Scheduled(fixedDelay = 5000L)
+    public void collectPaidLogUserCredit() {
+        String execute = logUserCreditRedisTemplate.execute(batchGetLogUserCredit, Collections.singletonList("log-user-credit"), "paid");
+        if ("{}".equals(execute)) return;
+        execute = orderUserRedisTemplate.execute(batchGetOrderUser, Collections.singletonList("order-user-"), execute);
+        if ("{}".equals(execute)) return;
+        decreaseStorage(JSONArray.parseArray(execute, OrderVO.class));
+    }
+
+    public void decreaseStorage(List<OrderVO> orderVOList) {
+        log.info("******StorageDecreaseConsumer：本轮获取消息：{}", orderVOList.size());
+        Map<String, OrderVO> orderVOMap = orderVOList.parallelStream()
+                .collect(Collectors.toMap(OrderVO::getOrderId, Function.identity()));
+        log.info("******StorageDecreaseConsumer：处理后消息数量：{}", orderVOMap.size());
+        ConcurrentMap<Long, List<OrderVO>> collect = orderVOMap.values()
                 .parallelStream()
-                .map(messageExt -> (OrderVO) JSON.parseObject(messageExt.getBody(), OrderVO.class))
                 .collect(Collectors.groupingByConcurrent(OrderVO::getGoodsId));
 
         List<OrderVO> cancel = new ArrayList<>();
@@ -105,19 +124,6 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
                 .map(orderVO -> new Message("order", "cancel", orderVO.getOrderId(), JSON.toJSONBytes(orderVO)))
                 .collect(Collectors.toList())
         );
-
-        return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
-    @Lazy
-    @Autowired
-    public void setOrderUpdateMQProducer(DefaultMQProducer orderUpdateMQProducer) {
-        this.orderUpdateMQProducer = orderUpdateMQProducer;
-    }
-
-    @Lazy
-    @Autowired
-    public void setOrderCancelMQProducer(DefaultMQProducer orderCancelMQProducer) {
-        this.orderCancelMQProducer = orderCancelMQProducer;
-    }
 }

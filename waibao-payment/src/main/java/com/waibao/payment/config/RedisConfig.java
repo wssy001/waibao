@@ -27,12 +27,6 @@ public class RedisConfig {
     }
 
     @Bean
-    public RedisTemplate<String, Object> testUserTemplate() {
-        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.User);
-        return getStringObjectRedisTemplate(lettuceConnectionFactory);
-    }
-
-    @Bean
     public RedisTemplate<String, Object> orderUserRedisTemplate() {
         LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.OrderUser);
         return getStringObjectRedisTemplate(lettuceConnectionFactory);
@@ -41,6 +35,12 @@ public class RedisConfig {
     @Bean
     public RedisTemplate<String, Object> paymentRedisTemplate() {
         LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.Payment);
+        return getStringObjectRedisTemplate(lettuceConnectionFactory);
+    }
+
+    @Bean
+    public RedisTemplate<String, Object> logUserCreditRedisTemplate() {
+        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.LogUserCredit);
         return getStringObjectRedisTemplate(lettuceConnectionFactory);
     }
 

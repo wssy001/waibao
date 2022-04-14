@@ -5,16 +5,15 @@
 ---
 -- batchCheckLogPaymentOperationScript LogPaymentCacheService
 local key = KEYS[1]
-ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
 local operation = ARGV[2]
 local payId
-local userId
+local goodsId
 local paymentVOList = {}
 for _ , paymentVO in pairs(cjson.decode(ARGV[1])) do
     payId = paymentVO['payId']
-    userId = paymentVO['userId']
-    if tonumber(redis.call('LREM' , key .. payId , 0 , userId .. '-' .. operation)) > 0 then
-        redis.call('LPUSH' , key .. payId , 0 , userId .. '-' .. operation)
+    goodsId = paymentVO['goodsId']
+    if tonumber(redis.call('LREM' , key .. goodsId , 0 , payId .. '-' .. operation)) > 0 then
+        redis.call('LPUSH' , key .. goodsId , payId .. '-' .. operation)
     else
         table.insert(paymentVOList , paymentVO)
     end

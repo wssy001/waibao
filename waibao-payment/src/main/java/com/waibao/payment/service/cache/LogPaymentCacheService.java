@@ -48,9 +48,9 @@ public class LogPaymentCacheService {
         bloomFilter.put(payId + operation);
     }
 
-    public boolean hasConsumeTags(Long userId, String payId, String operation) {
+    public boolean hasConsumeTags(Long goodsId, String payId, String operation) {
         if (!bloomFilter.mightContain(payId + operation)) return false;
-        return Boolean.TRUE.equals(logPaymentRedisTemplate.execute(checkPaymentOperation, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX + payId), userId + "", operation));
+        return Boolean.TRUE.equals(logPaymentRedisTemplate.execute(checkPaymentOperation, Collections.singletonList(REDIS_LOG_PAYMENT_KEY_PREFIX), goodsId + "", payId, operation));
     }
 
     public List<PaymentVO> batchCheckNotConsumeTags(List<PaymentVO> paymentVOList, String operation) {

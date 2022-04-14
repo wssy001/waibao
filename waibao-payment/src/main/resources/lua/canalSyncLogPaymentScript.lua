@@ -19,6 +19,6 @@ for _ , redisCommand in pairs(cjson.decode(ARGV[1])) do
             redis.call('LREM' , key .. goodsId , 0 , logPayment['payId'] .. '-' .. oldLogPayment['operation'])
         end
     else
-        redis.call('LREM' , key .. goodsId , 0 , logPayment['orderId'] .. '-' .. logPayment['operation'])
+        redis.call('LREM' , key .. goodsId , 0 , logPayment['payId'] .. '-' .. logPayment['operation'])
     end
 end

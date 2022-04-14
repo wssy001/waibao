@@ -59,9 +59,7 @@ public class StorageDecreaseScheduleService {
     @Scheduled(fixedDelay = 5000L)
     public void collectPaidLogUserCredit() {
         String execute = logUserCreditRedisTemplate.execute(batchGetLogUserCredit, Collections.singletonList("log-user-credit"), "paid");
-        log.info("******StorageDecreaseScheduleService.collectPaidLogUserCredit：{}", execute);
         if ("{}".equals(execute)) return;
-        //FIXME
         execute = orderUserRedisTemplate.execute(batchGetOrderUser, Collections.singletonList("order-user-"), execute);
         if ("{}".equals(execute)) return;
         decreaseStorage(JSONArray.parseArray(execute, OrderVO.class));

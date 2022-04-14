@@ -39,12 +39,6 @@ public class RedisConfig {
     }
 
     @Bean
-    public RedisTemplate<String, Object> orderGoodsRedisTemplate() {
-        LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.OrderGoods);
-        return getStringObjectRedisTemplate(lettuceConnectionFactory);
-    }
-
-    @Bean
     public RedisTemplate<String, Object> logOrderUserRedisTemplate() {
         LettuceConnectionFactory lettuceConnectionFactory = createLettuceConnectionFactory(RedisDBEnum.LogOrder);
         return getStringObjectRedisTemplate(lettuceConnectionFactory);

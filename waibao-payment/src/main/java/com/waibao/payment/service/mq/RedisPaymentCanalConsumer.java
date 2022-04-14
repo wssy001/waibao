@@ -62,7 +62,7 @@ public class RedisPaymentCanalConsumer implements MessageListenerConcurrently {
                             break;
                         case "UPDATE":
                             redisCommand.setCommand("UPDATE");
-                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(Payment.class));
+                            redisCommand.setOldValue(jsonObject.getJSONArray("old").getJSONObject(0).toJavaObject(Payment.class));
                             break;
                         case "DELETE":
                             redisCommand.setCommand("DELETE");

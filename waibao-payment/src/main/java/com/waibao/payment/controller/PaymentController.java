@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.waibao.payment.entity.Payment;
 import com.waibao.payment.mapper.PaymentMapper;
+import com.waibao.payment.service.cache.OrderUserCacheService;
 import com.waibao.payment.service.cache.PaymentCacheService;
 import com.waibao.payment.service.mq.AsyncMQMessage;
 import com.waibao.util.enums.ResultEnum;
@@ -36,6 +37,7 @@ public class PaymentController {
     private final PaymentMapper paymentMapper;
     private final AsyncMQMessage asyncMQMessage;
     private final PaymentCacheService paymentCacheService;
+    private final OrderUserCacheService orderUserCacheService;
     private final DefaultMQProducer paymentRequestPayMQProducer;
 
     @PostMapping(value = "/add", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -64,12 +66,11 @@ public class PaymentController {
             @RequestBody PaymentVO paymentVO
     ) {
         String payId = paymentVO.getPayId();
-        Long userId = paymentVO.getUserId();
-        if (StrUtil.isBlank(payId) || userId == null) return GlobalResult.error("payId和userId不正确");
-        OrderVO orderVO = new OrderVO();
-        orderVO.setPayId(payId);
-        orderVO.setUserId(userId);
-        Message message = new Message("payment", "pay", JSON.toJSONBytes(orderVO));
+        Payment payment = paymentCacheService.get(payId);
+        if (payment == null || !payment.getUserId().equals(paymentVO.getUserId()))
+            return GlobalResult.error("payId或userId不正确");
+
+        Message message = new Message("payment", "requestPay", JSON.toJSONBytes(payment));
         asyncMQMessage.sendMessage(paymentRequestPayMQProducer, message);
         return GlobalResult.success("已提交支付请求");
     }

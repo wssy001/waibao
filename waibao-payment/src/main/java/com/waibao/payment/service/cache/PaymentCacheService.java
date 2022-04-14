@@ -10,6 +10,7 @@ import com.google.common.hash.Funnels;
 import com.waibao.payment.entity.Payment;
 import com.waibao.payment.mapper.PaymentMapper;
 import com.waibao.util.base.RedisCommand;
+import com.waibao.util.tools.BigDecimalValueFilter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -25,6 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -53,8 +55,8 @@ public class PaymentCacheService {
     @PostConstruct
     public void init() {
         getPayment = RedisScript.of(new ClassPathResource("lua/getPaymentScript.lua"), String.class);
-        insertPayment = RedisScript.of(new ClassPathResource("lua/insertPaymentScript.lua"), String.class);
         canalSync = RedisScript.of(new ClassPathResource("lua/canalSyncPaymentScript.lua"), String.class);
+        insertPayment = RedisScript.of(new ClassPathResource("lua/insertPaymentScript.lua"), String.class);
         batchGetPayment = RedisScript.of(new ClassPathResource("lua/batchGetPaymentScript.lua"), String.class);
         batchInsertPayment = RedisScript.of(new ClassPathResource("lua/batchInsertPaymentScript.lua"), String.class);
 
@@ -95,7 +97,7 @@ public class PaymentCacheService {
                 .filter(bloomFilter::mightContain)
                 .collect(Collectors.toList());
 
-        String execute = paymentRedisTemplate.execute(batchGetPayment, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(payIdList));
+        String execute = paymentRedisTemplate.execute(batchGetPayment, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(payIdList, new BigDecimalValueFilter()));
         if (!"{}".equals(execute)) payments.addAll(JSONArray.parseArray(execute, Payment.class));
         return payments;
     }
@@ -108,19 +110,20 @@ public class PaymentCacheService {
         bloomFilter.put(payment.getPayId());
         paymentCache.put(payment.getPayId(), payment);
         if (updateRedis)
-            paymentRedisTemplate.execute(insertPayment, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(payment));
+            paymentRedisTemplate.execute(insertPayment, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(payment, new BigDecimalValueFilter()));
     }
 
     public void batchSet(List<Payment> paymentList) {
-        paymentList.stream()
-                .peek(payment -> paymentCache.put(payment.getPayId(), payment))
-                .map(Payment::getPayId)
-                .forEach(bloomFilter::put);
+        Map<String, Payment> collect = paymentList.stream()
+                .peek(payment -> bloomFilter.put(payment.getPayId()))
+                .collect(Collectors.toMap(Payment::getPayId, Function.identity()));
+        paymentCache.asMap()
+                .putAll(collect);
 
-        paymentRedisTemplate.execute(batchInsertPayment, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(paymentList));
+        paymentRedisTemplate.execute(batchInsertPayment, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(paymentList, new BigDecimalValueFilter()));
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        paymentRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), redisCommandList.toArray());
+        paymentRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_PAYMENT_KEY_PREFIX), JSONArray.toJSONString(redisCommandList, new BigDecimalValueFilter()));
     }
 }

@@ -23,17 +23,10 @@ import java.util.Date;
 @Accessors(chain = true)
 @TableName("payment")
 public class Payment extends Model<Payment> {
-
-    /**
-     * 自增id
-     */
-    @TableId(value = "id", type = IdType.AUTO)
-    private Long id;
-
     /**
      * 支付id
      */
-    @TableField("pay_id")
+    @TableId("pay_id")
     private String payId;
 
     /**
@@ -75,7 +68,7 @@ public class Payment extends Model<Payment> {
 
     @Override
     public Serializable pkVal() {
-        return this.id;
+        return this.payId;
     }
 
 }

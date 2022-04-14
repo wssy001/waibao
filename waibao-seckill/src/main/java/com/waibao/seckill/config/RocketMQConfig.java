@@ -22,7 +22,6 @@ import org.springframework.context.annotation.Configuration;
 public class RocketMQConfig {
     private final RocketMQProperties rocketMQProperties;
     private final RedisGoodsCanalConsumer redisGoodsCanalConsumer;
-    private final StorageDecreaseConsumer storageDecreaseConsumer;
     private final StorageRollbackConsumer storageRollbackConsumer;
     private final RedisStorageRollbackConsumer redisStorageRollbackConsumer;
 
@@ -92,18 +91,8 @@ public class RocketMQConfig {
         DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
         consumer.registerMessageListener(redisGoodsCanalConsumer);
         consumer.setConsumerGroup("redisGoodsCanal");
-        consumer.subscribe("waibao_v2_seckill_goods", "*");
-        consumer.start();
-        return consumer;
-    }
-
-    @Bean
-    @SneakyThrows
-    public DefaultMQPushConsumer storageDecreaseBatchConsumer() {
-        DefaultMQPushConsumer consumer = getSingleThreadBatchConsumer();
-        consumer.registerMessageListener(storageDecreaseConsumer);
-        consumer.setConsumerGroup("storageDecrease");
-        consumer.subscribe("storage", "decrease");
+        consumer.setPullInterval(20000);
+        consumer.subscribe("waibao_v3_seckill_goods", "*");
         consumer.start();
         return consumer;
     }
@@ -122,12 +111,12 @@ public class RocketMQConfig {
     private DefaultMQPushConsumer getSingleThreadBatchConsumer() {
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer();
         consumer.setNamesrvAddr(rocketMQProperties.getNameServer());
-        consumer.setPullInterval(1000);
         consumer.setConsumeThreadMax(1);
         consumer.setConsumeThreadMin(1);
-        consumer.setPullBatchSize(760);
+        consumer.setPullBatchSize(100);
+        consumer.setConsumeTimeout(1);
         consumer.setMaxReconsumeTimes(3);
-        consumer.setConsumeMessageBatchMaxSize(760);
+        consumer.setConsumeMessageBatchMaxSize(100);
         return consumer;
     }
 }

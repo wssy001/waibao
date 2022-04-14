@@ -12,7 +12,9 @@ import com.waibao.payment.entity.UserCredit;
 import com.waibao.payment.mapper.UserCreditMapper;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
+import com.waibao.util.tools.BigDecimalValueFilter;
 import com.waibao.util.vo.order.OrderVO;
+import com.waibao.util.vo.payment.PaymentVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -22,7 +24,6 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -48,19 +49,23 @@ public class UserCreditCacheService {
     private RedisTemplate<String, String> userCreditRedisTemplate;
 
     private RedisScript<String> canalSync;
-    private RedisScript<String> getUserCredit;
     private BloomFilter<Long> bloomFilter;
+    private RedisScript<String> getUserCredit;
     private RedisScript<String> insertUserCredit;
     private RedisScript<String> batchGetUserCredit;
+    private RedisScript<String> batchDecreaseCredit;
+    private RedisScript<String> batchIncreaseCredit;
     private Cache<Long, UserCredit> userCreditCache;
     private RedisScript<String> batchInsertUserCredit;
 
     @PostConstruct
     public void init() {
         getUserCredit = RedisScript.of(new ClassPathResource("lua/getUserCreditScript.lua"), String.class);
-        insertUserCredit = RedisScript.of(new ClassPathResource("lua/insertUserCreditScript.lua"), String.class);
         canalSync = RedisScript.of(new ClassPathResource("lua/canalSyncUserCreditScript.lua"), String.class);
+        insertUserCredit = RedisScript.of(new ClassPathResource("lua/insertUserCreditScript.lua"), String.class);
         batchGetUserCredit = RedisScript.of(new ClassPathResource("lua/batchGetUserCreditScript.lua"), String.class);
+        batchIncreaseCredit = RedisScript.of(new ClassPathResource("lua/batchIncreaseCreditScript.lua"), String.class);
+        batchDecreaseCredit = RedisScript.of(new ClassPathResource("lua/batchDecreaseCreditScript.lua"), String.class);
         batchInsertUserCredit = RedisScript.of(new ClassPathResource("lua/batchInsertUserCreditScript.lua"), String.class);
 
         bloomFilter = BloomFilter.create(Funnels.longFunnel(), 15000, 0.001);
@@ -114,7 +119,7 @@ public class UserCreditCacheService {
         bloomFilter.put(userCredit.getUserId());
         userCreditCache.put(userCredit.getUserId(), userCredit);
         if (updateRedis)
-            userCreditRedisTemplate.execute(insertUserCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(userCredit));
+            userCreditRedisTemplate.execute(insertUserCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(userCredit, new BigDecimalValueFilter()));
     }
 
     public void batchSet(List<UserCredit> userCreditList) {
@@ -125,39 +130,22 @@ public class UserCreditCacheService {
             userCreditCache.asMap()
                     .putAll(collect);
         });
-        asyncService.basicTask(() -> userCreditRedisTemplate.execute(batchInsertUserCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(userCreditList)));
+        asyncService.basicTask(() -> userCreditRedisTemplate.execute(batchInsertUserCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(userCreditList, new BigDecimalValueFilter())));
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        userCreditRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), redisCommandList.toArray());
+        userCreditRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(redisCommandList, new BigDecimalValueFilter()));
     }
 
-    public <T> List<T> batchDecreaseUserCredit(List<OrderVO> orderVOList, Class<T> clazz) {
-        return orderVOList.parallelStream()
-                .map(orderVO -> (JSONObject) JSON.toJSON(orderVO))
-                .peek(jsonObject -> {
-                    if (jsonObject.getString("status").equals("用户账户不存在")) return;
-                    Long userId = jsonObject.getLong("userId");
-                    BigDecimal orderPrice = jsonObject.getBigDecimal("orderPrice");
-                    UserCredit userCredit = userCreditCache.asMap()
-                            .computeIfPresent(userId, (k, v) -> {
-                                BigDecimal money = v.getMoney();
-                                jsonObject.put("oldMoney", money);
-                                if (money.compareTo(orderPrice) < 0) return null;
-                                v.setMoney(money.min(orderPrice));
-                                jsonObject.put("money", v.getMoney());
-                                return v;
-                            });
-                    if (userCredit == null) {
-                        jsonObject.put("operation", "支付失败，余额不足");
-                        jsonObject.put("status", "支付失败，余额不足");
-                    } else {
-                        jsonObject.put("paid", true);
-                        jsonObject.put("status", "支付成功");
-                        jsonObject.put("operation", "支付成功");
-                    }
-                })
-                .map(jsonObject -> jsonObject.toJavaObject(clazz))
-                .collect(Collectors.toList());
+    public List<JSONObject> batchDecreaseUserCredit(List<? extends OrderVO> orderVOList) {
+        String execute = userCreditRedisTemplate.execute(batchDecreaseCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(orderVOList, new BigDecimalValueFilter()));
+        if ("{}".equals(execute)) return new ArrayList<>();
+        return JSONArray.parseArray(execute, JSONObject.class);
+    }
+
+    public List<JSONObject> batchIncreaseUserCredit(List<PaymentVO> paymentVOList) {
+        String execute = userCreditRedisTemplate.execute(batchIncreaseCredit, Collections.singletonList(REDIS_USER_CREDIT_KEY_PREFIX), JSONArray.toJSONString(paymentVOList, new BigDecimalValueFilter()));
+        if ("{}".equals(execute)) return new ArrayList<>();
+        return JSONArray.parseArray(execute, JSONObject.class);
     }
 }

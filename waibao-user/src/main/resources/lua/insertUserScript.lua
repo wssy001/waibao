@@ -5,9 +5,7 @@
 ---
 -- insertUserScript UserCacheService
 local key = KEYS[1]
-if not (string.find(ARGV[1] , '"id"') == nil) then
-    ARGV[1] = string.gsub(ARGV[1] , '("id":)(%d+)' , '%1"%2"')
-end
+ARGV[1] = string.gsub(ARGV[1] , '("id":)(%d+)' , '%1"%2"')
 local user = cjson.decode(ARGV[1])
 local userId = user['id']
 for index , value in pairs(user) do

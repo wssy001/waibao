@@ -11,6 +11,7 @@ import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
 import com.waibao.util.async.AsyncService;
 import com.waibao.util.base.RedisCommand;
+import com.waibao.util.tools.BigDecimalValueFilter;
 import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -75,41 +76,41 @@ public class SeckillGoodsCacheService {
                 .maximumSize(300)
                 .build();
         goodsStatusCache = Caffeine.newBuilder()
-                .expireAfterWrite(1, TimeUnit.MINUTES)
+                .expireAfterWrite(3, TimeUnit.SECONDS)
                 .maximumSize(100)
                 .build();
     }
 
-    public void updateGoodsStatus(Long goodsId, boolean finished) {
-        goodsStatusCache.put(goodsId, finished);
-        goodsRedisTemplate.execute(updateGoodsStatus, Collections.singletonList(REDIS_SECKILL_GOODS_STATUS_KEY), goodsId + "", finished + "");
+    public void updateGoodsStatus(Long goodsId, boolean status) {
+        goodsStatusCache.put(goodsId, status);
+        goodsRedisTemplate.execute(updateGoodsStatus, Collections.singletonList(REDIS_SECKILL_GOODS_STATUS_KEY), goodsId + "", status + "");
     }
 
     public void updateBatchGoodsStatus(List<SeckillGoods> seckillGoodsList) {
         Date now = new Date();
         Map<Long, Boolean> collect = seckillGoodsList.stream()
-                .collect(Collectors.toMap(SeckillGoods::getId, seckillGoods -> now.before(seckillGoods.getSeckillEndTime())));
+                .collect(Collectors.toMap(SeckillGoods::getId, seckillGoods -> !now.before(seckillGoods.getSeckillEndTime())));
         goodsStatusCache.asMap()
                 .putAll(collect);
         goodsRedisTemplate.execute(batchUpdateGoodsStatus, Collections.singletonList(REDIS_SECKILL_GOODS_STATUS_KEY), JSONArray.toJSONString(seckillGoodsList));
     }
 
     public boolean finished(Long goodsId) {
-        Boolean present = goodsStatusCache.get(goodsId, key -> Boolean.FALSE.equals(goodsRedisTemplate.execute(getGoodsStatus, Collections.singletonList(REDIS_SECKILL_GOODS_STATUS_KEY), goodsId + "")));
+        Boolean status = goodsStatusCache.get(goodsId, key -> Boolean.TRUE.equals(goodsRedisTemplate.execute(getGoodsStatus, Collections.singletonList(REDIS_SECKILL_GOODS_STATUS_KEY), goodsId + "")));
 
-        if (present == null) {
+        if (status == null) {
             SeckillGoods seckillGoods = get(goodsId);
             if (seckillGoods == null) {
-                goodsStatusCache.put(goodsId, true);
-                return true;
+                Date date = new Date();
+                status = !date.after(seckillGoods.getSeckillStartTime()) && date.before(seckillGoods.getSeckillEndTime());
             } else {
-                present = seckillGoods.getStorage() <= 0;
-                goodsStatusCache.put(goodsId, present);
-                return present;
+                status = seckillGoods.getStorage() <= 0;
             }
+            goodsStatusCache.put(goodsId, status);
+            return status;
         }
 
-        return Boolean.TRUE.equals(present);
+        return Boolean.FALSE.equals(status);
     }
 
     public SeckillGoods get(Long goodsId) {
@@ -145,11 +146,11 @@ public class SeckillGoodsCacheService {
     public void insertBatch(List<SeckillGoods> seckillGoodsList) {
         asyncService.basicTask(() -> updateBatchGoodsStatus(seckillGoodsList));
         asyncService.basicTask(() -> seckillGoodsList.forEach(seckillGoods -> bloomFilter.put(seckillGoods.getGoodsId())));
-        asyncService.basicTask(() -> goodsRedisTemplate.execute(batchInsertGoods, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX), JSONArray.toJSONString(seckillGoodsList)));
+        asyncService.basicTask(() -> goodsRedisTemplate.execute(batchInsertGoods, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX), JSONArray.toJSONString(seckillGoodsList, new BigDecimalValueFilter())));
     }
 
     public List<OrderVO> batchRollBackStorage(List<OrderVO> orderVOList) {
-        String arrayString = goodsRedisTemplate.execute(batchRollBackStorage, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX), JSONArray.toJSONString(orderVOList));
+        String arrayString = goodsRedisTemplate.execute(batchRollBackStorage, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX), JSONArray.toJSONString(orderVOList, new BigDecimalValueFilter()));
         return "{}".equals(arrayString) ? new ArrayList<>() : JSONArray.parseArray(arrayString, OrderVO.class);
     }
 
@@ -158,6 +159,6 @@ public class SeckillGoodsCacheService {
     }
 
     public void canalSync(List<RedisCommand> redisCommandList) {
-        asyncService.basicTask(() -> goodsRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX), JSONArray.toJSONString(redisCommandList)));
+        asyncService.basicTask(() -> goodsRedisTemplate.execute(canalSync, Collections.singletonList(REDIS_SECKILL_GOODS_KEY_PREFIX), JSONArray.toJSONString(redisCommandList, new BigDecimalValueFilter())));
     }
 }

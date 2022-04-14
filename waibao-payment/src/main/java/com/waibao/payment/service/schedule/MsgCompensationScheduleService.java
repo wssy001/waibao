@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
  * @since 2022/3/3
  */
 @Slf4j
-@Service
+//@Service
 @RequiredArgsConstructor
 public class MsgCompensationScheduleService {
     private final AsyncService asyncService;

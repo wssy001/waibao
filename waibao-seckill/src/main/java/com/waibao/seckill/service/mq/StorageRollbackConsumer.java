@@ -1,8 +1,6 @@
 package com.waibao.seckill.service.mq;
 
 import com.alibaba.fastjson.JSON;
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.waibao.seckill.entity.SeckillGoods;
 import com.waibao.seckill.mapper.SeckillGoodsMapper;
 import com.waibao.seckill.service.cache.SeckillGoodsCacheService;
 import com.waibao.util.vo.order.OrderVO;
@@ -45,16 +43,15 @@ public class StorageRollbackConsumer implements MessageListenerConcurrently {
                 .collect(Collectors.groupingByConcurrent(OrderVO::getGoodsId));
 
         collect.forEach((k, v) -> {
-            if (goodsCacheService.finished(k)) goodsCacheService.updateGoodsStatus(k, false);
-            int totalCount = v.parallelStream()
+            int trueStorage = seckillGoodsMapper.selectTrueStorage(k);
+            if (!goodsCacheService.finished(k) && trueStorage == 0) {
+                log.info("******StorageRollbackConsumer：goodsId：{} 重新开卖", k);
+                goodsCacheService.updateGoodsStatus(k, true);
+            }
+            int totalCount = v.stream()
                     .mapToInt(OrderVO::getCount)
                     .sum();
-            seckillGoodsMapper.update(null, Wrappers.<SeckillGoods>lambdaUpdate()
-                    .eq(SeckillGoods::getGoodsId, k)
-                    .eq(SeckillGoods::getStorage, 0)
-                    .set(SeckillGoods::getStorage, totalCount));
-
-            if (goodsCacheService.finished(k)) goodsCacheService.updateGoodsStatus(k, false);
+            seckillGoodsMapper.increaseStorage(k, totalCount);
         });
 
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;

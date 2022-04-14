@@ -62,7 +62,7 @@ public class RedisOrderRetailerCanalConsumer implements MessageListenerConcurren
                             break;
                         case "UPDATE":
                             redisCommand.setCommand("UPDATE");
-                            redisCommand.setOldValue(jsonObject.getJSONObject("old").toJavaObject(OrderRetailer.class));
+                            redisCommand.setOldValue(jsonObject.getJSONArray("old").getJSONObject(0).toJavaObject(OrderRetailer.class));
                             break;
                         case "DELETE":
                             redisCommand.setCommand("DELETE");

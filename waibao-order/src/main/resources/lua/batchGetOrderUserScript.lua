@@ -11,7 +11,9 @@ for _ , orderVo in pairs(cjson.decode(ARGV[1])) do
     for _ , index in pairs(redis.call('HKEYS' , key .. userId .. orderId)) do
         orderUser[index] = redis.call('HGET' , key .. userId .. orderId , index)
     end
-    table.insert(orderUserList , orderUser)
+    if next(orderUser) then
+        table.insert(orderUserList , orderUser)
+    end
 end
 
 return cjson.encode(orderUserList)

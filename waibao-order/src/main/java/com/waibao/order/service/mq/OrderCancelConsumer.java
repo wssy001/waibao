@@ -1,6 +1,7 @@
 package com.waibao.order.service.mq;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.waibao.order.entity.LogOrderGoods;
 import com.waibao.order.entity.MqMsgCompensation;
@@ -12,6 +13,7 @@ import com.waibao.order.service.db.LogOrderGoodsService;
 import com.waibao.order.service.db.OrderRetailerService;
 import com.waibao.order.service.db.OrderUserService;
 import com.waibao.util.async.AsyncService;
+import com.waibao.util.vo.order.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -58,15 +60,11 @@ public class OrderCancelConsumer implements MessageListenerConcurrently {
         Map<String, MessageExt> messageExtMap = new ConcurrentHashMap<>();
         msgs.parallelStream()
                 .forEach(messageExt -> messageExtMap.put(messageExt.getMsgId(), messageExt));
-        convert(messageExtMap.values(), OrderUser.class)
-                .parallelStream()
-                .filter(orderUser -> logOrderGoodsCacheService.hasConsumedTags(orderUser.getGoodsId(), orderUser.getOrderId(), "cancel"))
-                .map(OrderUser::getOrderId)
-                .forEach(messageExtMap::remove);
+        List<OrderVO> orderVOList = logOrderGoodsCacheService.batchCheckNotConsumedTags(convert(messageExtMap.values(), OrderVO.class), "cancel");
 
-        Future<List<OrderUser>> orderUsersFuture = asyncService.basicTask(convert(messageExtMap.values(), OrderUser.class));
-        Future<List<OrderRetailer>> orderRetailersFuture = asyncService.basicTask(convert(messageExtMap.values(), OrderRetailer.class));
-        Future<List<LogOrderGoods>> logOrderGoodsFuture = asyncService.basicTask(convert(messageExtMap.values(), LogOrderGoods.class));
+        Future<List<OrderUser>> orderUsersFuture = asyncService.basicTask(convert(orderVOList, OrderUser.class));
+        Future<List<OrderRetailer>> orderRetailersFuture = asyncService.basicTask(convert(orderVOList, OrderRetailer.class));
+        Future<List<LogOrderGoods>> logOrderGoodsFuture = asyncService.basicTask(convert(orderVOList, LogOrderGoods.class));
         while (true) {
             if (orderRetailersFuture.isDone() && orderUsersFuture.isDone() && logOrderGoodsFuture.isDone()) break;
         }
@@ -84,17 +82,26 @@ public class OrderCancelConsumer implements MessageListenerConcurrently {
         asyncMQMessage.sendMessage(orderCancelMQProducer, collect);
         asyncService.basicTask(() -> mqMsgCompensationMapper.update(null,
                 Wrappers.<MqMsgCompensation>lambdaUpdate()
-                        .in(MqMsgCompensation::getMsgId, messageExtMap.keySet())
+                        .in(MqMsgCompensation::getMsgId, msgs.stream().map(MessageExt::getMsgId).collect(Collectors.toList()))
                         .set(MqMsgCompensation::getStatus, "补偿消息已消费")));
         return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
     }
 
     private <T> List<T> convert(Collection<MessageExt> msgs, Class<T> clazz) {
         return msgs.parallelStream()
-                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody())))
+                .map(messageExt -> JSON.parseObject(new String(messageExt.getBody()),clazz))
+                .collect(Collectors.toList());
+    }
+
+    private <T> List<T> convert(List<OrderVO> orderVOList, Class<T> clazz) {
+        return orderVOList.parallelStream()
+                .map(orderVO -> (JSONObject) JSON.toJSON(orderVO))
                 .peek(jsonObject -> jsonObject.put("status", "订单取消"))
                 .peek(jsonObject -> {
-                    if (clazz == LogOrderGoods.class) jsonObject.put("topic", "cancel");
+                    if (clazz == LogOrderGoods.class) {
+                        jsonObject.put("topic", "order");
+                        jsonObject.put("operation", "cancel");
+                    }
                 })
                 .map(jsonObject -> jsonObject.toJavaObject(clazz))
                 .collect(Collectors.toList());

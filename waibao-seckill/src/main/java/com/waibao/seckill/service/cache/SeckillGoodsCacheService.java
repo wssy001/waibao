@@ -96,21 +96,21 @@ public class SeckillGoodsCacheService {
     }
 
     public boolean finished(Long goodsId) {
-        Boolean present = goodsStatusCache.get(goodsId, key -> Boolean.FALSE.equals(goodsRedisTemplate.execute(getGoodsStatus, Collections.singletonList(REDIS_SECKILL_GOODS_STATUS_KEY), goodsId + "")));
+        Boolean status = goodsStatusCache.get(goodsId, key -> Boolean.TRUE.equals(goodsRedisTemplate.execute(getGoodsStatus, Collections.singletonList(REDIS_SECKILL_GOODS_STATUS_KEY), goodsId + "")));
 
-        if (present == null) {
+        if (status == null) {
             SeckillGoods seckillGoods = get(goodsId);
             if (seckillGoods == null) {
-                goodsStatusCache.put(goodsId, true);
-                return true;
+                Date date = new Date();
+                status = !date.after(seckillGoods.getSeckillStartTime()) && date.before(seckillGoods.getSeckillEndTime());
             } else {
-                present = seckillGoods.getStorage() <= 0;
-                goodsStatusCache.put(goodsId, present);
-                return present;
+                status = seckillGoods.getStorage() <= 0;
             }
+            goodsStatusCache.put(goodsId, status);
+            return status;
         }
 
-        return Boolean.FALSE.equals(present);
+        return Boolean.FALSE.equals(status);
     }
 
     public SeckillGoods get(Long goodsId) {

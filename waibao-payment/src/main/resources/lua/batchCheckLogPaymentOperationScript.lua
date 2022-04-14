@@ -4,6 +4,7 @@
 --- DateTime: 2022/3/18 23:37
 ---
 -- batchCheckLogPaymentOperationScript LogPaymentCacheService
+ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
 local key = KEYS[1]
 local operation = ARGV[2]
 local payId

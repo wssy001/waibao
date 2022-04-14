@@ -76,7 +76,7 @@ public class SeckillGoodsCacheService {
                 .maximumSize(300)
                 .build();
         goodsStatusCache = Caffeine.newBuilder()
-                .expireAfterWrite(1, TimeUnit.MINUTES)
+                .expireAfterWrite(3, TimeUnit.SECONDS)
                 .maximumSize(100)
                 .build();
     }
@@ -110,7 +110,7 @@ public class SeckillGoodsCacheService {
             }
         }
 
-        return Boolean.TRUE.equals(present);
+        return Boolean.FALSE.equals(present);
     }
 
     public SeckillGoods get(Long goodsId) {

@@ -1,17 +1,13 @@
 --batchGetOrderUserScript StorageDecreaseScheduleService
-local paiIdList = cjson.decode(ARGV[1])
+local keyList = cjson.decode(ARGV[1])
 local orderUserList = {}
-local payId
-for _ , key in pairs(redis.call('KEYS' , KEYS[1] .. '*')) do
-    payId = redis.call('HGET' , key , 'payId')
-    if not paiIdList[payId] then
-        local orderUser = {}
-        for _ , index in pairs(redis.call('HKEYS' , key)) do
-            orderUser[index] = redis.call('HGET' , key , index)
-        end
-        if not next(orderUserList) then
-            table.insert(orderUserList , orderUser)
-        end
+for key , _ in pairs(keyList) do
+    local orderUser = {}
+    for index , _ in pairs(redis.call('HKEYS' , KEYS[1] .. key)) do
+        orderUser[index] = redis.call('HGET' , KEYS[1] .. key , index)
+    end
+    if next(orderUser) then
+        table.insert(orderUserList , orderUser)
     end
 end
 

@@ -2,6 +2,7 @@ package com.waibao.payment.service.mq;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.waibao.payment.entity.LogUserCredit;
 import com.waibao.payment.entity.Payment;
 import com.waibao.payment.service.cache.LogUserCreditCacheService;
 import com.waibao.util.async.AsyncService;
@@ -70,7 +71,7 @@ public class LogUserCreditCanalConsumer implements MessageListenerConcurrently {
                         default:
                             return;
                     }
-                    redisCommand.setValue(((JSONObject) v).toJavaObject(Payment.class));
+                    redisCommand.setValue(((JSONObject) v).toJavaObject(LogUserCredit.class));
                     redisCommand.setTimestamp(timestamp);
                     list.add(redisCommand);
                 });

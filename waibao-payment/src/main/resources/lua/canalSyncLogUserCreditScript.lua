@@ -6,11 +6,14 @@
 -- canalSyncLogUserCreditScript LogUserCreditCacheService
 local key = KEYS[1]
 local logUserCredit
-local payId
+local userId
+local orderId
 local operation
+ARGV[1] = string.gsub(ARGV[1] , '("userId":)(%s*)(%d+)' , '%1"%3"')
 for _ , redisCommand in pairs(cjson.decode(ARGV[1])) do
     logUserCredit = redisCommand['value']
-    payId = logUserCredit['payId']
+    userId = logUserCredit['userId']
+    orderId = logUserCredit['orderId']
     operation = logUserCredit['operation']
-    redis.call('SADD' , key , payId .. '-' .. operation)
+    redis.call('SADD' , key , userId .. orderId .. '-' .. operation)
 end

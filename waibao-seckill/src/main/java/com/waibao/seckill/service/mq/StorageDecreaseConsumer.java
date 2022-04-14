@@ -71,17 +71,17 @@ public class StorageDecreaseConsumer implements MessageListenerConcurrently {
                 return;
             }
 
-            v.sort(Comparator.comparingLong(orderVO -> orderVO.getPurchaseTime().getTime()));
             int totalCount = v.parallelStream()
                     .mapToInt(OrderVO::getCount)
                     .sum();
             int update = seckillGoodsMapper.decreaseStorage(k, totalCount);
             if (update == 1) {
                 complete.addAll(v);
-                log.info("******StorageDecreaseConsumer：goodsId{} 已批量扣减库存 {}个", k, v.size());
+                log.info("******StorageDecreaseConsumer：goodsId：{} 已批量扣减库存 {}个", k, totalCount);
             } else {
                 log.info("******StorageDecreaseConsumer：goodsId：{} 库存告急，单个扣减", k);
                 seckillGoodsCacheService.updateGoodsStatus(k, false);
+                v.sort(Comparator.comparingLong(orderVO -> orderVO.getPurchaseTime().getTime()));
                 for (OrderVO orderVO : v) {
                     update = seckillGoodsMapper.decreaseStorage(k, orderVO.getCount());
                     if (update == 0) {
